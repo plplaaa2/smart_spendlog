@@ -137,12 +137,12 @@ async function processIncomingNotification(newState, username) {
     }
 
     // 이중 등록(체크카드 카드사 승인 문자 & 은행 출금 문자 중복 수신 등) 방지 로직:
-    // 최근 3분(180초) 이내에 동일한 금액과 유형(INCOME/EXPENSE)을 가지고,
+    // 최근 30초 이내에 동일한 금액과 유형(INCOME/EXPENSE)을 가지고,
     // 사용처가 유사하며(상호 포함), 결제수단이 서로 다른 거래가 이미 존재하는지 검사합니다.
     const duplicateCheck = await db.get(
       "SELECT id, merchant, pay_method FROM transactions " +
       "WHERE type = ? AND amount = ? " +
-      "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 180 " +
+      "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 30 " +
       "ORDER BY id DESC LIMIT 1",
       [result.type || 'EXPENSE', result.amount, result.datetime]
     );
@@ -325,12 +325,12 @@ router.post('/webhook', async (req, res) => {
       }
 
       // 이중 등록(체크카드 카드사 승인 문자 & 은행 출금 문자 중복 수신 등) 방지 로직:
-      // 최근 3분(180초) 이내에 동일한 금액과 유형(INCOME/EXPENSE)을 가지고,
+      // 최근 30초 이내에 동일한 금액과 유형(INCOME/EXPENSE)을 가지고,
       // 사용처가 유사하며(상호 포함), 결제수단이 서로 다른 거래가 이미 존재하는지 검사합니다.
       const duplicateCheck = await db.get(
         "SELECT id, merchant, pay_method FROM transactions " +
         "WHERE type = ? AND amount = ? " +
-        "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 180 " +
+        "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 30 " +
         "ORDER BY id DESC LIMIT 1",
         [result.type || 'EXPENSE', result.amount, result.datetime]
       );
