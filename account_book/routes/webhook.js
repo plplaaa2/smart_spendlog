@@ -136,6 +136,44 @@ async function processIncomingNotification(newState, username) {
       console.log(`[파서][${targetUser}] 통장 이동(자산 이동) 감지: 카테고리를 '${finalCategory}'으로 강제 변경하여 등록합니다.`);
     }
 
+    // 이중 등록(체크카드 카드사 승인 문자 & 은행 출금 문자 중복 수신 등) 방지 로직:
+    // 최근 3분(180초) 이내에 동일한 금액과 유형(INCOME/EXPENSE)을 가지고,
+    // 사용처가 유사하며(상호 포함), 결제수단이 서로 다른 거래가 이미 존재하는지 검사합니다.
+    const duplicateCheck = await db.get(
+      "SELECT id, merchant, pay_method FROM transactions " +
+      "WHERE type = ? AND amount = ? " +
+      "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 180 " +
+      "ORDER BY id DESC LIMIT 1",
+      [result.type || 'EXPENSE', result.amount, result.datetime]
+    );
+
+    if (duplicateCheck) {
+      const existingMerchant = duplicateCheck.merchant;
+      const currentMerchant = result.merchant;
+      
+      const cleanStr = (s) => s.replace(/[^a-zA-Z0-9가-힣]/g, '');
+      const cleanExisting = cleanStr(existingMerchant);
+      const cleanCurrent = cleanStr(currentMerchant);
+      
+      const isSimilarMerchant = cleanExisting.includes(cleanCurrent) || 
+                               cleanCurrent.includes(cleanExisting) ||
+                               cleanExisting === cleanCurrent;
+
+      if (isSimilarMerchant && duplicateCheck.pay_method !== finalPayMethod) {
+        console.log(`[파서][${targetUser}] 중복 거래 감지 차단: 기존 거래 ID ${duplicateCheck.id} (${existingMerchant}, ${duplicateCheck.pay_method})와 현재 알림 (${currentMerchant}, ${finalPayMethod})의 금액/시간/사용처가 일치하므로 이중 등록을 방지합니다.`);
+        
+        parsedStatus = 'IGNORED_DUPLICATE';
+        const hasAmount = /(\d+[,.\d]*\s*원|₩\s*\d+[,.\d]*|\\\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/.test(rawText);
+        if (hasAmount || parsedStatus === 'SUCCESS') {
+          await db.run(
+            'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [sender, rawText, title, text, parsedStatus, matchedRuleId]
+          );
+        }
+        return;
+      }
+    }
+
     // 가계부 내역에 추가 (used_point 저장 포함)
     await db.run(
       'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -284,6 +322,47 @@ router.post('/webhook', async (req, res) => {
           finalCategory = '이체/송금';
         }
         console.log(`[웹훅][${targetUser}] 통장 이동(자산 이동) 감지: 카테고리를 '${finalCategory}'으로 강제 변경하여 등록합니다.`);
+      }
+
+      // 이중 등록(체크카드 카드사 승인 문자 & 은행 출금 문자 중복 수신 등) 방지 로직:
+      // 최근 3분(180초) 이내에 동일한 금액과 유형(INCOME/EXPENSE)을 가지고,
+      // 사용처가 유사하며(상호 포함), 결제수단이 서로 다른 거래가 이미 존재하는지 검사합니다.
+      const duplicateCheck = await db.get(
+        "SELECT id, merchant, pay_method FROM transactions " +
+        "WHERE type = ? AND amount = ? " +
+        "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 180 " +
+        "ORDER BY id DESC LIMIT 1",
+        [result.type || 'EXPENSE', result.amount, result.datetime]
+      );
+
+      if (duplicateCheck) {
+        const existingMerchant = duplicateCheck.merchant;
+        const currentMerchant = result.merchant;
+        
+        const cleanStr = (s) => s.replace(/[^a-zA-Z0-9가-힣]/g, '');
+        const cleanExisting = cleanStr(existingMerchant);
+        const cleanCurrent = cleanStr(currentMerchant);
+        
+        const isSimilarMerchant = cleanExisting.includes(cleanCurrent) || 
+                                 cleanCurrent.includes(cleanExisting) ||
+                                 cleanExisting === cleanCurrent;
+
+        if (isSimilarMerchant && duplicateCheck.pay_method !== finalPayMethod) {
+          console.log(`[웹훅][${targetUser}] 중복 거래 감지 차단: 기존 거래 ID ${duplicateCheck.id} (${existingMerchant}, ${duplicateCheck.pay_method})와 현재 알림 (${currentMerchant}, ${finalPayMethod})의 금액/시간/사용처가 일치하므로 이중 등록을 방지합니다.`);
+          
+          parsedStatus = 'IGNORED_DUPLICATE';
+          res.json({ success: true, message: '이중 등록(중복) 거래로 감지되어 등록이 생략되었습니다.' });
+          
+          // 금액 표기가 있는 알림이거나 성공 파싱된 경우 로그에 기록
+          const hasAmount = /(\d+[,.\d]*\s*원|₩\s*\d+[,.\d]*|\\\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/.test(finalRawText);
+          if (hasAmount || parsedStatus === 'SUCCESS') {
+            await db.run(
+              'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
+              [finalSender, finalRawText, titleText, bodyText, parsedStatus, matchedRuleId]
+            );
+          }
+          return;
+        }
       }
 
       await db.run(
