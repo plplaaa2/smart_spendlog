@@ -24,9 +24,10 @@ function getUserDbSlug(username) {
     return 'admin';
   }
 
-  const normalized = String(username).toLowerCase().replace(/[^a-zA-Z0-9_]/g, '');
-  if (normalized.length > 0) {
-    return normalized;
+  // 오직 영어 대소문자, 숫자, 언더바(_)로만 이루어진 경우에만 안전한 슬러그로 사용합니다.
+  const isSafe = /^[a-zA-Z0-9_]+$/.test(username);
+  if (isSafe) {
+    return username.toLowerCase();
   }
 
   return `u_${crypto.createHash('sha1').update(String(username), 'utf8').digest('hex').slice(0, 12)}`;
@@ -475,10 +476,13 @@ async function seedFranchisePresets(db, force = false) {
 // Home Assistant 센서 entity_id용 안전한 Suffix 반환 헬퍼 함수
 function getSafeSuffix(username) {
   if (!username || username === 'admin') return '';
-  const safe = username.replace(/[^a-zA-Z0-9_]/g, '');
-  if (safe.length > 0) {
-    return `_${safe.toLowerCase()}`;
+
+  // 오직 영어 대소문자, 숫자, 언더바(_)로만 이루어진 경우에만 안전한 Suffix로 사용합니다.
+  const isSafe = /^[a-zA-Z0-9_]+$/.test(username);
+  if (isSafe) {
+    return `_${username.toLowerCase()}`;
   }
+
   return `_${crypto.createHash('sha1').update(String(username), 'utf8').digest('hex').slice(0, 12)}`;
 }
 
