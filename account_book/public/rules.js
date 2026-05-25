@@ -190,7 +190,12 @@ async function loadLogs() {
       card.innerHTML = `
         <div class="log-card-header">
           <span class="log-card-time">${formatShortDate(log.created_at, true)}</span>
-          <span class="log-card-status">${statusBadge}</span>
+          <span class="log-card-status" style="display: flex; align-items: center; gap: 0.35rem;">
+            ${statusBadge}
+            <button class="badge-status btn-retry-log" style="cursor: pointer; border: none; background: rgba(16, 185, 129, 0.2); color: var(--success-color); display: inline-flex; align-items: center; gap: 3px; font-family: inherit; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+              <i data-lucide="refresh-cw" style="width:11px;height:11px;"></i> 재시도
+            </button>
+          </span>
         </div>
         <div class="log-card-body">
           <div class="log-card-row">
@@ -213,9 +218,6 @@ async function loadLogs() {
           </div>
         </div>
         <div class="log-card-footer" style="gap: 6px;">
-          <button class="btn btn-secondary btn-sm btn-retry-log">
-            <i data-lucide="refresh-cw" style="width:12px;height:12px;"></i> 재시도
-          </button>
           <button class="btn btn-secondary btn-sm btn-create-tx">
             <i data-lucide="plus" style="width:12px;height:12px;"></i> 수동 등록
           </button>
