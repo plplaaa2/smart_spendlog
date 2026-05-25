@@ -20,8 +20,10 @@ const PORT = process.env.PORT || 8124;
 const isWin = process.platform === 'win32';
 const optionsPath = isWin ? './data/options.json' : '/data/options.json';
 let config = {
-  token: '',
-  users: []
+  token: 'accountbook_secret_token',
+  users: [
+    { username: 'admin', password: 'password' }
+  ]
 };
 
 try {

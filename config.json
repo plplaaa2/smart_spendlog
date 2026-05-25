@@ -24,8 +24,13 @@
   "startup": "application",
   "boot": "auto",
   "options": {
-    "token": "",
-    "users": []
+    "token": "accountbook_secret_token",
+    "users": [
+      {
+        "username": "admin",
+        "password": "password"
+      }
+    ]
   },
   "schema": {
     "token": "str",
