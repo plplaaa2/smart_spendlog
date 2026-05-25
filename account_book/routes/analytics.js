@@ -140,11 +140,10 @@ router.get('/stats', async (req, res) => {
       }
       
       const isCard = name.includes('카드'); // KB국민카드, 신한카드 등 카드사
-      const isAsset = name === '현금' || name.includes('페이' ) || name.includes('pay') || 
-                      name.includes('은행') || name.includes('뱅크') || name.includes('농협') || 
-                      name === '우체국' || name === '새마을금고' || name === '신협' || name === '수협';
+      // 카드가 아닌 모든 결제수단(계좌이체 제외)은 자산으로 유연하게 판정하여 누락 방지
+      const isAsset = !isCard && name !== '계좌이체';
                       
-      // 카드나 자산(은행/페이/현금) 중 어느 하나에도 해당하지 않는 결제수단은 제외
+      // 카드나 자산 중 어느 하나에도 해당하지 않는 결제수단은 제외
       if (!isCard && !isAsset) {
         continue;
       }

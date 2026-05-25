@@ -50,8 +50,21 @@ async function loadDashboardData() {
       budgetLeftEl.style.color = '';
     }
 
-    const initialBalance = parseInt(state.settings.initial_balance || 0, 10);
-    const netSavings = initialBalance + (stats.totalIncome || 0) - stats.totalExpense;
+    // 개별 결제 수단별 초기 잔액의 합계 계산 후 통합 초기 잔액과 비교하여 보정 적용
+    let initialBalancesSum = 0;
+    if (state.settings.initial_balances) {
+      try {
+        const parsed = typeof state.settings.initial_balances === 'string' ? JSON.parse(state.settings.initial_balances) : state.settings.initial_balances;
+        if (parsed) {
+          Object.values(parsed).forEach(v => {
+            initialBalancesSum += parseInt(v, 10) || 0;
+          });
+        }
+      } catch (e) {}
+    }
+
+    const effectiveInitialBalance = Math.max(parseInt(state.settings.initial_balance || 0, 10), initialBalancesSum);
+    const netSavings = effectiveInitialBalance + (stats.totalIncome || 0) - stats.totalExpense;
     const savingsEl = document.getElementById('dashboard-net-savings');
     savingsEl.textContent = formatCurrency(netSavings);
     if (netSavings < 0) {

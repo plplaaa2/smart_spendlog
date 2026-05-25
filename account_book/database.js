@@ -505,9 +505,24 @@ async function updateHASensors(targetUser) {
     const budgetRow = await db.get("SELECT value FROM settings WHERE key = 'monthly_budget'");
     const budget = budgetRow ? parseInt(budgetRow.value, 10) || 0 : 0;
 
-    // 초기 잔액 조회 (대시보드 저축액 카드와 동기화)
+    // 초기 잔액 및 개별 결제 수단별 초기 잔액 조회 (대시보드 저축액 카드와 완벽 동기화)
     const initialBalanceRow = await db.get("SELECT value FROM settings WHERE key = 'initial_balance'");
     const initialBalance = initialBalanceRow ? parseInt(initialBalanceRow.value, 10) || 0 : 0;
+
+    const initialBalancesRow = await db.get("SELECT value FROM settings WHERE key = 'initial_balances'");
+    let initialBalancesSum = 0;
+    if (initialBalancesRow && initialBalancesRow.value) {
+      try {
+        const parsed = JSON.parse(initialBalancesRow.value);
+        if (parsed) {
+          Object.values(parsed).forEach(v => {
+            initialBalancesSum += parseInt(v, 10) || 0;
+          });
+        }
+      } catch (e) {}
+    }
+
+    const effectiveInitialBalance = Math.max(initialBalance, initialBalancesSum);
 
     // 이번 달 수입/지출 총합 집계 (이체 카테고리는 제외)
     const summaryRow = await db.get(
@@ -523,7 +538,7 @@ async function updateHASensors(targetUser) {
     
     const remainingBudget = Math.max(0, budget - expense);
     const netProfit = income - expense;
-    const savings = initialBalance + income - expense; // 저축액은 초기 잔액 반영 (대시보드 순수 이익/저축액 카드와 일치)
+    const savings = effectiveInitialBalance + income - expense; // 저축액은 초기 잔액 반영 (대시보드 순수 이익/저축액 카드와 일치)
 
     const suffix = getSafeSuffix(targetUser);
     const nameTag = targetUser === 'admin' ? '' : ` (${targetUser})`;

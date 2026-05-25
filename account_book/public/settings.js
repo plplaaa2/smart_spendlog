@@ -97,18 +97,14 @@ async function loadBalanceSettings() {
         state.payMethods = payMethods;
       }
 
-      // 현금, 개별 은행, 간편결제 페이만 필터링 (카드 및 '계좌이체' 등 제외)
-      // 의존성: index.js의 api/stats 엔드포인트 내 자산 판정(isAsset) 로직과 동기화되어야 잔액 설정과 대시보드 목록이 일치합니다.
+      // 카드 및 계좌이체 명칭을 제외한 모든 결제 수단을 자산(초기 잔액 설정 대상)으로 분류하도록 유연하게 필터링 적용
+      // 의존성: routes/analytics.js의 api/stats 엔드포인트 내 자산 판정(isAsset) 로직과 완벽히 호환되어야 합니다.
       const filteredPayMethods = payMethods.filter(pm => {
         const name = pm.name;
         if (name.includes('카드') || name === '계좌이체') {
           return false;
         }
-        if (name === '현금' || name.includes('페이') || name.includes('pay') || name.includes('은행') || name.includes('뱅크') || name.includes('농협') || 
-            name === '우체국' || name === '새마을금고' || name === '신협' || name === '수협') {
-          return true;
-        }
-        return false;
+        return true;
       });
 
       if (filteredPayMethods.length === 0) {
