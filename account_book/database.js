@@ -200,10 +200,6 @@ async function initUserDB(username) {
     await dbInstance.run("UPDATE categories SET type = 'INCOME' WHERE name IN ('월급', '부수입', '용돈(수입)', '이체/입금', 'ATM/입금', '기타수입')");
   } catch (e) {}
 
-  // 토스페이머니 결제수단 강제 추가 (기존 DB 마이그레이션)
-  try {
-    await dbInstance.run("INSERT OR IGNORE INTO pay_methods (name) VALUES ('토스페이머니')");
-  } catch (e) {}
 
   await seedDefaultData(dbInstance, username);
 

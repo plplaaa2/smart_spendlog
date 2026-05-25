@@ -184,62 +184,12 @@ async function processIncomingNotification(newState, username) {
       }
     }
 
-    const cleanMerchant = result.merchant.replace(/\s/g, '');
-    let autoChargeTarget = null;
-    let autoChargeType = null; // 'CHARGE' (Bank -> Pay) or 'SEND' (Pay -> Bank)
-
-    const transactionType = result.type || 'EXPENSE';
-
-    if (transactionType === 'EXPENSE') {
-      if (cleanMerchant === '카카오페이') {
-        autoChargeTarget = '카카오페이';
-        autoChargeType = 'CHARGE';
-      } else if (cleanMerchant === '토스페이' || cleanMerchant === '토스') {
-        autoChargeTarget = '토스페이머니';
-        autoChargeType = 'CHARGE';
-      }
-    } else if (transactionType === 'INCOME') {
-      if (cleanMerchant === '카카오페이' || cleanMerchant === '카카오송금' || cleanMerchant === '카카오페이송금') {
-        autoChargeTarget = '카카오페이';
-        autoChargeType = 'SEND';
-      } else if (cleanMerchant === '토스' || cleanMerchant === '토스송금' || cleanMerchant === '토스페이') {
-        autoChargeTarget = '토스페이머니';
-        autoChargeType = 'SEND';
-      }
-    }
-
-    if (autoChargeTarget) {
-      if (autoChargeType === 'CHARGE') {
-        finalCategory = '이체/송금';
-      } else if (autoChargeType === 'SEND') {
-        finalCategory = '이체/입금';
-      }
-    }
-
     // 가계부 내역에 추가 (used_point 저장 포함)
     await db.run(
       'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', rawText, result.used_point || 0]
     );
     console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 사용 포인트: ${result.used_point || 0}]`);
-    
-    if (autoChargeTarget) {
-      if (autoChargeType === 'CHARGE') {
-        const depositMerchant = `${finalPayMethod} 충전`;
-        await db.run(
-          'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          ['INCOME', result.amount, depositMerchant, '이체/입금', autoChargeTarget, result.datetime, `${autoChargeTarget} 자동 충전 연동`, rawText, 0]
-        );
-        console.log(`[파서][${targetUser}] ${autoChargeTarget} 자동 충전 연동 등록 성공: ${depositMerchant} - ${result.amount}원 (이체/입금) [결제수단: ${autoChargeTarget}]`);
-      } else if (autoChargeType === 'SEND') {
-        const withdrawMerchant = `${finalPayMethod} 송금`;
-        await db.run(
-          'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          ['EXPENSE', result.amount, withdrawMerchant, '이체/송금', autoChargeTarget, result.datetime, `${autoChargeTarget} 자동 송금 연동`, rawText, 0]
-        );
-        console.log(`[파서][${targetUser}] ${autoChargeTarget} 자동 송금 연동 등록 성공: ${withdrawMerchant} - ${result.amount}원 (이체/송금) [결제수단: ${autoChargeTarget}]`);
-      }
-    }
 
     updateHASensors(targetUser);
   } else {
@@ -426,60 +376,10 @@ router.post('/webhook', async (req, res) => {
         }
       }
 
-      const cleanMerchant = result.merchant.replace(/\s/g, '');
-      let autoChargeTarget = null;
-      let autoChargeType = null; // 'CHARGE' (Bank -> Pay) or 'SEND' (Pay -> Bank)
-
-      const transactionType = result.type || 'EXPENSE';
-
-      if (transactionType === 'EXPENSE') {
-        if (cleanMerchant === '카카오페이') {
-          autoChargeTarget = '카카오페이';
-          autoChargeType = 'CHARGE';
-        } else if (cleanMerchant === '토스페이' || cleanMerchant === '토스') {
-          autoChargeTarget = '토스페이머니';
-          autoChargeType = 'CHARGE';
-        }
-      } else if (transactionType === 'INCOME') {
-        if (cleanMerchant === '카카오페이' || cleanMerchant === '카카오송금' || cleanMerchant === '카카오페이송금') {
-          autoChargeTarget = '카카오페이';
-          autoChargeType = 'SEND';
-        } else if (cleanMerchant === '토스' || cleanMerchant === '토스송금' || cleanMerchant === '토스페이') {
-          autoChargeTarget = '토스페이머니';
-          autoChargeType = 'SEND';
-        }
-      }
-
-      if (autoChargeTarget) {
-        if (autoChargeType === 'CHARGE') {
-          finalCategory = '이체/송금';
-        } else if (autoChargeType === 'SEND') {
-          finalCategory = '이체/입금';
-        }
-      }
-
       await db.run(
         'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', finalRawText, result.used_point || 0]
       );
-
-      if (autoChargeTarget) {
-        if (autoChargeType === 'CHARGE') {
-          const depositMerchant = `${finalPayMethod} 충전`;
-          await db.run(
-            'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            ['INCOME', result.amount, depositMerchant, '이체/입금', autoChargeTarget, result.datetime, `${autoChargeTarget} 자동 충전 연동`, finalRawText, 0]
-          );
-          console.log(`[웹훅][${targetUser}] ${autoChargeTarget} 자동 충전 연동 등록 성공: ${depositMerchant} - ${result.amount}원 (이체/입금) [결제수단: ${autoChargeTarget}]`);
-        } else if (autoChargeType === 'SEND') {
-          const withdrawMerchant = `${finalPayMethod} 송금`;
-          await db.run(
-            'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            ['EXPENSE', result.amount, withdrawMerchant, '이체/송금', autoChargeTarget, result.datetime, `${autoChargeTarget} 자동 송금 연동`, finalRawText, 0]
-          );
-          console.log(`[웹훅][${targetUser}] ${autoChargeTarget} 자동 송금 연동 등록 성공: ${withdrawMerchant} - ${result.amount}원 (이체/송금) [결제수단: ${autoChargeTarget}]`);
-        }
-      }
 
       res.json({ success: true, transaction: { ...result, category: finalCategory, pay_method: finalPayMethod } });
       updateHASensors(targetUser);

@@ -101,7 +101,7 @@ async function loadBalanceSettings() {
       // 의존성: routes/analytics.js의 api/stats 엔드포인트 내 자산 판정(isAsset) 로직과 완벽히 호환되어야 합니다.
       const filteredPayMethods = payMethods.filter(pm => {
         const name = pm.name;
-        if (name.includes('카드') || name === '계좌이체') {
+        if (name.includes('카드') || name === '계좌이체' || name === '삼성페이') {
           return false;
         }
         return true;

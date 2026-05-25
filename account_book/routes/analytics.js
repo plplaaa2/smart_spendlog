@@ -139,7 +139,7 @@ router.get('/stats', async (req, res) => {
         continue;
       }
       
-      const isCard = name.includes('카드'); // KB국민카드, 신한카드 등 카드사
+      const isCard = name.includes('카드') || name === '삼성페이'; // 삼성페이는 신용카드 결제와 같으므로 카드처럼 분류 (잔고 제외)
       // 카드가 아닌 모든 결제수단(계좌이체 제외)은 자산으로 유연하게 판정하여 누락 방지
       const isAsset = !isCard && name !== '계좌이체';
                       
