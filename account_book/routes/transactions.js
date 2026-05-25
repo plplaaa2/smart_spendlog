@@ -14,7 +14,7 @@ const { getDB, updateHASensors, seedFranchisePresets, FRANCHISE_PRESETS } = requ
 router.get('/transactions', async (req, res) => {
   try {
     const db = await getDB(req.username);
-    const { month, category, search } = req.query;
+    const { month, category, search, pay_method, type } = req.query;
     
     let query = 'SELECT * FROM transactions WHERE 1=1';
     const params = [];
@@ -33,6 +33,16 @@ router.get('/transactions', async (req, res) => {
       query += ' AND (merchant LIKE ? OR memo LIKE ? OR raw_text LIKE ?)';
       const searchTerm = `%${search}%`;
       params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    if (pay_method) {
+      query += ' AND pay_method = ?';
+      params.push(pay_method);
+    }
+
+    if (type) {
+      query += ' AND type = ?';
+      params.push(type);
     }
 
     query += ' ORDER BY datetime DESC, id DESC';
@@ -129,13 +139,14 @@ router.get('/categories', async (req, res) => {
 });
 
 // 카테고리 추가
+// 의존성: public/app.js의 metadata 로드 및 index.html의 카테고리 폼과 연동됩니다.
 router.post('/categories', async (req, res) => {
   try {
     const db = await getDB(req.username);
-    const { name, color, icon } = req.body;
+    const { name, color, icon, type } = req.body;
     if (!name) return res.status(400).json({ error: '카테고리명은 필수입니다.' });
 
-    await db.run('INSERT OR IGNORE INTO categories (name, color, icon) VALUES (?, ?, ?)', [name, color || '#868e96', icon || 'tag']);
+    await db.run('INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES (?, ?, ?, ?)', [name, color || '#868e96', icon || 'tag', type || 'EXPENSE']);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

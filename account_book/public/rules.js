@@ -189,7 +189,7 @@ async function loadLogs() {
       card.className = 'log-card-item';
       card.innerHTML = `
         <div class="log-card-header">
-          <span class="log-card-time">${formatShortDate(log.created_at)}</span>
+          <span class="log-card-time">${formatShortDate(log.created_at, true)}</span>
           <span class="log-card-status">${statusBadge}</span>
         </div>
         <div class="log-card-body">
@@ -284,6 +284,26 @@ function createTransactionFromLog(log) {
   const amountEl = document.getElementById('tx-amount');
   if (amountMatch && amountEl) {
     amountEl.value = amountMatch[0];
+  }
+
+  // 알림 수신 시각을 가계부 수동 등록 기본 시각으로 세팅
+  if (log.created_at) {
+    let dateObj;
+    if (log.created_at.includes('-') && log.created_at.includes(':')) {
+      const cleanStr = log.created_at.replace(/-/g, '/') + ' UTC';
+      dateObj = new Date(cleanStr);
+    } else {
+      dateObj = new Date(log.created_at);
+    }
+    
+    if (!isNaN(dateObj.getTime())) {
+      const offset = dateObj.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(dateObj - offset)).toISOString().slice(0, 16);
+      const datetimeEl = document.getElementById('tx-datetime');
+      if (datetimeEl) {
+        datetimeEl.value = localISOTime;
+      }
+    }
   }
 
   // 발신처(패키지명)가 있는 경우 패키지명 입력 활성화 및 기본값 체크

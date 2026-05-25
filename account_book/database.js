@@ -194,6 +194,17 @@ async function initUserDB(username) {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('이체/입금', '#228be6', 'arrow-left-right', 'INCOME')");
   } catch (e) {}
 
+  // 기존 카테고리 중 수입(INCOME) 카테고리의 type 값을 올바르게 강제 보정 (수입 수정 시 카테고리 누락 방지)
+  // 의존성: default_rules.json의 카테고리 구성 정의 및 public/app.js의 updateCategorySelect와 연결됩니다.
+  try {
+    await dbInstance.run("UPDATE categories SET type = 'INCOME' WHERE name IN ('월급', '부수입', '용돈(수입)', '이체/입금', 'ATM/입금', '기타수입')");
+  } catch (e) {}
+
+  // 토스페이머니 결제수단 강제 추가 (기존 DB 마이그레이션)
+  try {
+    await dbInstance.run("INSERT OR IGNORE INTO pay_methods (name) VALUES ('토스페이머니')");
+  } catch (e) {}
+
   await seedDefaultData(dbInstance, username);
 
   console.log(`[DB] 사용자 '${username}'의 데이터베이스가 성공적으로 초기화되었습니다.`);

@@ -12,6 +12,20 @@ const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors } = require('../database');
 const { parseNotification, generatePatternFromText } = require('../parser');
 
+// SQLite UTC 날짜 문자열(YYYY-MM-DD HH:mm:ss)을 KST 로컬 시각 문자열로 변환하는 헬퍼 함수
+function convertUTCToKSTString(utcStr) {
+  if (!utcStr) return '';
+  const cleanStr = utcStr.replace(/-/g, '/') + ' UTC';
+  const dateObj = new Date(cleanStr);
+  if (isNaN(dateObj.getTime())) {
+    return utcStr;
+  }
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const kstDate = new Date(dateObj.getTime() + kstOffset);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${kstDate.getUTCFullYear()}-${pad(kstDate.getUTCMonth() + 1)}-${pad(kstDate.getUTCDate())} ${pad(kstDate.getUTCHours())}:${pad(kstDate.getUTCMinutes())}:${pad(kstDate.getUTCSeconds())}`;
+}
+
 // 규칙 조회 (모든 사용자가 admin의 규칙을 공유하여 동일하게 적용)
 router.get('/rules', async (req, res) => {
   try {
@@ -168,7 +182,8 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
 
     const adminDb = await getDB('admin');
     const rules = await adminDb.all('SELECT * FROM rules');
-    let result = parseNotification(rawText, rules);
+    const logKSTTime = convertUTCToKSTString(log.created_at);
+    let result = parseNotification(rawText, rules, logKSTTime);
 
     let parsedStatus = 'FAILED';
     let matchedRuleId = null;
@@ -203,7 +218,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
           console.log(`[로그재시도][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${merchantName}" (ID: ${matchedRuleId})`);
           
           const updatedRules = await adminDb.all('SELECT * FROM rules');
-          result = parseNotification(rawText, updatedRules);
+          result = parseNotification(rawText, updatedRules, logKSTTime);
         }
       }
     }

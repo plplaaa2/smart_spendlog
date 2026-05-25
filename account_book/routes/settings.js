@@ -176,11 +176,12 @@ router.post('/settings/restore', async (req, res) => {
         }
       }
 
-      // categories 복구
+      // categories 복구 (type 속성 복원 포함)
+      // 의존성: public/app.js의 updateCategorySelect 및 default_rules.json의 스키마와 연결됩니다.
       if (backupObj.data.categories.length > 0) {
-        const stmt = await db.prepare('INSERT INTO categories (id, name, color, icon) VALUES (?, ?, ?, ?)');
+        const stmt = await db.prepare('INSERT INTO categories (id, name, color, icon, type) VALUES (?, ?, ?, ?, ?)');
         for (const row of backupObj.data.categories) {
-          await stmt.run(row.id, row.name, row.color, row.icon);
+          await stmt.run(row.id, row.name, row.color, row.icon, row.type || 'EXPENSE');
         }
         await stmt.finalize();
       }

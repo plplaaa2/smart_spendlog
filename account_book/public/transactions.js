@@ -70,7 +70,7 @@ async function deleteTransaction(id) {
   try {
     const res = await fetch(`api/transactions/${id}`, { method: 'DELETE' }).then(r => r.json());
     if (res.success) {
-      loadTransactions();
+      refreshCurrentTabData();
     }
   } catch (err) {
     alert('삭제 오류: ' + err.message);

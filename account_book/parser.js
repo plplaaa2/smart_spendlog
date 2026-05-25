@@ -1,7 +1,7 @@
 /**
  * 알림 텍스트를 등록된 규칙들과 대조하여 결제 정보(금액, 사용처, 일시, 결제수단 등)를 추출합니다.
  */
-function parseNotification(text, rules) {
+function parseNotification(text, rules, fallbackDatetime = null) {
   if (!text) return null;
 
   for (const rule of rules) {
@@ -52,10 +52,14 @@ function parseNotification(text, rules) {
           }
         }
 
-        // 일시 파싱 실패 시 현재 시간 적용
+        // 일시 파싱 실패 시 현재 시간 또는 fallbackDatetime 적용
         if (!datetimeStr) {
-          const pad = (n) => String(n).padStart(2, '0');
-          datetimeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+          if (fallbackDatetime) {
+            datetimeStr = fallbackDatetime;
+          } else {
+            const pad = (n) => String(n).padStart(2, '0');
+            datetimeStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+          }
         }
 
         // 4. 결제수단(pay_method) 파싱

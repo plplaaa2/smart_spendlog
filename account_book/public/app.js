@@ -46,6 +46,7 @@ window.fetch = async function (resource, options = {}) {
 // 글로벌 상태 관리
 let state = {
   currentTab: 'dashboard',
+  currentSubTab: 'all', // transactions 탭 내 서브 탭 ('all', 'cards', 'banks')
   currentMonth: '', // YYYY-MM 포맷
   categories: [],
   payMethods: [],
@@ -334,8 +335,29 @@ function formatCurrency(value) {
 }
 
 // 날짜 포맷 (YYYY-MM-DD HH:mm:ss -> MM-DD HH:mm)
-function formatShortDate(dateStr) {
+// isUtc가 true이면 해당 날짜 문자열을 UTC 시간대로 취급하여 브라우저 로컬 시간대(KST 등)로 변환해 줍니다.
+function formatShortDate(dateStr, isUtc = false) {
   if (!dateStr) return '';
+  
+  if (isUtc) {
+    let dateObj;
+    if (dateStr.includes('-') && dateStr.includes(':')) {
+      const cleanStr = dateStr.replace(/-/g, '/') + ' UTC';
+      dateObj = new Date(cleanStr);
+    } else {
+      dateObj = new Date(dateStr);
+    }
+    
+    if (!isNaN(dateObj.getTime())) {
+      const pad = (n) => String(n).padStart(2, '0');
+      const month = pad(dateObj.getMonth() + 1);
+      const date = pad(dateObj.getDate());
+      const hours = pad(dateObj.getHours());
+      const minutes = pad(dateObj.getMinutes());
+      return `${month}-${date} ${hours}:${minutes}`;
+    }
+  }
+
   const parts = dateStr.split(' ');
   if (parts.length < 2) return dateStr;
   const dateParts = parts[0].split('-');
@@ -401,7 +423,13 @@ function refreshCurrentTabData() {
       loadDashboardData();
       break;
     case 'transactions':
-      loadTransactions();
+      if (state.currentSubTab === 'all') {
+        loadTransactions();
+      } else if (state.currentSubTab === 'cards') {
+        if (typeof loadCardExpenses === 'function') loadCardExpenses();
+      } else if (state.currentSubTab === 'banks') {
+        if (typeof loadBankTransactions === 'function') loadBankTransactions();
+      }
       break;
     case 'rules':
       loadRules();
@@ -433,6 +461,35 @@ function initEventListeners() {
   document.querySelectorAll('.mobile-nav-item').forEach(btn => {
     btn.addEventListener('click', () => {
       switchTab(btn.dataset.tab);
+    });
+  });
+
+  // 소비 내역 내 서브 탭 클릭 이벤트
+  document.querySelectorAll('.tx-subtab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const subtab = btn.dataset.subtab;
+      state.currentSubTab = subtab;
+
+      // 서브 탭 버튼 active 클래스 토글
+      document.querySelectorAll('.tx-subtab-btn').forEach(b => {
+        if (b.dataset.subtab === subtab) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
+
+      // 서브 탭 뷰 토글
+      document.querySelectorAll('.tx-subview-content').forEach(view => {
+        if (view.id === `tx-subview-${subtab}`) {
+          view.style.display = 'block';
+        } else {
+          view.style.display = 'none';
+        }
+      });
+
+      // 데이터 새로고침
+      refreshCurrentTabData();
     });
   });
 
@@ -739,15 +796,23 @@ function initEventListeners() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ initial_balance, initial_balances, initial_points })
-        }).then(r => r.json());
+        });
 
-        if (res.success) {
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || '서버 오류');
+        }
+
+        const data = await res.json();
+        if (data.success) {
           alert('잔액 및 포인트 설정이 저장되었습니다.');
           await loadMetadata();
           await loadBalanceSettings();
           if (state.currentTab === 'dashboard') {
             loadDashboardData();
           }
+        } else {
+          alert('잔액 및 포인트 설정 저장 실패: ' + (data.error || '알 수 없는 오류'));
         }
       } catch (err) {
         alert('잔액 및 포인트 설정 저장 실패: ' + err.message);

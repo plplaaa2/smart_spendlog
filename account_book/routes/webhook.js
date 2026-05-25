@@ -12,6 +12,15 @@ const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors } = require('../database');
 const { parseNotification, generatePatternFromText } = require('../parser');
 
+// 현재 한국 시간(KST, UTC+9) 문자열을 YYYY-MM-DD HH:mm:ss 포맷으로 반환하는 헬퍼 함수
+function getKSTDateString() {
+  const now = new Date();
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const kstDate = new Date(now.getTime() + kstOffset);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${kstDate.getUTCFullYear()}-${pad(kstDate.getUTCMonth() + 1)}-${pad(kstDate.getUTCDate())} ${pad(kstDate.getUTCHours())}:${pad(kstDate.getUTCMinutes())}:${pad(kstDate.getUTCSeconds())}`;
+}
+
 // 수신된 알림 상태 파싱 및 저장 (WebSocket 및 HTTP Webhook 양방향 지원 핵심 로직)
 async function processIncomingNotification(newState, username) {
   const targetUser = username || 'admin';
@@ -39,7 +48,8 @@ async function processIncomingNotification(newState, username) {
 
   const adminDb = await getDB('admin');
   const rules = await adminDb.all('SELECT * FROM rules');
-  let result = parseNotification(rawText, rules);
+  const fallbackKST = getKSTDateString();
+  let result = parseNotification(rawText, rules, fallbackKST);
 
   let parsedStatus = 'FAILED';
   let matchedRuleId = null;
@@ -74,7 +84,7 @@ async function processIncomingNotification(newState, username) {
         console.log(`[파서][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${merchantName}" (ID: ${matchedRuleId})`);
         
         const updatedRules = await adminDb.all('SELECT * FROM rules');
-        result = parseNotification(rawText, updatedRules);
+        result = parseNotification(rawText, updatedRules, fallbackKST);
       }
     }
   }
@@ -174,6 +184,38 @@ async function processIncomingNotification(newState, username) {
       }
     }
 
+    const cleanMerchant = result.merchant.replace(/\s/g, '');
+    let autoChargeTarget = null;
+    let autoChargeType = null; // 'CHARGE' (Bank -> Pay) or 'SEND' (Pay -> Bank)
+
+    const transactionType = result.type || 'EXPENSE';
+
+    if (transactionType === 'EXPENSE') {
+      if (cleanMerchant === '카카오페이') {
+        autoChargeTarget = '카카오페이';
+        autoChargeType = 'CHARGE';
+      } else if (cleanMerchant === '토스페이' || cleanMerchant === '토스') {
+        autoChargeTarget = '토스페이머니';
+        autoChargeType = 'CHARGE';
+      }
+    } else if (transactionType === 'INCOME') {
+      if (cleanMerchant === '카카오페이' || cleanMerchant === '카카오송금' || cleanMerchant === '카카오페이송금') {
+        autoChargeTarget = '카카오페이';
+        autoChargeType = 'SEND';
+      } else if (cleanMerchant === '토스' || cleanMerchant === '토스송금' || cleanMerchant === '토스페이') {
+        autoChargeTarget = '토스페이머니';
+        autoChargeType = 'SEND';
+      }
+    }
+
+    if (autoChargeTarget) {
+      if (autoChargeType === 'CHARGE') {
+        finalCategory = '이체/송금';
+      } else if (autoChargeType === 'SEND') {
+        finalCategory = '이체/입금';
+      }
+    }
+
     // 가계부 내역에 추가 (used_point 저장 포함)
     await db.run(
       'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -181,6 +223,24 @@ async function processIncomingNotification(newState, username) {
     );
     console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 사용 포인트: ${result.used_point || 0}]`);
     
+    if (autoChargeTarget) {
+      if (autoChargeType === 'CHARGE') {
+        const depositMerchant = `${finalPayMethod} 충전`;
+        await db.run(
+          'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          ['INCOME', result.amount, depositMerchant, '이체/입금', autoChargeTarget, result.datetime, `${autoChargeTarget} 자동 충전 연동`, rawText, 0]
+        );
+        console.log(`[파서][${targetUser}] ${autoChargeTarget} 자동 충전 연동 등록 성공: ${depositMerchant} - ${result.amount}원 (이체/입금) [결제수단: ${autoChargeTarget}]`);
+      } else if (autoChargeType === 'SEND') {
+        const withdrawMerchant = `${finalPayMethod} 송금`;
+        await db.run(
+          'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          ['EXPENSE', result.amount, withdrawMerchant, '이체/송금', autoChargeTarget, result.datetime, `${autoChargeTarget} 자동 송금 연동`, rawText, 0]
+        );
+        console.log(`[파서][${targetUser}] ${autoChargeTarget} 자동 송금 연동 등록 성공: ${withdrawMerchant} - ${result.amount}원 (이체/송금) [결제수단: ${autoChargeTarget}]`);
+      }
+    }
+
     updateHASensors(targetUser);
   } else {
     console.log(`[파서][${targetUser}] 일치하는 정규식 규칙이 없습니다.`);
@@ -228,7 +288,8 @@ router.post('/webhook', async (req, res) => {
 
     const adminDb = await getDB('admin');
     const rules = await adminDb.all('SELECT * FROM rules');
-    let result = parseNotification(finalRawText, rules);
+    const fallbackKST = getKSTDateString();
+    let result = parseNotification(finalRawText, rules, fallbackKST);
 
     let parsedStatus = 'FAILED';
     let matchedRuleId = null;
@@ -263,7 +324,7 @@ router.post('/webhook', async (req, res) => {
           console.log(`[웹훅][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${merchantName}" (ID: ${matchedRuleId})`);
           
           const updatedRules = await adminDb.all('SELECT * FROM rules');
-          result = parseNotification(finalRawText, updatedRules);
+          result = parseNotification(finalRawText, updatedRules, fallbackKST);
         }
       }
     }
@@ -365,10 +426,61 @@ router.post('/webhook', async (req, res) => {
         }
       }
 
+      const cleanMerchant = result.merchant.replace(/\s/g, '');
+      let autoChargeTarget = null;
+      let autoChargeType = null; // 'CHARGE' (Bank -> Pay) or 'SEND' (Pay -> Bank)
+
+      const transactionType = result.type || 'EXPENSE';
+
+      if (transactionType === 'EXPENSE') {
+        if (cleanMerchant === '카카오페이') {
+          autoChargeTarget = '카카오페이';
+          autoChargeType = 'CHARGE';
+        } else if (cleanMerchant === '토스페이' || cleanMerchant === '토스') {
+          autoChargeTarget = '토스페이머니';
+          autoChargeType = 'CHARGE';
+        }
+      } else if (transactionType === 'INCOME') {
+        if (cleanMerchant === '카카오페이' || cleanMerchant === '카카오송금' || cleanMerchant === '카카오페이송금') {
+          autoChargeTarget = '카카오페이';
+          autoChargeType = 'SEND';
+        } else if (cleanMerchant === '토스' || cleanMerchant === '토스송금' || cleanMerchant === '토스페이') {
+          autoChargeTarget = '토스페이머니';
+          autoChargeType = 'SEND';
+        }
+      }
+
+      if (autoChargeTarget) {
+        if (autoChargeType === 'CHARGE') {
+          finalCategory = '이체/송금';
+        } else if (autoChargeType === 'SEND') {
+          finalCategory = '이체/입금';
+        }
+      }
+
       await db.run(
         'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', finalRawText, result.used_point || 0]
       );
+
+      if (autoChargeTarget) {
+        if (autoChargeType === 'CHARGE') {
+          const depositMerchant = `${finalPayMethod} 충전`;
+          await db.run(
+            'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            ['INCOME', result.amount, depositMerchant, '이체/입금', autoChargeTarget, result.datetime, `${autoChargeTarget} 자동 충전 연동`, finalRawText, 0]
+          );
+          console.log(`[웹훅][${targetUser}] ${autoChargeTarget} 자동 충전 연동 등록 성공: ${depositMerchant} - ${result.amount}원 (이체/입금) [결제수단: ${autoChargeTarget}]`);
+        } else if (autoChargeType === 'SEND') {
+          const withdrawMerchant = `${finalPayMethod} 송금`;
+          await db.run(
+            'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            ['EXPENSE', result.amount, withdrawMerchant, '이체/송금', autoChargeTarget, result.datetime, `${autoChargeTarget} 자동 송금 연동`, finalRawText, 0]
+          );
+          console.log(`[웹훅][${targetUser}] ${autoChargeTarget} 자동 송금 연동 등록 성공: ${withdrawMerchant} - ${result.amount}원 (이체/송금) [결제수단: ${autoChargeTarget}]`);
+        }
+      }
+
       res.json({ success: true, transaction: { ...result, category: finalCategory, pay_method: finalPayMethod } });
       updateHASensors(targetUser);
     } else {

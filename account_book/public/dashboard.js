@@ -65,12 +65,20 @@ async function loadDashboardData() {
 
     const effectiveInitialBalance = Math.max(parseInt(state.settings.initial_balance || 0, 10), initialBalancesSum);
     const netSavings = effectiveInitialBalance + (stats.totalIncome || 0) - stats.totalExpense;
+    const monthlyNet = (stats.totalIncome || 0) - stats.totalExpense;
     const savingsEl = document.getElementById('dashboard-net-savings');
-    savingsEl.textContent = formatCurrency(netSavings);
-    if (netSavings < 0) {
+    savingsEl.textContent = (monthlyNet > 0 ? '+' : '') + formatCurrency(monthlyNet);
+    if (monthlyNet < 0) {
       savingsEl.style.color = 'var(--danger-color)';
     } else {
       savingsEl.style.color = 'var(--success-color)';
+    }
+
+    const savingsFooterEl = document.getElementById('dashboard-net-savings-footer');
+    if (savingsFooterEl) {
+      // 요약: 이번 달 순수이익 외에 누적 저축액도 하단 푸터에 함께 표시하여 가시성을 높임
+      // 의존성: public/index.html의 #dashboard-net-savings-footer 요소와 연동됩니다.
+      savingsFooterEl.innerHTML = `<span class="text-secondary">누적 저축액: ${formatCurrency(netSavings)}</span>`;
     }
 
     const [year, month] = state.currentMonth.split('-');
@@ -87,34 +95,33 @@ async function loadDashboardData() {
       const top5 = recent.slice(0, 5);
       if (top5.length === 0) {
         recentContainer.innerHTML = '<p class="empty-message">이번 달 내역이 없습니다.</p>';
-        return;
-      }
+      } else {
+        top5.forEach(tx => {
+          const catStyle = state.categoryMap[tx.category] || { color: '#868e96', icon: 'tag' };
+          const isIncome = tx.type === 'INCOME';
+          const amtPrefix = isIncome ? '+' : '';
+          const amtClass = isIncome ? 'text-income' : 'text-expense';
 
-      top5.forEach(tx => {
-        const catStyle = state.categoryMap[tx.category] || { color: '#868e96', icon: 'tag' };
-        const isIncome = tx.type === 'INCOME';
-        const amtPrefix = isIncome ? '+' : '';
-        const amtClass = isIncome ? 'text-income' : 'text-expense';
-
-        const item = document.createElement('div');
-        item.className = 'tx-compact-item';
-        item.innerHTML = `
-          <div class="tx-compact-left">
-            <span class="category-badge" style="background-color: ${catStyle.color}15; color: ${catStyle.color}">
-              ${tx.category}
-            </span>
-            <div class="tx-details">
-              <span class="tx-merchant">${tx.merchant}</span>
-              <span class="tx-time">${formatShortDate(tx.datetime)}</span>
+          const item = document.createElement('div');
+          item.className = 'tx-compact-item';
+          item.innerHTML = `
+            <div class="tx-compact-left">
+              <span class="category-badge" style="background-color: ${catStyle.color}15; color: ${catStyle.color}">
+                ${tx.category}
+              </span>
+              <div class="tx-details">
+                <span class="tx-merchant">${tx.merchant}</span>
+                <span class="tx-time">${formatShortDate(tx.datetime)}</span>
+              </div>
             </div>
-          </div>
-          <div class="tx-compact-right">
-            <span class="tx-pay-method">${tx.pay_method}</span>
-            <span class="tx-amount ${amtClass}">${amtPrefix}${formatCurrency(tx.amount)}</span>
-          </div>
-        `;
-        recentContainer.appendChild(item);
-      });
+            <div class="tx-compact-right">
+              <span class="tx-pay-method">${tx.pay_method}</span>
+              <span class="tx-amount ${amtClass}">${amtPrefix}${formatCurrency(tx.amount)}</span>
+            </div>
+          `;
+          recentContainer.appendChild(item);
+        });
+      }
     }
 
     // 결제 수단별(자산/카드) 현황 렌더링
@@ -134,6 +141,25 @@ function renderAssetGrid(assets) {
 
   // 유의미한 내역(초기 자산이 있거나, 이번 달 수입/지출 내역이 존재하는 결제수단만 필터링)
   const activeAssets = assets.filter(a => a.initialBalance !== 0 || a.monthIncome !== 0 || a.monthExpense !== 0);
+
+  // 요약: 모든 은행/자산 계좌의 잔액을 합산하여 '모든 은행 합계 (총 잔액)' 카드를 생성
+  // 의존성: routes/analytics.js의 /api/stats 응답 구조에서 제공하는 assets 배열과 연동됩니다.
+  const bankAssets = assets.filter(a => !a.isCard);
+  if (bankAssets.length > 0) {
+    const totalBankBalance = bankAssets.reduce((sum, a) => sum + (a.currentBalance || 0), 0);
+    const totalBankIncome = bankAssets.reduce((sum, a) => sum + (a.monthIncome || 0), 0);
+    const totalBankExpense = bankAssets.reduce((sum, a) => sum + (a.monthExpense || 0), 0);
+
+    const totalAsset = {
+      name: "모든 은행 합계 (총 잔액)",
+      isCard: false,
+      isTotal: true,
+      currentBalance: totalBankBalance,
+      monthIncome: totalBankIncome,
+      monthExpense: totalBankExpense
+    };
+    activeAssets.unshift(totalAsset);
+  }
 
   if (activeAssets.length === 0) {
     container.innerHTML = '<p class="empty-message" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--text-secondary);">이번 달 입출금 내역 또는 설정된 자산 초기 잔액이 없습니다. [설정] 탭에서 결제 수단별 초기 잔액을 등록해 보세요.</p>';
@@ -183,6 +209,39 @@ function renderAssetGrid(assets) {
           ${pointHtml}
           <div class="asset-card-footer-row" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: ${hasPoint ? '0.5rem' : '0px'}">
             <span class="asset-card-subtext" style="font-size: 0.75rem; color: var(--text-secondary);">이번 달 신용/체크 누적 사용 금액</span>
+          </div>
+        </div>
+      `;
+    } else if (asset.isTotal) {
+      const balanceColor = asset.currentBalance < 0 ? '#ef4444' : '#10b981';
+      card.className = `asset-card-item glass total-type`;
+      card.style.background = 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(99, 102, 241, 0.08) 100%)';
+      card.style.border = '1px solid rgba(16, 185, 129, 0.25)';
+      
+      card.innerHTML = `
+        <div class="asset-card-item-header" style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+          <div class="asset-card-icon bank-icon" style="background: rgba(16, 185, 129, 0.25); color: #10b981; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+            <i data-lucide="wallet" style="width: 18px; height: 18px;"></i>
+          </div>
+          <div class="asset-card-title-info" style="display: flex; flex-direction: column;">
+            <span class="asset-card-name" style="font-weight: 700; font-size: 0.95rem; color: var(--text-color);">${asset.name}</span>
+            <span class="asset-card-badge badge-bank" style="font-size: 0.7rem; color: #10b981; font-weight: 600; margin-top: 2px;">총 자산</span>
+          </div>
+        </div>
+        <div class="asset-card-item-body">
+          <div class="asset-card-value-row" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
+            <span class="asset-card-label" style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">현재 총 잔액</span>
+            <span class="asset-card-value" style="font-weight: 800; font-size: 1.25rem; color: ${balanceColor};">${formatCurrency(asset.currentBalance)}</span>
+          </div>
+          <div class="asset-card-detail-rows" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
+            <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.75rem;">
+              <span style="color: var(--text-secondary);">총 입금 (수입)</span>
+              <span class="text-income" style="color: #10b981; font-weight: 500;">+${formatCurrency(asset.monthIncome)}</span>
+            </div>
+            <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.75rem;">
+              <span style="color: var(--text-secondary);">총 출금 (지출)</span>
+              <span class="text-expense" style="color: #6366f1; font-weight: 500;">-${formatCurrency(asset.monthExpense)}</span>
+            </div>
           </div>
         </div>
       `;
