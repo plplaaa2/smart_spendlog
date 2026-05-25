@@ -4,6 +4,7 @@
 
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -16,6 +17,28 @@ try {
 }
 
 const dbs = {}; // username -> db instance
+
+// 한글/특수문자 사용자명도 내부 식별자로 안전하게 사용할 수 있도록 ASCII 슬러그를 생성합니다.
+function getUserDbSlug(username) {
+  if (!username || username === 'admin') {
+    return 'admin';
+  }
+
+  const normalized = String(username).toLowerCase().replace(/[^a-zA-Z0-9_]/g, '');
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  return `u_${crypto.createHash('sha1').update(String(username), 'utf8').digest('hex').slice(0, 12)}`;
+}
+
+function getUserDbPath(dbDir, username) {
+  if (username === 'admin') {
+    return path.join(dbDir, 'account_book_admin.db');
+  }
+
+  return path.join(dbDir, `account_book_${getUserDbSlug(username)}.db`);
+}
 
 /**
  * 특정 사용자의 데이터베이스 파일을 초기화하고 커넥션을 반환합니다.
@@ -33,7 +56,7 @@ async function initUserDB(username) {
   // admin 계정 호환성: 기존 단일 DB 파일(account_book.db)이 존재하고 account_book_admin.db가 없을 경우 이동
   if (username === 'admin') {
     const oldDbPath = path.join(dbDir, 'account_book.db');
-    const newDbPath = path.join(dbDir, 'account_book_admin.db');
+    const newDbPath = getUserDbPath(dbDir, username);
     if (fs.existsSync(oldDbPath) && !fs.existsSync(newDbPath)) {
       try {
         fs.renameSync(oldDbPath, newDbPath);
@@ -42,9 +65,21 @@ async function initUserDB(username) {
         console.error('[DB 마이그레이션] 기존 DB 파일 이동 실패:', err);
       }
     }
+  } else {
+    // 한글 ID 등 파일명에 직접 쓰기 애매한 계정은 안전한 슬러그 파일명으로 마이그레이션합니다.
+    const oldDbPath = path.join(dbDir, `account_book_${username}.db`);
+    const newDbPath = getUserDbPath(dbDir, username);
+    if (oldDbPath !== newDbPath && fs.existsSync(oldDbPath) && !fs.existsSync(newDbPath)) {
+      try {
+        fs.renameSync(oldDbPath, newDbPath);
+        console.log(`[DB 마이그레이션] 사용자 DB(${oldDbPath})를 안전한 파일명(${newDbPath})으로 마이그레이션 완료.`);
+      } catch (err) {
+        console.error('[DB 마이그레이션] 사용자 DB 파일 이동 실패:', err);
+      }
+    }
   }
 
-  const dbPath = path.join(dbDir, `account_book_${username}.db`);
+  const dbPath = getUserDbPath(dbDir, username);
 
   const dbInstance = await open({
     filename: dbPath,
@@ -444,7 +479,7 @@ function getSafeSuffix(username) {
   if (safe.length > 0) {
     return `_${safe.toLowerCase()}`;
   }
-  return '';
+  return `_${crypto.createHash('sha1').update(String(username), 'utf8').digest('hex').slice(0, 12)}`;
 }
 
 // Home Assistant 센서 상태 실시간 동기화 함수
