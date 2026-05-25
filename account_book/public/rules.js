@@ -213,11 +213,9 @@ async function loadLogs() {
           </div>
         </div>
         <div class="log-card-footer" style="gap: 6px;">
-          ${!isSuccess ? `
           <button class="btn btn-secondary btn-sm btn-retry-log">
             <i data-lucide="refresh-cw" style="width:12px;height:12px;"></i> 재시도
           </button>
-          ` : ''}
           <button class="btn btn-secondary btn-sm btn-create-tx">
             <i data-lucide="plus" style="width:12px;height:12px;"></i> 수동 등록
           </button>
@@ -228,11 +226,9 @@ async function loadLogs() {
       `;
       card.querySelector('.btn-create-tx').addEventListener('click', () => createTransactionFromLog(log));
       card.querySelector('.btn-create-rule').addEventListener('click', () => createRuleFromLog(log));
-      if (!isSuccess) {
-        const retryBtn = card.querySelector('.btn-retry-log');
-        if (retryBtn) {
-          retryBtn.addEventListener('click', () => retryLogParsing(log.id));
-        }
+      const retryBtn = card.querySelector('.btn-retry-log');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => retryLogParsing(log.id));
       }
       if (log.sender) {
         const copyBtn = card.querySelector('.btn-copy-package');

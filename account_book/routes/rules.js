@@ -171,11 +171,10 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
       return res.status(404).json({ error: '해당 알림 로그를 찾을 수 없습니다.' });
     }
 
-    if (log.parsed_status === 'SUCCESS') {
-      return res.status(400).json({ error: '이미 파싱 성공한 로그입니다.' });
-    }
-
     const rawText = log.raw_text;
+
+    // 만약 이미 파싱 성공했던 로그라면, 기존에 등록되었던 가계부 거래 내역(동일한 raw_text)을 미리 지워 이중 등록(중복)을 방지합니다.
+    await db.run('DELETE FROM transactions WHERE raw_text = ?', [rawText]);
     const title = log.title || '';
     const text = log.text || '';
     const sender = log.sender || 'Unknown';
