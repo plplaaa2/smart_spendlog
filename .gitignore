@@ -1,2 +1,4 @@
-data/*
-!data/.gitkeep
+backup_*/
+tree.md
+changelog.jsonl
+caution.jsonl
