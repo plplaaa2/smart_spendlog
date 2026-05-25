@@ -229,11 +229,17 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       }
     }
 
-    // 2. 기본 결제수단 시딩
+    // 2. 기본 결제수단 시딩 및 일치화 (삭제된 결제수단 정리)
     if (defaults.pay_methods) {
       for (const name of defaults.pay_methods) {
         await dbInstance.run('INSERT OR IGNORE INTO pay_methods (name) VALUES (?)', [name]);
       }
+      // default_rules.json의 pay_methods 목록에 없는 잔존 결제수단(예: 카카오페이, 토스페이머니)을 DB에서 자동 삭제 정리
+      const placeholders = defaults.pay_methods.map(() => '?').join(',');
+      await dbInstance.run(
+        `DELETE FROM pay_methods WHERE name NOT IN (${placeholders})`,
+        defaults.pay_methods
+      );
     }
 
     // 3. 기본 파싱 규칙 시딩 (모든 사용자가 admin의 규칙을 공유하므로 admin 계정인 경우에만 rules 테이블에 시딩 처리)
