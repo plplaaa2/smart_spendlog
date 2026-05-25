@@ -120,7 +120,10 @@ router.get('/settings/backup', async (req, res) => {
       backupData.data[table] = rows;
     }
 
-    res.setHeader('Content-disposition', `attachment; filename=account_book_backup_${req.username}_${new Date().toISOString().slice(0,10)}.json`);
+    // 한글 ID 포함 시 Content-Disposition 헤더 인코딩 오류(TypeError) 방지를 위해 RFC 6266 규격 준수 인코딩 적용
+    const rawFilename = `account_book_backup_${req.username}_${new Date().toISOString().slice(0,10)}.json`;
+    const encodedFilename = encodeURIComponent(rawFilename);
+    res.setHeader('Content-disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
     res.setHeader('Content-type', 'application/json');
     res.send(JSON.stringify(backupData, null, 2));
   } catch (err) {
