@@ -60,7 +60,7 @@ const authenticateToken = (req, res, next) => {
   // 토큰 파싱: token_secret:username 형식
   const parts = token.split(':');
   const secretToken = parts[0];
-  const username = parts[1] || 'admin';
+  const username = decodeURIComponent(parts[1] || 'admin');
 
   if (secretToken === config.token) {
     req.username = username;

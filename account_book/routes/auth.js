@@ -67,7 +67,7 @@ router.post('/login', async (req, res) => {
       }
       
       // 사용자 식별을 위한 계정 결합 토큰 발급
-      const userToken = `${config.token}:${username}`;
+      const userToken = `${config.token}:${encodeURIComponent(username)}`;
       return res.json({ success: true, username, token: userToken });
     } else {
       // 로그인 실패 시 실패 기록 및 밴 처리
