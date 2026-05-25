@@ -99,19 +99,17 @@ async function processIncomingNotification(newState, username) {
     const matchedCategory = await findCategoryByMerchant(db, result.merchant);
     let finalCategory = matchedCategory || '기타';
 
-    // 패키지별 결제수단 자동 매핑
+    // 패키지별 결제수단 자동 매핑 (패키지 매핑이 있으면 최우선 적용, 없으면 규칙/파싱 결과 적용)
     let finalPayMethod = result.pay_method;
-    if (finalPayMethod === '_AUTO_MAPPING_') {
-      if (packageVal) {
-        const mappedPayMethodRow = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [packageVal]);
-        if (mappedPayMethodRow && mappedPayMethodRow.pay_method) {
-          finalPayMethod = mappedPayMethodRow.pay_method;
-        } else {
-          finalPayMethod = '카드';
-        }
-      } else {
-        finalPayMethod = '카드';
+    if (packageVal) {
+      const mappedPayMethodRow = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [packageVal]);
+      if (mappedPayMethodRow && mappedPayMethodRow.pay_method) {
+        finalPayMethod = mappedPayMethodRow.pay_method;
       }
+    }
+
+    if (finalPayMethod === '_AUTO_MAPPING_') {
+      finalPayMethod = '카드';
     }
 
     // 통장 이동(자산 이동) 감지 및 강제 카테고리 변경
@@ -208,10 +206,11 @@ async function processIncomingNotification(newState, username) {
 
 // HTTP Webhook 수신 엔드포인트
 router.post('/webhook', async (req, res) => {
-  const { title, text, package, username } = req.body;
+  const { title, text, package: reqPackage, packageName, package_name, username } = req.body;
+  const packageVal = reqPackage || packageName || package_name || '';
   const targetUser = username || 'admin';
 
-  console.log(`[웹훅][${targetUser}] 알림 수신: title="${title}", text="${text}", package="${package}"`);
+  console.log(`[웹훅][${targetUser}] 알림 수신: title="${title}", text="${text}", package="${packageVal}"`);
 
   if (!title && !text) {
     return res.status(400).json({ error: '알림의 Title 또는 Text가 제공되지 않았습니다.' });
@@ -232,7 +231,7 @@ router.post('/webhook', async (req, res) => {
       finalRawText = text || title;
     }
 
-    const finalSender = package || title || 'Unknown';
+    const finalSender = packageVal || title || 'Unknown';
     const titleText = title || '';
     const bodyText = text || '';
 
@@ -288,19 +287,17 @@ router.post('/webhook', async (req, res) => {
       const matchedCategory = await findCategoryByMerchant(db, result.merchant);
       let finalCategory = matchedCategory || '기타';
 
-      // 패키지별 결제수단 자동 매핑
+      // 패키지별 결제수단 자동 매핑 (패키지 매핑이 있으면 최우선 적용, 없으면 규칙/파싱 결과 적용)
       let finalPayMethod = result.pay_method;
-      if (finalPayMethod === '_AUTO_MAPPING_') {
-        if (package) {
-          const mappedPayMethodRow = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [package]);
-          if (mappedPayMethodRow && mappedPayMethodRow.pay_method) {
-            finalPayMethod = mappedPayMethodRow.pay_method;
-          } else {
-            finalPayMethod = '카드';
-          }
-        } else {
-          finalPayMethod = '카드';
+      if (packageVal) {
+        const mappedPayMethodRow = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [packageVal]);
+        if (mappedPayMethodRow && mappedPayMethodRow.pay_method) {
+          finalPayMethod = mappedPayMethodRow.pay_method;
         }
+      }
+
+      if (finalPayMethod === '_AUTO_MAPPING_') {
+        finalPayMethod = '카드';
       }
 
       // 통장 이동(자산 이동) 감지 및 강제 카테고리 매핑

@@ -229,18 +229,17 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
       const matchedCategory = await findCategoryByMerchant(db, result.merchant);
       let finalCategory = matchedCategory || '기타';
 
+      // 패키지별 결제수단 자동 매핑 (패키지 매핑이 있으면 최우선 적용, 없으면 규칙/파싱 결과 적용)
       let finalPayMethod = result.pay_method;
-      if (finalPayMethod === '_AUTO_MAPPING_') {
-        if (sender && sender !== 'Unknown') {
-          const mappedPayMethodRow = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [sender]);
-          if (mappedPayMethodRow && mappedPayMethodRow.pay_method) {
-            finalPayMethod = mappedPayMethodRow.pay_method;
-          } else {
-            finalPayMethod = '카드';
-          }
-        } else {
-          finalPayMethod = '카드';
+      if (sender && sender !== 'Unknown') {
+        const mappedPayMethodRow = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [sender]);
+        if (mappedPayMethodRow && mappedPayMethodRow.pay_method) {
+          finalPayMethod = mappedPayMethodRow.pay_method;
         }
+      }
+
+      if (finalPayMethod === '_AUTO_MAPPING_') {
+        finalPayMethod = '카드';
       }
 
       // 통장 이동(자산 이동) 감지 및 강제 카테고리 매핑
