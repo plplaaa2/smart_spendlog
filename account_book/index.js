@@ -11,7 +11,7 @@ const express = require('express');
 const path = require('path');
 const WebSocket = require('ws');
 const fs = require('fs');
-const { initDB, getDB, getActiveUsers, updateHASensors } = require('./database');
+const { initDB, getDB, getActiveUsers, updateHASensors, cleanupOrphanedHASensors } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 8124;
@@ -191,9 +191,15 @@ async function startServer() {
 
   connectHA();
 
-  // 초기 1회 센서 상태 동기화 (3초 지연)
-  setTimeout(() => {
+  // 초기 1회 센서 상태 동기화 및 고아 센서 제거 (3초 지연)
+  // 요약: 서버 기동 시 현재 활성화된 사용자의 센서를 갱신하고, 삭제된 사용자의 센서(고아 센서)는 HA API를 통해 삭제 처리합니다.
+  // 의존성: database.js의 cleanupOrphanedHASensors 및 updateHASensors 함수를 호출합니다.
+  setTimeout(async () => {
     const users = getActiveUsers();
+    
+    // 삭제된 사용자의 고아 센서 일괄 제거
+    await cleanupOrphanedHASensors(users);
+
     for (const u of users) {
       updateHASensors(u);
     }

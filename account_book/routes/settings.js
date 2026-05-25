@@ -214,10 +214,11 @@ router.post('/settings/restore', async (req, res) => {
       }
 
       // notification_logs 복구
+      // 의존성: database.js의 notification_logs 테이블 구조(created_at 컬럼)와 일치하도록 쿼리를 수정하고, 구버전 호환용 received_at 폴백을 처리합니다.
       if (backupObj.data.notification_logs.length > 0) {
-        const stmt = await db.prepare('INSERT INTO notification_logs (id, sender, raw_text, parsed_status, matched_rule_id, title, text, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        const stmt = await db.prepare('INSERT INTO notification_logs (id, sender, raw_text, parsed_status, matched_rule_id, title, text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
         for (const row of backupObj.data.notification_logs) {
-          await stmt.run(row.id, row.sender, row.raw_text, row.parsed_status, row.matched_rule_id, row.title, row.text, row.received_at);
+          await stmt.run(row.id, row.sender, row.raw_text, row.parsed_status, row.matched_rule_id, row.title, row.text, row.created_at || row.received_at);
         }
         await stmt.finalize();
       }

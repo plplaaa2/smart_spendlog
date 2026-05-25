@@ -7,6 +7,8 @@ let currentUser = sessionStorage.getItem('ab_user') || localStorage.getItem('ab_
 let currentSession = localStorage.getItem('ab_session') || null;
 
 // 전역 Fetch 인터셉터 (인증 토큰 자동 주입 및 403 대응)
+// 요약: 모든 API 요청 시 로컬 스토리지의 토큰을 헤더에 삽입하고, 비-ASCII 문자(한글) 포함 시 인코딩하여 브라우저 fetch 오류를 방지합니다.
+// 의존성: index.js의 토큰 인증 미들웨어(decodeURIComponent 처리)와 유기적으로 동기화됩니다.
 const originalFetch = window.fetch;
 window.fetch = async function (resource, options = {}) {
   const urlStr = typeof resource === 'string' ? resource : resource.url;
@@ -16,7 +18,18 @@ window.fetch = async function (resource, options = {}) {
       if (!options.headers) {
         options.headers = {};
       }
-      options.headers['Authorization'] = token;
+      
+      // 토큰 내에 한글 등 ISO-8859-1 범위를 벗어나는 문자가 있으면 안전하게 인코딩하여 헤더 오류 방지
+      let safeToken = token;
+      const parts = token.split(':');
+      if (parts.length > 1) {
+        const secret = parts[0];
+        const rawUsername = parts.slice(1).join(':');
+        if (/[^\x00-\x7F]/.test(rawUsername)) {
+          safeToken = `${secret}:${encodeURIComponent(rawUsername)}`;
+        }
+      }
+      options.headers['Authorization'] = safeToken;
     }
   }
 

@@ -595,6 +595,76 @@ async function updateHASensors(targetUser) {
   }
 }
 
+/**
+ * 활성화되지 않은(삭제된) 사용자의 가계부 관련 HA 센서를 HA에서 삭제 처리합니다.
+ * 요약: HA Core API를 호출하여 현재 가계부 센서들을 조회하고, 활성 사용자가 아닌 고아 센서들을 찾아 삭제 요청을 보냅니다.
+ * 의존성: index.js의 startServer() 단계에서 1회 실행하며, SUPERVISOR_TOKEN 환경변수를 사용하여 HA Core API를 호출합니다.
+ */
+async function cleanupOrphanedHASensors(activeUsers = []) {
+  const token = process.env.SUPERVISOR_TOKEN;
+  if (!token) return;
+
+  try {
+    const activeSuffixes = activeUsers.map(u => getSafeSuffix(u));
+    const url = 'http://supervisor/core/api/states';
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`[HA WS][Cleanup] HA 상태 조회 실패: HTTP ${response.status}`);
+      return;
+    }
+
+    const states = await response.json();
+    if (!Array.isArray(states)) return;
+
+    const abSensors = states.filter(s => s.entity_id.startsWith('sensor.account_book_'));
+    const baseNames = ['monthly_income', 'monthly_expense', 'remaining_budget', 'net_profit', 'savings'];
+
+    for (const sensor of abSensors) {
+      const entityId = sensor.entity_id;
+      const subName = entityId.replace('sensor.account_book_', '');
+      
+      let matchedBase = null;
+      for (const base of baseNames) {
+        if (subName.startsWith(base)) {
+          matchedBase = base;
+          break;
+        }
+      }
+
+      if (matchedBase) {
+        const suffix = subName.replace(matchedBase, '');
+        if (!activeSuffixes.includes(suffix)) {
+          console.log(`[HA WS][Cleanup] 고아 센서 감지: ${entityId} (Suffix: '${suffix}'). 삭제를 시도합니다.`);
+          const deleteUrl = `http://supervisor/core/api/states/${entityId}`;
+          try {
+            const delRes = await fetch(deleteUrl, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            if (delRes.ok) {
+              console.log(`[HA WS][Cleanup] 고아 센서 삭제 성공: ${entityId}`);
+            } else {
+              console.error(`[HA WS][Cleanup] 고아 센서 삭제 실패: ${entityId} (HTTP ${delRes.status})`);
+            }
+          } catch (delErr) {
+            console.error(`[HA WS][Cleanup] 고아 센서 ${entityId} 삭제 요청 중 에러:`, delErr.message);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[HA WS][Cleanup] 고아 센서 정리 중 오류 발생:', err);
+  }
+}
+
 module.exports = {
   initDB,
   resetAllData,
@@ -606,5 +676,6 @@ module.exports = {
   findCategoryByMerchant,
   seedFranchisePresets,
   FRANCHISE_PRESETS,
-  updateHASensors
+  updateHASensors,
+  cleanupOrphanedHASensors
 };
