@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.19">
+  <link rel="stylesheet" href="./style.css?v=1.9.81"><!-- 캐시 무효화 버전 갱신 (스타일시트 모바일 사용자 정보 추가 반영) -->
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons CDN -->
@@ -125,10 +125,13 @@
             <button id="month-select-trigger" class="icon-btn"><i data-lucide="calendar"></i></button>
             <button id="next-month-btn" class="icon-btn"><i data-lucide="chevron-right"></i></button>
           </div>
-          <!-- Mobile Logout Button -->
-          <button class="mobile-logout-btn icon-btn" onclick="logout()" title="로그아웃">
-            <i data-lucide="log-out"></i>
-          </button>
+          <!-- Mobile User Info & Logout Button -->
+          <div class="mobile-user-container">
+            <span class="mobile-user-name" id="mobile_current_user_name">admin</span>
+            <button class="mobile-logout-btn icon-btn" onclick="logout()" title="로그아웃">
+              <i data-lucide="log-out"></i>
+            </button>
+          </div>
         </div>
       </header>
 

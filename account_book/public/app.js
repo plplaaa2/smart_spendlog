@@ -144,6 +144,8 @@ async function attemptLogin(isAuto = false) {
       document.getElementById('login_overlay').style.display = 'none';
       document.getElementById('user_profile').style.display = 'flex';
       document.getElementById('current_user_name').textContent = `${currentUser}`;
+      const mobileNameEl = document.getElementById('mobile_current_user_name');
+      if (mobileNameEl) mobileNameEl.textContent = `${currentUser}`;
       
       await initApp();
     } else {
@@ -173,6 +175,8 @@ function checkLogin() {
       profile.style.display = 'flex';
       const nameEl = document.getElementById('current_user_name');
       if (nameEl) nameEl.textContent = `${currentUser}`;
+      const mobileNameEl = document.getElementById('mobile_current_user_name');
+      if (mobileNameEl) mobileNameEl.textContent = `${currentUser}`;
     }
     return true;
   } else {
