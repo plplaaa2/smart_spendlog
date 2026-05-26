@@ -45,6 +45,15 @@ async function loadCardExpenses() {
     const previousSelected = cardSelect.value;
     cardSelect.innerHTML = '';
 
+    const favorites = JSON.parse(localStorage.getItem(getFavoriteKey()) || '[]');
+    // 즐겨찾기 우선 정렬
+    cardAssets.sort((a, b) => {
+      const aFav = favorites.includes(a.name) ? 1 : 0;
+      const bFav = favorites.includes(b.name) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+      return a.name.localeCompare(b.name);
+    });
+
     if (cardAssets.length === 0) {
       const opt = document.createElement('option');
       opt.value = '';
@@ -60,7 +69,8 @@ async function loadCardExpenses() {
     cardAssets.forEach(card => {
       const opt = document.createElement('option');
       opt.value = card.name;
-      opt.textContent = card.name;
+      const isFav = favorites.includes(card.name);
+      opt.textContent = (isFav ? '⭐ ' : '') + card.name;
       cardSelect.appendChild(opt);
     });
 
@@ -101,6 +111,15 @@ async function loadCardExpenses() {
       const iconColor = isPayOrMoney ? '#10b981' : '#6366f1';
       const assetTypeLabel = isPayOrMoney ? '페이' : '카드';
 
+      const isFav = favorites.includes(selectedCard.name);
+      const starFill = isFav ? '#f59e0b' : 'none';
+      const starColor = isFav ? '#f59e0b' : 'var(--text-secondary)';
+      const starIconHtml = `
+        <button class="icon-btn fav-star-btn" style="color: ${starColor}; margin-left: 0.25rem; display: inline-flex; align-items: center; justify-content: center; padding: 0.15rem; transition: all 0.2s;" onclick="toggleFavoriteAsset('${selectedCard.name}', 'card')" title="${isFav ? '즐겨찾기 해제' : '즐겨찾기 등록'}">
+          <i data-lucide="star" style="width: 18px; height: 18px; fill: ${starFill}; stroke: ${starColor};"></i>
+        </button>
+      `;
+
       summaryBox.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div style="display: flex; align-items: center; gap: 1rem;">
@@ -108,7 +127,10 @@ async function loadCardExpenses() {
               <i data-lucide="${iconName}" style="width: 22px; height: 22px;"></i>
             </div>
             <div>
-              <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.15rem;">${selectedCard.name}</h4>
+              <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.15rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                ${selectedCard.name}
+                ${starIconHtml}
+              </h4>
               <span style="font-size: 0.75rem; color: var(--text-secondary);">이번 달 ${assetTypeLabel} 누적 사용 분석</span>
             </div>
           </div>
@@ -211,6 +233,15 @@ async function loadBankTransactions() {
     const previousSelected = bankSelect.value;
     bankSelect.innerHTML = '';
 
+    const favorites = JSON.parse(localStorage.getItem(getFavoriteKey()) || '[]');
+    // 즐겨찾기 우선 정렬
+    bankAssets.sort((a, b) => {
+      const aFav = favorites.includes(a.name) ? 1 : 0;
+      const bFav = favorites.includes(b.name) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+      return a.name.localeCompare(b.name);
+    });
+
     if (bankAssets.length === 0) {
       const opt = document.createElement('option');
       opt.value = '';
@@ -226,7 +257,8 @@ async function loadBankTransactions() {
     bankAssets.forEach(bank => {
       const opt = document.createElement('option');
       opt.value = bank.name;
-      opt.textContent = bank.name;
+      const isFav = favorites.includes(bank.name);
+      opt.textContent = (isFav ? '⭐ ' : '') + bank.name;
       bankSelect.appendChild(opt);
     });
 
@@ -244,6 +276,16 @@ async function loadBankTransactions() {
     const summaryBox = document.getElementById('bank-summary-box');
     if (summaryBox && selectedBank) {
       const balanceColor = selectedBank.currentBalance < 0 ? '#ef4444' : '#10b981';
+
+      const isFav = favorites.includes(selectedBank.name);
+      const starFill = isFav ? '#f59e0b' : 'none';
+      const starColor = isFav ? '#f59e0b' : 'var(--text-secondary)';
+      const starIconHtml = `
+        <button class="icon-btn fav-star-btn" style="color: ${starColor}; margin-left: 0.25rem; display: inline-flex; align-items: center; justify-content: center; padding: 0.15rem; transition: all 0.2s;" onclick="toggleFavoriteAsset('${selectedBank.name}', 'bank')" title="${isFav ? '즐겨찾기 해제' : '즐겨찾기 등록'}">
+          <i data-lucide="star" style="width: 18px; height: 18px; fill: ${starFill}; stroke: ${starColor};"></i>
+        </button>
+      `;
+
       summaryBox.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div style="display: flex; align-items: center; gap: 1rem;">
@@ -251,7 +293,10 @@ async function loadBankTransactions() {
               <i data-lucide="landmark" style="width: 22px; height: 22px;"></i>
             </div>
             <div>
-              <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.15rem;">${selectedBank.name}</h4>
+              <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.15rem; display: inline-flex; align-items: center; gap: 0.25rem;">
+                ${selectedBank.name}
+                ${starIconHtml}
+              </h4>
               <span style="font-size: 0.75rem; color: var(--text-secondary);">실시간 통장 잔액 및 이번 달 흐름</span>
             </div>
           </div>
@@ -337,3 +382,29 @@ async function loadBankTransactions() {
     console.error('은행별 입출금 내역 로드 실패:', err);
   }
 }
+
+// 사용자별 즐겨찾기 격리 키 반환
+function getFavoriteKey() {
+  const user = (typeof currentUser !== 'undefined' ? currentUser : null) || sessionStorage.getItem('ab_user') || localStorage.getItem('ab_user') || 'default';
+  return `favorite_assets_${user}`;
+}
+
+// 즐겨찾기 자산 토글 처리 함수
+function toggleFavoriteAsset(assetName, type) {
+  const key = getFavoriteKey();
+  const favorites = JSON.parse(localStorage.getItem(key) || '[]');
+  const index = favorites.indexOf(assetName);
+  if (index > -1) {
+    favorites.splice(index, 1);
+  } else {
+    favorites.push(assetName);
+  }
+  localStorage.setItem(key, JSON.stringify(favorites));
+  
+  if (type === 'card') {
+    loadCardExpenses();
+  } else if (type === 'bank') {
+    loadBankTransactions();
+  }
+}
+window.toggleFavoriteAsset = toggleFavoriteAsset;
