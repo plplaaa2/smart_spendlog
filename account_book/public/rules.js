@@ -678,43 +678,51 @@ function autoGeneratePattern(silent = false) {
   blocks.sort((a, b) => a.start - b.start);
 
   // 9. 사용처(merchant) 감지 (블록들 사이에 빈 공간 중 가장 상점명다운 문자열 추출)
+  let bestGapIndex = -1;
+  let maxCleanLen = -1;
+
+  const gaps = [];
+  gaps.push({ start: 0, end: blocks[0] ? blocks[0].start : cleanText.length, index: 0 });
+  for (let i = 1; i < blocks.length; i++) {
+    gaps.push({ start: blocks[i-1].end, end: blocks[i].start, index: i });
+  }
+  if (blocks.length > 0) {
+    gaps.push({ start: blocks[blocks.length-1].end, end: cleanText.length, index: blocks.length });
+  }
+
+  gaps.forEach(g => {
+    const txt = cleanText.substring(g.start, g.end);
+    // 잔액, 잔고, 누적 등 명백히 가맹점명이 아닌 고유 텍스트가 들어가 있는 여백은 제외
+    if (/잔액|잔고|누적/.test(txt)) return;
+    
+    const cleanTxt = txt.replace(/[^가-힣a-zA-Z0-9]/g, '');
+    if (cleanTxt.length > maxCleanLen) {
+      maxCleanLen = cleanTxt.length;
+      bestGapIndex = g.index;
+    }
+  });
+
   let merchantBlock = null;
-  let maxGapLen = 0;
-  
-  const bounds = [{ end: 0 }, ...blocks, { start: cleanText.length }];
-  for (let i = 0; i < bounds.length - 1; i++) {
-    const startIdx = bounds[i].end;
-    const endIdx = bounds[i+1].start;
-    if (startIdx < endIdx) {
-      const rawGap = cleanText.substring(startIdx, endIdx);
-      const leadTrim = rawGap.match(/^[\s\-/\\:*]+/);
-      const leadLen = leadTrim ? leadTrim[0].length : 0;
-      const trailTrim = rawGap.match(/[\s\-/\\:*]+$/);
-      const trailLen = trailTrim ? trailTrim[0].length : 0;
-      const gapText = rawGap.substring(leadLen, rawGap.length - trailLen).trim();
+  if (bestGapIndex !== -1 && maxCleanLen > 0) {
+    const targetGap = gaps.find(g => g.index === bestGapIndex);
+    const rawGap = cleanText.substring(targetGap.start, targetGap.end);
+    
+    const leadTrim = rawGap.match(/^[\s\-/\\:*]+/);
+    const leadLen = leadTrim ? leadTrim[0].length : 0;
+    const trailTrim = rawGap.match(/[\s\-/\\:*]+$/);
+    const trailLen = trailTrim ? trailTrim[0].length : 0;
+    const gapText = rawGap.substring(leadLen, rawGap.length - trailLen).trim();
 
-      if (gapText.length > 0) {
-        const mStart = startIdx + leadLen + (rawGap.substring(leadLen).length - rawGap.substring(leadLen).trimStart().length);
-        const mEnd = mStart + gapText.length;
-
-        const hasKoreanOrEnglish = gapText.match(/[가-힣a-zA-Z]/);
-        const digitCount = (gapText.match(/\d/g) || []).length;
-        const starCount = (gapText.match(/\*/g) || []).length;
-        const isLikelyNotMerchant = (digitCount / gapText.length > 0.4) || (starCount >= 2) || /잔액|잔고|누적/.test(gapText);
-
-        if (gapText.length > 1 && !gapText.match(/^[0-9\s,\-.\/\\:\[\]()*]*$/) && hasKoreanOrEnglish && !isLikelyNotMerchant) {
-          if (gapText.length > maxGapLen) {
-            maxGapLen = gapText.length;
-            merchantBlock = {
-              type: '사용처',
-              start: mStart,
-              end: mEnd,
-              regex: '(?<merchant>.+?)(?:\\s+[\\d,]+)?',
-              value: gapText
-            };
-          }
-        }
-      }
+    if (gapText.length > 0) {
+      const mStart = targetGap.start + leadLen + (rawGap.substring(leadLen).length - rawGap.substring(leadLen).trimStart().length);
+      const mEnd = mStart + gapText.length;
+      merchantBlock = {
+        type: '사용처',
+        start: mStart,
+        end: mEnd,
+        regex: '(?<merchant>.+?)(?:\\s+[\\d,]+)?',
+        value: gapText
+      };
     }
   }
 
