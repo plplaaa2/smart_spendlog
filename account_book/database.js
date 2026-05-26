@@ -164,6 +164,13 @@ async function initUserDB(username) {
       last_failed_at INTEGER DEFAULT 0,
       banned_until INTEGER DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS pass_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE,
+      pattern TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // 마이그레이션: 기존 DB에 컬럼이 없는 경우 동적 추가
@@ -342,9 +349,10 @@ async function resetAllData(username) {
   await dbInstance.run('DELETE FROM merchant_categories');
   await dbInstance.run('DELETE FROM package_pay_methods');
 
-  // rules 테이블은 모든 사용자가 공유하므로 admin 계정일 때만 초기화/시딩합니다.
+  // rules 및 pass_rules 테이블은 모든 사용자가 공유하므로 admin 계정일 때만 초기화/시딩합니다.
   if (targetUser === 'admin') {
     await dbInstance.run('DELETE FROM rules');
+    await dbInstance.run('DELETE FROM pass_rules');
   }
 
   await seedDefaultData(dbInstance, targetUser);

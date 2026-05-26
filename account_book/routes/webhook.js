@@ -47,6 +47,33 @@ async function processIncomingNotification(newState, username) {
   }
 
   const adminDb = await getDB('admin');
+
+  // 0. 자동 패스 규칙 검사 우선 수행
+  const passRules = await adminDb.all('SELECT * FROM pass_rules');
+  let isPassed = false;
+  let matchedPassRuleId = null;
+  for (const pRule of passRules) {
+    try {
+      const pRegex = new RegExp(pRule.pattern);
+      if (pRegex.test(rawText)) {
+        isPassed = true;
+        matchedPassRuleId = pRule.id;
+        break;
+      }
+    } catch (e) {
+      console.error(`[웹훅] 패스 규칙 "${pRule.name}" 패턴 분석 에러:`, e);
+    }
+  }
+
+  if (isPassed) {
+    console.log(`[웹훅][${targetUser}] 자동 패스 규칙에 매칭되어 처리를 제외(PASS)합니다. (알림: "${rawText}")`);
+    await db.run(
+      'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [sender, rawText, title, text, 'PASS', matchedPassRuleId]
+    );
+    return;
+  }
+
   const rules = await adminDb.all('SELECT * FROM rules');
   const fallbackKST = getKSTDateString();
   let result = parseNotification(rawText, rules, fallbackKST);
@@ -236,6 +263,33 @@ router.post('/webhook', async (req, res) => {
     const bodyText = text || '';
 
     const adminDb = await getDB('admin');
+
+    // 0. 자동 패스 규칙 검사 우선 수행
+    const passRules = await adminDb.all('SELECT * FROM pass_rules');
+    let isPassed = false;
+    let matchedPassRuleId = null;
+    for (const pRule of passRules) {
+      try {
+        const pRegex = new RegExp(pRule.pattern);
+        if (pRegex.test(finalRawText)) {
+          isPassed = true;
+          matchedPassRuleId = pRule.id;
+          break;
+        }
+      } catch (e) {
+        console.error(`[웹훅 API] 패스 규칙 "${pRule.name}" 패턴 분석 에러:`, e);
+      }
+    }
+
+    if (isPassed) {
+      console.log(`[웹훅 API][${targetUser}] 자동 패스 규칙에 매칭되어 처리를 제외(PASS)합니다. (알림: "${finalRawText}")`);
+      await db.run(
+        'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
+        [finalSender, finalRawText, titleText, bodyText, 'PASS', matchedPassRuleId]
+      );
+      return res.json({ success: true, message: '자동 패스 규칙에 의해 처리가 제외되었습니다.' });
+    }
+
     const rules = await adminDb.all('SELECT * FROM rules');
     const fallbackKST = getKSTDateString();
     let result = parseNotification(finalRawText, rules, fallbackKST);

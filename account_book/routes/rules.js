@@ -79,6 +79,56 @@ router.delete('/rules/:id', async (req, res) => {
   }
 });
 
+// 패스규칙 조회 (모든 사용자가 admin의 패스규칙을 공유하여 동일하게 적용)
+router.get('/pass_rules', async (req, res) => {
+  try {
+    const db = await getDB('admin');
+    const rows = await db.all('SELECT * FROM pass_rules ORDER BY id DESC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 패스규칙 등록 및 수정
+router.post('/pass_rules', async (req, res) => {
+  try {
+    const db = await getDB('admin');
+    const { id, name, pattern } = req.body;
+
+    if (!name || !pattern) {
+      return res.status(400).json({ error: '패스규칙 이름과 정규식 패턴은 필수 값입니다.' });
+    }
+
+    if (id) {
+      await db.run(
+        'UPDATE pass_rules SET name = ?, pattern = ? WHERE id = ?',
+        [name, pattern, id]
+      );
+      res.json({ success: true, id });
+    } else {
+      const result = await db.run(
+        'INSERT INTO pass_rules (name, pattern) VALUES (?, ?)',
+        [name, pattern]
+      );
+      res.json({ success: true, id: result.lastID });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 패스규칙 삭제
+router.delete('/pass_rules/:id', async (req, res) => {
+  try {
+    const db = await getDB('admin');
+    await db.run('DELETE FROM pass_rules WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 패키지별 결제수단 매핑 조회
 router.get('/package_pay_methods', async (req, res) => {
   try {

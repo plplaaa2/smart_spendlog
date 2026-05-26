@@ -604,11 +604,41 @@ function initEventListeners() {
     ruleModalCloseBtn.addEventListener('click', closeRuleModal);
   }
 
+  // 자동 패스 규칙 생성 버튼 트리거
+  const newPassRuleBtn = document.getElementById('new-pass-rule-btn');
+  if (newPassRuleBtn) {
+    newPassRuleBtn.addEventListener('click', () => {
+      loadPassRuleToEditor(null);
+    });
+  }
+
+  const passRuleModal = document.getElementById('pass-rule-modal');
+  const closePassRuleModal = () => {
+    if (passRuleModal) passRuleModal.classList.remove('active');
+  };
+
+  const passCancelBtn = document.getElementById('pass-rule-cancel-btn');
+  if (passCancelBtn) {
+    passCancelBtn.addEventListener('click', closePassRuleModal);
+  }
+
+  const passModalCloseBtn = document.getElementById('pass-rule-modal-close-btn');
+  if (passModalCloseBtn) {
+    passModalCloseBtn.addEventListener('click', closePassRuleModal);
+  }
+
   // 모달 외부 클릭 시 닫기
   if (ruleModal) {
     ruleModal.addEventListener('click', (e) => {
       if (e.target === ruleModal) {
         closeRuleModal();
+      }
+    });
+  }
+  if (passRuleModal) {
+    passRuleModal.addEventListener('click', (e) => {
+      if (e.target === passRuleModal) {
+        closePassRuleModal();
       }
     });
   }
@@ -639,10 +669,42 @@ function initEventListeners() {
     }
   });
 
+  // 패스 규칙 저장 서브밋
+  const passRuleForm = document.getElementById('pass-rule-form');
+  if (passRuleForm) {
+    passRuleForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('pass-rule-id').value;
+      const name = document.getElementById('pass-rule-name').value;
+      const pattern = document.getElementById('pass-rule-pattern').value;
+
+      try {
+        const res = await fetch('api/pass_rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, name, pattern })
+        }).then(r => r.json());
+
+        if (res.success) {
+          closePassRuleModal();
+          loadPassRules();
+        }
+      } catch (err) {
+        alert('패스 규칙 저장 실패: ' + err.message);
+      }
+    });
+  }
+
   // 규칙 테스터 실행 버튼
   const testRunBtn = document.getElementById('test-run-btn');
   if (testRunBtn) {
     testRunBtn.addEventListener('click', runRegexTest);
+  }
+
+  // 패스 규칙 테스터 실행 버튼
+  const testPassRunBtn = document.getElementById('test-pass-run-btn');
+  if (testPassRunBtn) {
+    testPassRunBtn.addEventListener('click', runPassRegexTest);
   }
 
   // 정규식 패턴 자동 생성 버튼

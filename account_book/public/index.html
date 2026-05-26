@@ -410,6 +410,8 @@
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">수신 로그</button>
           <button class="logs-tab-btn" data-subtab="rules"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">자동 분류규칙</button>
+          <button class="logs-tab-btn" data-subtab="pass-rules"
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">자동 패스규칙</button>
           <button class="logs-tab-btn" data-subtab="merchant"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">사용처 설정</button>
         </div>
@@ -440,6 +442,22 @@
                 </div>
                 <div class="rules-list" id="rules-list-container">
                   <!-- Dynamic rules -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2-2) 자동 패스규칙 서브 탭 -->
+          <div id="subtab-pass-rules" class="sub-logs-content" style="width: 100%;">
+            <div class="rules-layout">
+              <!-- Pass Rules List -->
+              <div class="card glass rules-list-card">
+                <div class="card-header">
+                  <h3>자동 패스 정규식 규칙</h3>
+                  <button class="btn btn-primary btn-sm" id="new-pass-rule-btn"><i data-lucide="plus"></i> 패스규칙 추가</button>
+                </div>
+                <div class="rules-list" id="pass-rules-list-container">
+                  <!-- Dynamic pass rules -->
                 </div>
               </div>
             </div>
@@ -1112,6 +1130,60 @@
                   style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\s*</code>(0개
                 이상)를 대입합니다.</li>
             </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 자동 패스 규칙 편집 및 테스트 모달 -->
+  <div id="pass-rule-modal" class="modal">
+    <div class="modal-content glass" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 id="pass-rule-form-title">자동 패스규칙 편집</h3>
+        <button class="close-btn" id="pass-rule-modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body" style="padding-top: 1rem;">
+        <!-- Pass Rule Edit Form -->
+        <div class="card glass editor-card" id="pass-rule-form-card"
+          style="display:none; border:none; background:none; box-shadow:none; padding:0; margin-bottom:1.5rem;">
+          <form id="pass-rule-form">
+            <input type="hidden" id="pass-rule-id">
+            <div class="form-group">
+              <label for="pass-rule-name">패스규칙 이름</label>
+              <input type="text" id="pass-rule-name" placeholder="예: 인증번호 문자 패스" required>
+            </div>
+            <div class="form-group">
+              <label for="pass-rule-pattern">정규식 패턴</label>
+              <div class="info-box">
+                <p>알림 텍스트가 이 정규식 패턴과 매칭되면 가계부에 등록되지 않고 즉시 <strong>PASS</strong> 처리됩니다.</p>
+              </div>
+              <input type="text" id="pass-rule-pattern"
+                placeholder="예: 인증번호|인증\\s*번호|\\b원화\\s*출금\\b"
+                required>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" id="pass-rule-cancel-btn">취소</button>
+              <button type="submit" class="btn btn-primary">저장</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Pass Rule Tester -->
+        <div class="card glass tester-card" style="border:none; background:none; box-shadow:none; padding:0;">
+          <h3>패스 매칭 실시간 테스트기</h3>
+          <div class="form-group" style="margin-top: 1rem;">
+            <label for="test-pass-text">분석할 알림 내용</label>
+            <textarea id="test-pass-text" rows="3" placeholder="[Web발신] KB국민인증번호 [123456] 입력시간 3분"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="test-pass-pattern">정규식 패턴</label>
+            <input type="text" id="test-pass-pattern" placeholder="여기에 테스트할 정규식 패턴을 입력하거나 위 규칙 목록에서 불러오세요.">
+          </div>
+          <button class="btn btn-secondary w-full" id="test-pass-run-btn"><i data-lucide="play"></i> 테스트 실행</button>
+
+          <div class="test-result-box" id="test-pass-result-container" style="display:none; margin-top:1rem; padding:1rem; border-radius:8px;">
+            <!-- Result text -->
           </div>
         </div>
       </div>
