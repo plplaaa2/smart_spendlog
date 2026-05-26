@@ -284,64 +284,7 @@ function generatePatternFromText(text) {
     }
   }
 
-  // 3. 시간/일시 감지
-  const timeMatch = cleanText.match(/\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{2}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{1,2}월\s*\d{1,2}일\s*\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{2}[/\-.]\d{2}\s+\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{2}:\d{2}/);
-  if (timeMatch) {
-    let regex = '(?<time>\\d{2}:\\d{2})';
-    const rawTime = timeMatch[0];
-    const start = timeMatch.index;
-    const end = timeMatch.index + rawTime.length;
-    
-    if (!isOverlapping(start, end)) {
-      if (rawTime.includes('월') && rawTime.includes('일')) {
-        regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일\\s*\\d{2}:\\d{2})';
-      } else if (rawTime.includes(':') && (rawTime.includes('/') || rawTime.includes('-') || rawTime.includes('.'))) {
-        const sep = rawTime.match(/[/\-.]/)[0];
-        const partCount = (rawTime.split(sep).length - 1);
-        if (partCount === 2) {
-          const yearLen = rawTime.split(sep)[0].length;
-          regex = `(?<time>\\d{${yearLen}}${escapeRegexChars(sep)}\\d{1,2}${escapeRegexChars(sep)}\\d{1,2}\\s+\\d{2}:\\d{2})`;
-        } else {
-          regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2}\\s+\\d{2}:\\d{2})`;
-        }
-      }
-      blocks.push({
-        type: '시간',
-        start,
-        end,
-        regex,
-        value: rawTime
-      });
-    }
-  } else {
-    const dateMatch = cleanText.match(/\d{2}[/\-.]\d{2}/) || cleanText.match(/\d{1,2}월\s*\d{1,2}일/);
-    if (dateMatch) {
-      const rawDate = dateMatch[0];
-      const start = dateMatch.index;
-      const end = dateMatch.index + rawDate.length;
-      
-      if (!isOverlapping(start, end)) {
-        let regex = `(?<time>\\d{2}[/\\-.]\\d{2})`;
-        if (rawDate.includes('월')) {
-          regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일)';
-        } else {
-          const sep = rawDate.match(/[/\-.]/)[0];
-          regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2})`;
-        }
-        blocks.push({
-          type: '날짜',
-          start,
-          end,
-          regex,
-          value: rawDate
-        });
-      }
-    }
-  }
+
 
   // 4. 잔액 감지
   const balanceMatch = cleanText.match(/(?:잔액|잔고)\s*:?\s*([\d,]+)\s*원?/);
