@@ -342,8 +342,11 @@ function generatePatternFromText(text) {
     }
   }
 
-  // 7. 계좌번호 감지 (마스킹 포함)
-  const accountMatch = cleanText.match(/\d{3,}[-\d*]{2,}/) || cleanText.match(/[\d*-]{5,}/);
+  // 7. 계좌번호 감지 (마스킹 문자 '*'가 포함된 계좌번호 패턴 최우선 감지)
+  const accountMatch = cleanText.match(/\d{3,}\*+[-\d*]*/) || 
+                       cleanText.match(/[-\d*]*\*+[-\d*]*/) ||
+                       cleanText.match(/\d{3,}[-\d*]{2,}/) || 
+                       cleanText.match(/[\d*-]{5,}/);
   if (accountMatch && !accountMatch[0].includes('/') && !accountMatch[0].includes(':')) {
     if (!accountMatch[0].includes('원')) {
       const start = accountMatch.index;
