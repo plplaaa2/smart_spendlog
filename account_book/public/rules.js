@@ -129,6 +129,17 @@ function loadRuleToEditor(rule) {
   updateCategorySelect('#rule-category', type, rule ? rule.category : '');
   
   document.getElementById('rule-pay-method').value = rule ? rule.pay_method : '_AUTO_MAPPING_';
+  
+  const actionSelect = document.getElementById('rule-action');
+  if (actionSelect) {
+    actionSelect.value = 'REGISTER';
+  }
+  const payMethodSelect = document.getElementById('rule-pay-method');
+  if (payMethodSelect) {
+    payMethodSelect.disabled = false;
+    payMethodSelect.style.opacity = '1';
+    payMethodSelect.style.cursor = 'default';
+  }
 
   // 실시간 테스터에도 자동으로 패턴 채워주기
   if (rule) {
@@ -247,7 +258,7 @@ async function loadLogs() {
            </button>`
         : '';
 
-      const showFooter = (log.parsed_status !== 'SUCCESS' && log.parsed_status !== 'PASS');
+      const showFooter = (log.parsed_status !== 'PASS');
       const footerHtml = showFooter 
         ? `<div class="log-card-footer" style="gap: 6px;">
              <button class="btn btn-secondary btn-sm btn-create-tx">

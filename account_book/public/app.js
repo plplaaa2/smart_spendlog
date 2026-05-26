@@ -643,6 +643,25 @@ function initEventListeners() {
     });
   }
 
+  // 규칙 처리 유형(등록/패스) 변경 리스너
+  const ruleActionSelect = document.getElementById('rule-action');
+  if (ruleActionSelect) {
+    ruleActionSelect.addEventListener('change', () => {
+      const payMethodSelect = document.getElementById('rule-pay-method');
+      if (payMethodSelect) {
+        if (ruleActionSelect.value === 'PASS') {
+          payMethodSelect.disabled = true;
+          payMethodSelect.style.opacity = '0.5';
+          payMethodSelect.style.cursor = 'not-allowed';
+        } else {
+          payMethodSelect.disabled = false;
+          payMethodSelect.style.opacity = '1';
+          payMethodSelect.style.cursor = 'default';
+        }
+      }
+    });
+  }
+
   // 규칙 저장 서브밋
   document.getElementById('rule-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -652,17 +671,27 @@ function initEventListeners() {
     const pattern = document.getElementById('rule-pattern').value;
     const category = document.getElementById('rule-category').value;
     const pay_method = document.getElementById('rule-pay-method').value;
+    const action = document.getElementById('rule-action') ? document.getElementById('rule-action').value : 'REGISTER';
 
     try {
-      const res = await fetch('api/rules', {
+      const isPass = (action === 'PASS');
+      const url = isPass ? 'api/pass_rules' : 'api/rules';
+      const bodyData = isPass 
+        ? { id, name, pattern }
+        : { id, name, pattern, category, pay_method, merchant_template: '${merchant}', type };
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, name, pattern, category, pay_method, merchant_template: '${merchant}', type })
+        body: JSON.stringify(bodyData)
       }).then(r => r.json());
 
       if (res.success) {
         closeRuleModal();
         loadRules();
+        if (typeof loadPassRules === 'function') {
+          loadPassRules();
+        }
       }
     } catch (err) {
       alert('규칙 저장 실패: ' + err.message);
