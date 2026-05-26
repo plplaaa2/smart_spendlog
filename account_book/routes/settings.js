@@ -8,8 +8,63 @@
  */
 
 const express = require('express');
+const http = require('http');
 const router = express.Router();
 const { getDB, resetAllData, updateHASensors } = require('../database');
+
+// HA의 last_notification 엔티티 목록 조회
+router.get('/settings/ha_notification_sensors', async (req, res) => {
+  const token = process.env.SUPERVISOR_TOKEN;
+  if (!token) {
+    return res.json([]);
+  }
+
+  try {
+    const states = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'supervisor',
+        port: 80,
+        path: '/core/api/states',
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const request = http.request(options, (response) => {
+        let data = '';
+        response.on('data', (chunk) => { data += chunk; });
+        response.on('end', () => {
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+          } else {
+            reject(new Error(`Status: ${response.statusCode}`));
+          }
+        });
+      });
+
+      request.on('error', (err) => { reject(err); });
+      request.end();
+    });
+
+    if (!Array.isArray(states)) {
+      return res.json([]);
+    }
+
+    const sensors = states
+      .filter(s => s.entity_id && s.entity_id.endsWith('_last_notification'))
+      .map(s => ({
+        entity_id: s.entity_id,
+        friendly_name: (s.attributes && s.attributes.friendly_name) || s.entity_id
+      }));
+
+    res.json(sensors);
+  } catch (err) {
+    console.error('[HA API] HA states 조회 오류:', err);
+    res.json([]);
+  }
+});
 
 // 설정 조회
 router.get('/settings', async (req, res) => {

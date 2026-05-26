@@ -54,12 +54,85 @@ async function loadSettingsTab() {
   try {
     initSettingsSubTabs(); // 설정 탭 로드 시 항상 바인딩 검사
     
+    // 1. HA에서 last_notification 센서 목록 조회
+    let haSensors = [];
+    try {
+      haSensors = await fetch('api/settings/ha_notification_sensors').then(r => r.json());
+    } catch (e) {
+      console.warn('HA 알림 센서 목록 조회 실패 (단독 모드로 보임):', e);
+    }
+
     const settings = await fetch('api/settings').then(r => r.json());
     const entityEl = document.getElementById('settings-ws-entity');
+    const manualEl = document.getElementById('settings-ws-entity-manual');
     const budgetEl = document.getElementById('settings-budget');
     const realNameEl = document.getElementById('settings-real-name');
     const autoRuleEl = document.getElementById('settings-auto-rule');
-    if (entityEl) entityEl.value = settings.ws_sensor_entity || '';
+
+    if (entityEl) {
+      // select 박스 옵션 초기화 및 채우기
+      entityEl.innerHTML = `
+        <option value="">센서 선택 안함</option>
+      `;
+      if (Array.isArray(haSensors) && haSensors.length > 0) {
+        haSensors.forEach(sensor => {
+          const opt = document.createElement('option');
+          opt.value = sensor.entity_id;
+          opt.textContent = `${sensor.friendly_name} (${sensor.entity_id})`;
+          entityEl.appendChild(opt);
+        });
+      }
+      
+      // 직접 입력 옵션 추가
+      const manualOpt = document.createElement('option');
+      manualOpt.value = '__MANUAL__';
+      manualOpt.textContent = '✍️ 직접 입력...';
+      entityEl.appendChild(manualOpt);
+
+      const savedVal = settings.ws_sensor_entity || '';
+      
+      // 선택값 복원
+      if (savedVal === '') {
+        entityEl.value = '';
+        if (manualEl) {
+          manualEl.style.display = 'none';
+          manualEl.value = '';
+        }
+      } else {
+        // 이미 가져온 센서 리스트에 존재하는지 체크
+        const exists = haSensors.some(s => s.entity_id === savedVal);
+        if (exists) {
+          entityEl.value = savedVal;
+          if (manualEl) {
+            manualEl.style.display = 'none';
+            manualEl.value = '';
+          }
+        } else {
+          // 리스트에 없으면 직접 입력으로 복원
+          entityEl.value = '__MANUAL__';
+          if (manualEl) {
+            manualEl.style.display = 'block';
+            manualEl.value = savedVal;
+          }
+        }
+      }
+
+      // change 이벤트 리스너 바인딩 (이전 핸들러 덮어쓰기 위해 onchange 사용)
+      entityEl.onchange = () => {
+        if (entityEl.value === '__MANUAL__') {
+          if (manualEl) {
+            manualEl.style.display = 'block';
+            manualEl.focus();
+          }
+        } else {
+          if (manualEl) {
+            manualEl.style.display = 'none';
+            manualEl.value = '';
+          }
+        }
+      };
+    }
+
     if (budgetEl) budgetEl.value = settings.monthly_budget || 500000;
     if (realNameEl) realNameEl.value = settings.user_real_name || '';
     if (autoRuleEl) autoRuleEl.checked = settings.auto_rule_generation === 'true';

@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.87"><!-- 캐시 무효화 버전 갱신 (소비내역 -> 거래내역 용어 전면 변경 반영) -->
+  <link rel="stylesheet" href="./style.css?v=1.9.88"><!-- 캐시 무효화 버전 갱신 (설정 탭 용어 및 HA 센서 드롭다운 리액션 반영) -->
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons CDN -->
@@ -511,7 +511,7 @@
         <div class="settings-nav-tabs"
           style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--glass-border); margin-bottom: 2rem; padding-bottom: 0.5rem; flex-wrap: wrap;">
           <button class="settings-tab-btn active" data-subtab="default"
-            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">기본
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">사용자
             설정</button>
           <button class="settings-tab-btn" data-subtab="rules"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">자동
@@ -525,32 +525,37 @@
         </div>
 
         <div class="settings-layout">
-          <!-- 1) 기본 설정 서브 탭 -->
+          <!-- 1) 사용자 설정 서브 탭 -->
           <div id="subtab-default" class="sub-settings-content active" style="width: 100%;">
             <div class="default-settings-layout">
               <div style="display: flex; flex-direction: column; gap: 2rem;">
                 <!-- Main Settings Form -->
                 <div class="card glass settings-form-card">
-                  <h3>기본 설정</h3>
+                  <h3>사용자 설정</h3>
                   <form id="settings-form">
-                    <div class="form-group">
-                      <label for="settings-ws-entity">Home Assistant 알림 센서 Entity ID</label>
-                      <div class="info-box">
-                        <p>HA Companion 앱이 제공하는 마지막 알림 수신 센서를 지정합니다. (예: <code>sensor.my_phone_last_notification</code>)
-                        </p>
-                      </div>
-                      <input type="text" id="settings-ws-entity" placeholder="sensor.xxx_last_notification">
-                    </div>
-                    <div class="form-group">
-                      <label for="settings-budget">이번 달 예산 설정 (원)</label>
-                      <input type="number" id="settings-budget" placeholder="500000" min="0">
-                    </div>
                     <div class="form-group">
                       <label for="settings-real-name">사용자 이름 (본명)</label>
                       <div class="info-box">
                         <p>알림 수신 시 사용처(가맹점)가 이 이름과 같고 결제수단이 은행 계열이면 단순 이체(통장 이동)로 간주하여 가계부 지출 내역에서 자동으로 제외합니다.</p>
                       </div>
                       <input type="text" id="settings-real-name" placeholder="예: 홍길동">
+                    </div>
+                    <div class="form-group">
+                      <label for="settings-ws-entity">Home Assistant 알림 센서 Entity ID</label>
+                      <div class="info-box">
+                        <p>HA Companion 앱이 제공하는 마지막 알림 수신 센서를 지정합니다.</p>
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <select id="settings-ws-entity" class="select-filter" style="width: 100%; max-width: 100%;">
+                          <option value="">센서 선택 안함</option>
+                          <option value="__MANUAL__">✍️ 직접 입력...</option>
+                        </select>
+                        <input type="text" id="settings-ws-entity-manual" placeholder="sensor.xxx_last_notification" style="display: none;">
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="settings-budget">이번 달 예산 설정 (원)</label>
+                      <input type="number" id="settings-budget" placeholder="500000" min="0">
                     </div>
                     <div class="form-group"
                       style="margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
@@ -1149,13 +1154,13 @@ action:
   </nav>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=1.9.87"></script>
-  <script src="./dashboard.js?v=1.9.87"></script>
-  <script src="./transactions.js?v=1.9.87"></script>
-  <script src="./card_bank_view.js?v=1.9.87"></script>
-  <script src="./rules.js?v=1.9.87"></script>
-  <script src="./analytics.js?v=1.9.87"></script>
-  <script src="./settings.js?v=1.9.87"></script>
+  <script src="./app.js?v=1.9.88"></script>
+  <script src="./dashboard.js?v=1.9.88"></script>
+  <script src="./transactions.js?v=1.9.88"></script>
+  <script src="./card_bank_view.js?v=1.9.88"></script>
+  <script src="./rules.js?v=1.9.88"></script>
+  <script src="./analytics.js?v=1.9.88"></script>
+  <script src="./settings.js?v=1.9.88"></script>
 </body>
 
 </html>

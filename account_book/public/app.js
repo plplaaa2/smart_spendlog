@@ -671,12 +671,17 @@ function initEventListeners() {
   // 로그 탭 새로고침
   document.getElementById('refresh-logs-btn').addEventListener('click', loadLogs);
 
-  // 기본 설정 폼 서브밋
+  // 사용자 설정 폼 서브밋
   const settingsForm = document.getElementById('settings-form');
   if (settingsForm) {
     settingsForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const ws_sensor_entity = document.getElementById('settings-ws-entity').value.trim();
+      const entitySelect = document.getElementById('settings-ws-entity');
+      let ws_sensor_entity = entitySelect ? entitySelect.value.trim() : '';
+      if (ws_sensor_entity === '__MANUAL__') {
+        const manualInput = document.getElementById('settings-ws-entity-manual');
+        ws_sensor_entity = manualInput ? manualInput.value.trim() : '';
+      }
       const monthly_budget = parseInt(document.getElementById('settings-budget').value, 10);
       const user_real_name = document.getElementById('settings-real-name').value.trim();
       const auto_rule_generation = document.getElementById('settings-auto-rule').checked;
@@ -689,14 +694,14 @@ function initEventListeners() {
         }).then(r => r.json());
 
         if (res.success) {
-          alert('기본 설정이 저장되었습니다.');
+          alert('사용자 설정이 저장되었습니다.');
           await loadMetadata();
           if (state.currentTab === 'dashboard') {
             loadDashboardData();
           }
         }
       } catch (err) {
-        alert('기본 설정 저장 실패: ' + err.message);
+        alert('사용자 설정 저장 실패: ' + err.message);
       }
     });
   }
