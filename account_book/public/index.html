@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.86"><!-- 캐시 무효화 버전 갱신 (카드/은행별 자산 즐겨찾기 및 최상단 정렬 반영) -->
+  <link rel="stylesheet" href="./style.css?v=1.9.87"><!-- 캐시 무효화 버전 갱신 (소비내역 -> 거래내역 용어 전면 변경 반영) -->
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons CDN -->
@@ -74,7 +74,7 @@
         </button>
         <button class="nav-item" data-tab="transactions">
           <i data-lucide="receipt"></i>
-          <span>소비 내역</span>
+          <span>거래 내역</span>
         </button>
 
         <button class="nav-item" data-tab="analytics">
@@ -258,7 +258,7 @@
         </div>
 
         <!-- Sub Tab Views -->
-        <!-- 1) 전체 내역 View (기존 소비 내역) -->
+        <!-- 1) 전체 내역 View (기존 거래 내역) -->
         <div id="tx-subview-all" class="tx-subview-content active">
           <!-- Control Bar -->
           <div class="control-bar">
@@ -299,7 +299,7 @@
               </table>
             </div>
             <div class="table-footer" id="transaction-table-footer">
-              <p class="empty-message">소비 내역이 없습니다.</p>
+              <p class="empty-message">거래 내역이 없습니다.</p>
             </div>
           </div>
         </div>
@@ -1149,13 +1149,13 @@ action:
   </nav>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=1.9.86"></script>
-  <script src="./dashboard.js?v=1.9.86"></script>
-  <script src="./transactions.js?v=1.9.86"></script>
-  <script src="./card_bank_view.js?v=1.9.86"></script>
-  <script src="./rules.js?v=1.9.86"></script>
-  <script src="./analytics.js?v=1.9.86"></script>
-  <script src="./settings.js?v=1.9.86"></script>
+  <script src="./app.js?v=1.9.87"></script>
+  <script src="./dashboard.js?v=1.9.87"></script>
+  <script src="./transactions.js?v=1.9.87"></script>
+  <script src="./card_bank_view.js?v=1.9.87"></script>
+  <script src="./rules.js?v=1.9.87"></script>
+  <script src="./analytics.js?v=1.9.87"></script>
+  <script src="./settings.js?v=1.9.87"></script>
 </body>
 
 </html>

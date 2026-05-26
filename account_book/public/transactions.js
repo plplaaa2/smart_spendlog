@@ -1,5 +1,5 @@
 // ==========================================
-// 2. 가계부 소비 내역 탭 로직
+// 2. 가계부 거래 내역 탭 로직
 // ==========================================
 
 async function loadTransactions() {
@@ -60,7 +60,7 @@ async function loadTransactions() {
     lucide.createIcons();
 
   } catch (err) {
-    console.error('소비 내역 로드 실패:', err);
+    console.error('거래 내역 로드 실패:', err);
   }
 }
 

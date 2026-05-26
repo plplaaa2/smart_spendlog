@@ -406,7 +406,7 @@ function switchTab(tabId) {
   // 타이틀 변경
   const titles = {
     dashboard: ['대시보드', '이번 달 소비 패턴 분석 및 통계'],
-    transactions: ['소비 내역', '상세 가계부 내역 조회 및 편집'],
+    transactions: ['거래 내역', '상세 가계부 내역 조회 및 편집'],
     rules: ['자동 분류 규칙', '알림에서 금액/사용처를 추출하기 위한 정규식 설정'],
     analytics: ['소비 분석', '월별/연도별 자산 흐름 및 전년 대비 소비 비교'],
     logs: ['알림 수신 로그', 'Home Assistant에서 수신된 스마트폰 알림 원본 이력'],
@@ -468,7 +468,7 @@ function initEventListeners() {
     });
   });
 
-  // 소비 내역 내 서브 탭 클릭 이벤트
+  // 거래 내역 내 서브 탭 클릭 이벤트
   document.querySelectorAll('.tx-subtab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const subtab = btn.dataset.subtab;
@@ -515,7 +515,7 @@ function initEventListeners() {
     }
   });
 
-  // 소비내역 검색 및 필터 변경
+  // 거래내역 검색 및 필터 변경
   document.getElementById('transaction-search').addEventListener('input', debounce(loadTransactions, 300));
   document.getElementById('filter-category').addEventListener('change', loadTransactions);
 
@@ -944,7 +944,7 @@ function initEventListeners() {
   const resetAllBtn = document.getElementById('btn-reset-all');
   if (resetAllBtn) {
     resetAllBtn.addEventListener('click', async () => {
-      const confirmed1 = confirm('경고: 모든 소비 내역, 알림 로그, 등록된 규칙 및 설정 정보가 완전히 영구 삭제됩니다.\n정말로 전체 초기화를 진행하시겠습니까?');
+      const confirmed1 = confirm('경고: 모든 거래 내역, 알림 로그, 등록된 규칙 및 설정 정보가 완전히 영구 삭제됩니다.\n정말로 전체 초기화를 진행하시겠습니까?');
       if (!confirmed1) return;
       
       const confirmed2 = confirm('진짜로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다. 모든 데이터가 소멸하고 기본 규칙들로만 재설정됩니다.');
