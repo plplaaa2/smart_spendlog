@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.88"><!-- 캐시 무효화 버전 갱신 (설정 탭 용어 및 HA 센서 드롭다운 리액션 반영) -->
+  <link rel="stylesheet" href="./style.css?v=1.9.89"><!-- 캐시 무효화 버전 갱신 (데이터 관리 단독 탭 추가 반영) -->
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons CDN -->
@@ -522,6 +522,9 @@
           <button class="settings-tab-btn" data-subtab="balance"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">잔액
             설정</button>
+          <button class="settings-tab-btn" data-subtab="data"
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">데이터
+            관리</button>
         </div>
 
         <div class="settings-layout">
@@ -567,51 +570,6 @@
                     </div>
                     <button type="submit" class="btn btn-primary">설정 저장</button>
                   </form>
-                </div>
-
-                <!-- 데이터 백업 및 복원 카드 -->
-                <div class="card glass settings-form-card">
-                  <h3>데이터 백업 및 복원</h3>
-                  <div class="info-box">
-                    <p>현재 가계부의 모든 데이터를 안전하게 백업하거나 백업 파일(.json)로부터 데이터를 복원할 수 있습니다.</p>
-                  </div>
-                  <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 1rem; align-items: center;">
-                    <button type="button" class="btn btn-primary" id="btn-backup-data"
-                      style="display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px;">
-                      <i data-lucide="download" style="width: 16px; height: 16px;"></i> 데이터 백업 (내보내기)
-                    </button>
-                    <label for="restore-file-input" class="btn"
-                      style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary); display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; margin-bottom: 0;">
-                      <i data-lucide="upload" style="width: 16px; height: 16px;"></i> 데이터 복원 (가져오기)
-                    </label>
-                    <input type="file" id="restore-file-input" accept=".json" style="display: none;">
-                    <span id="restore-loading-indicator"
-                      style="display: none; font-size: 0.85rem; color: var(--primary-color); align-items: center; gap: 0.25rem;">
-                      <i data-lucide="loader" class="animate-spin" style="width: 16px; height: 16px;"></i> 복원 중...
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Danger Zone (Data Reset) Card -->
-                <div class="card glass reset-card" style="border-color: rgba(239, 68, 68, 0.25);">
-                  <h3
-                    style="color: var(--danger-color); display: flex; align-items: center; gap: 8px; font-size: 1.25rem; margin-bottom: 1rem;">
-                    <i data-lucide="alert-triangle" style="stroke: var(--danger-color);"></i> 위험 구역 (데이터 초기화)
-                  </h3>
-                  <p class="text-secondary" style="font-size: 0.85rem; margin-bottom: 1.5rem; line-height: 1.5;">
-                    가계부 데이터를 초기화하거나 설정된 초기 잔액을 0원으로 초기화할 수 있습니다. 초기화된 정보는 다시 복구할 수 없으므로 주의하시기 바랍니다.
-                  </p>
-                  <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                    <button type="button" class="btn" id="btn-reset-balance"
-                      style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger-color); color: var(--danger-color); display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s;">
-                      <i data-lucide="rotate-ccw" style="width: 16px; height: 16px;"></i> 잔액 초기화
-                    </button>
-                    <button type="button" class="btn" id="btn-reset-all"
-                      style="background: var(--danger-color); border: none; color: white; display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s;">
-                      <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i> 전체 초기화
-                    </button>
-                  </div>
-                </div>
               </div>
 
               <!-- Configuration and Manual Integration Guide -->
@@ -796,6 +754,55 @@ action:
                   </div>
                   <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">잔액 및 포인트 설정 저장</button>
                 </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5) 데이터 관리 서브 탭 -->
+          <div id="subtab-data" class="sub-settings-content" style="width: 100%;">
+            <div style="display: flex; flex-direction: column; gap: 2rem;">
+              <!-- 데이터 백업 및 복원 카드 -->
+              <div class="card glass settings-form-card">
+                <h3>데이터 백업 및 복원</h3>
+                <div class="info-box">
+                  <p>현재 가계부의 모든 데이터를 안전하게 백업하거나 백업 파일(.json)로부터 데이터를 복원할 수 있습니다.</p>
+                </div>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 1rem; align-items: center;">
+                  <button type="button" class="btn btn-primary" id="btn-backup-data"
+                    style="display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px;">
+                    <i data-lucide="download" style="width: 16px; height: 16px;"></i> 데이터 백업 (내보내기)
+                  </button>
+                  <label for="restore-file-input" class="btn"
+                    style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary); display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s; margin-bottom: 0;">
+                    <i data-lucide="upload" style="width: 16px; height: 16px;"></i> 데이터 복원 (가져오기)
+                  </label>
+                  <input type="file" id="restore-file-input" accept=".json" style="display: none;">
+                  <span id="restore-loading-indicator"
+                    style="display: none; font-size: 0.85rem; color: var(--primary-color); align-items: center; gap: 0.25rem;">
+                    <i data-lucide="loader" class="animate-spin" style="width: 16px; height: 16px;"></i> 복원 중...
+                  </span>
+                </div>
+              </div>
+
+              <!-- Danger Zone (Data Reset) Card -->
+              <div class="card glass reset-card" style="border-color: rgba(239, 68, 68, 0.25);">
+                <h3
+                  style="color: var(--danger-color); display: flex; align-items: center; gap: 8px; font-size: 1.25rem; margin-bottom: 1rem;">
+                  <i data-lucide="alert-triangle" style="stroke: var(--danger-color);"></i> 위험 구역 (데이터 초기화)
+                </h3>
+                <p class="text-secondary" style="font-size: 0.85rem; margin-bottom: 1.5rem; line-height: 1.5;">
+                  가계부 데이터를 초기화하거나 설정된 초기 잔액을 0원으로 초기화할 수 있습니다. 초기화된 정보는 다시 복구할 수 없으므로 주의하시기 바랍니다.
+                </p>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                  <button type="button" class="btn" id="btn-reset-balance"
+                    style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger-color); color: var(--danger-color); display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s;">
+                    <i data-lucide="rotate-ccw" style="width: 16px; height: 16px;"></i> 잔액 초기화
+                  </button>
+                  <button type="button" class="btn" id="btn-reset-all"
+                    style="background: var(--danger-color); border: none; color: white; display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s;">
+                    <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i> 전체 초기화
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1154,13 +1161,13 @@ action:
   </nav>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=1.9.88"></script>
-  <script src="./dashboard.js?v=1.9.88"></script>
-  <script src="./transactions.js?v=1.9.88"></script>
-  <script src="./card_bank_view.js?v=1.9.88"></script>
-  <script src="./rules.js?v=1.9.88"></script>
-  <script src="./analytics.js?v=1.9.88"></script>
-  <script src="./settings.js?v=1.9.88"></script>
+  <script src="./app.js?v=1.9.89"></script>
+  <script src="./dashboard.js?v=1.9.89"></script>
+  <script src="./transactions.js?v=1.9.89"></script>
+  <script src="./card_bank_view.js?v=1.9.89"></script>
+  <script src="./rules.js?v=1.9.89"></script>
+  <script src="./analytics.js?v=1.9.89"></script>
+  <script src="./settings.js?v=1.9.89"></script>
 </body>
 
 </html>

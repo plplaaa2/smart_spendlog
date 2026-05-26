@@ -47,6 +47,8 @@ function switchSettingsSubTab(subtab) {
     loadMerchantCategories();
   } else if (subtab === 'balance') {
     loadBalanceSettings();
+  } else if (subtab === 'data') {
+    lucide.createIcons();
   }
 }
 
