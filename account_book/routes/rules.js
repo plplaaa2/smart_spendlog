@@ -51,11 +51,22 @@ router.post('/rules', async (req, res) => {
     const ruleCategory = category || '_AUTO_MAPPING_';
 
     if (id) {
-      await db.run(
-        'UPDATE rules SET name = ?, pattern = ?, category = ?, pay_method = ?, merchant_template = ?, type = ? WHERE id = ?',
-        [name, pattern, ruleCategory, pay_method, merchant_template, ruleType, id]
-      );
-      res.json({ success: true, id });
+      const existsInRules = await db.get('SELECT id FROM rules WHERE id = ?', [id]);
+      if (existsInRules) {
+        await db.run(
+          'UPDATE rules SET name = ?, pattern = ?, category = ?, pay_method = ?, merchant_template = ?, type = ? WHERE id = ?',
+          [name, pattern, ruleCategory, pay_method, merchant_template, ruleType, id]
+        );
+        res.json({ success: true, id });
+      } else {
+        // 기존 패스규칙(pass_rules)에서 전환된 경우
+        await db.run('DELETE FROM pass_rules WHERE id = ?', [id]);
+        const result = await db.run(
+          'INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)',
+          [name, pattern, ruleCategory, pay_method, merchant_template, ruleType]
+        );
+        res.json({ success: true, id: result.lastID });
+      }
     } else {
       const result = await db.run(
         'INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)',
@@ -101,11 +112,22 @@ router.post('/pass_rules', async (req, res) => {
     }
 
     if (id) {
-      await db.run(
-        'UPDATE pass_rules SET name = ?, pattern = ? WHERE id = ?',
-        [name, pattern, id]
-      );
-      res.json({ success: true, id });
+      const existsInPass = await db.get('SELECT id FROM pass_rules WHERE id = ?', [id]);
+      if (existsInPass) {
+        await db.run(
+          'UPDATE pass_rules SET name = ?, pattern = ? WHERE id = ?',
+          [name, pattern, id]
+        );
+        res.json({ success: true, id });
+      } else {
+        // 기존 일반분류규칙(rules)에서 전환된 경우
+        await db.run('DELETE FROM rules WHERE id = ?', [id]);
+        const result = await db.run(
+          'INSERT INTO pass_rules (name, pattern) VALUES (?, ?)',
+          [name, pattern]
+        );
+        res.json({ success: true, id: result.lastID });
+      }
     } else {
       const result = await db.run(
         'INSERT INTO pass_rules (name, pattern) VALUES (?, ?)',
