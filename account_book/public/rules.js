@@ -251,7 +251,7 @@ async function loadLogs() {
         statusBadge = '<span class="badge-status failed">등록 실패</span>';
       }
 
-      const showRetry = (log.parsed_status !== 'SUCCESS' && log.parsed_status !== 'PASS');
+      const showRetry = (log.parsed_status !== 'PASS');
       const retryHtml = showRetry 
         ? `<button class="badge-status btn-retry-log" style="cursor: pointer; border: none; background: rgba(16, 185, 129, 0.2); color: var(--success-color); display: inline-flex; align-items: center; gap: 3px; font-family: inherit; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
              <i data-lucide="refresh-cw" style="width:11px;height:11px;"></i> 재시도
