@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.89"><!-- 캐시 무효화 버전 갱신 (데이터 관리 단독 탭 추가 반영) -->
+  <link rel="stylesheet" href="./style.css?v=1.9.90"><!-- 캐시 무효화 버전 갱신 (HA 가이드 제거 및 UI 다이어트 반영) -->
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons CDN -->
@@ -570,36 +570,6 @@
                     </div>
                     <button type="submit" class="btn btn-primary">설정 저장</button>
                   </form>
-              </div>
-
-              <!-- Configuration and Manual Integration Guide -->
-              <div class="card glass guide-card">
-                <h3>Home Assistant 연동 가이드</h3>
-                <div class="guide-content">
-                  <h4>방법 1: WebSocket 자동 연동 (추천)</h4>
-                  <ol>
-                    <li>스마트폰에 <b>Home Assistant 공식 앱</b>을 설치합니다.</li>
-                    <li>앱 설정 &gt; 구성원 설정 &gt; 센서 관리에서 <b>'마지막 알림(Last Notification)'</b> 센서를 활성화합니다.</li>
-                    <li>해당 엔티티 명(예: <code>sensor.phone_last_notification</code>)을 위 설정 창에 적고 저장합니다.</li>
-                    <li>앱 알림이 뜰 때마다 백그라운드 웹소켓을 통해 본 가계부로 실시간 전송 및 분석됩니다.</li>
-                  </ol>
-
-                  <h4>방법 2: HA 자동화를 통한 웹훅 전송</h4>
-                  <p>웹소켓 대신 HA Automation을 통해 수동으로 알림 내용을 가계부로 전송하고 싶다면, 아래 YAML 자동화를 추가하십시오.</p>
-                  <pre class="yaml-code"><code>alias: "가계부: 알림 수신 자동 전송"
-trigger:
-  - platform: state
-    entity_id: sensor.my_phone_last_notification
-condition:
-  - condition: template
-    value_template: "{{ trigger.to_state.state != 'unknown' }}"
-action:
-  - service: http.post
-    data:
-      url: http://account_book:8124/api/webhook
-      json:
-        title: "{{ trigger.to_state.attributes['android.title'] | default(trigger.to_state.attributes.title) }}"
-        text: "{{ trigger.to_state.attributes['android.text'] | default(trigger.to_state.state) }}"</code></pre>
                 </div>
               </div>
             </div>
@@ -1161,13 +1131,13 @@ action:
   </nav>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=1.9.89"></script>
-  <script src="./dashboard.js?v=1.9.89"></script>
-  <script src="./transactions.js?v=1.9.89"></script>
-  <script src="./card_bank_view.js?v=1.9.89"></script>
-  <script src="./rules.js?v=1.9.89"></script>
-  <script src="./analytics.js?v=1.9.89"></script>
-  <script src="./settings.js?v=1.9.89"></script>
+  <script src="./app.js?v=1.9.90"></script>
+  <script src="./dashboard.js?v=1.9.90"></script>
+  <script src="./transactions.js?v=1.9.90"></script>
+  <script src="./card_bank_view.js?v=1.9.90"></script>
+  <script src="./rules.js?v=1.9.90"></script>
+  <script src="./analytics.js?v=1.9.90"></script>
+  <script src="./settings.js?v=1.9.90"></script>
 </body>
 
 </html>
