@@ -442,7 +442,8 @@ function refreshCurrentTabData() {
       loadAnalytics();
       break;
     case 'logs':
-      loadLogs();
+      initLogsSubTabs();
+      switchLogsSubTab('logs-list');
       break;
     case 'settings':
       loadSettingsTab();

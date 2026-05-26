@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.90"><!-- 캐시 무효화 버전 갱신 (HA 가이드 제거 및 UI 다이어트 반영) -->
+  <link rel="stylesheet" href="./style.css?v=1.9.91"><!-- 캐시 무효화 버전 갱신 (로그 및 규칙/사용처 설정 탭 이관 반영) -->
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons CDN -->
@@ -403,14 +403,143 @@
 
       <!-- 4. LOGS TAB -->
       <section id="tab-logs" class="tab-content">
-        <div class="card glass logs-card">
-          <div class="card-header">
-            <h3>Home Assistant 수신 알림 로그 (최근 100건)</h3>
-            <button class="btn btn-secondary btn-sm" id="refresh-logs-btn"><i data-lucide="refresh-cw"></i>
-              새로고침</button>
+        <!-- Logs Sub tabs menu -->
+        <div class="logs-nav-tabs"
+          style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--glass-border); margin-bottom: 2rem; padding-bottom: 0.5rem; flex-wrap: wrap;">
+          <button class="logs-tab-btn active" data-subtab="logs-list"
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">수신 로그</button>
+          <button class="logs-tab-btn" data-subtab="rules"
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">자동 분류규칙</button>
+          <button class="logs-tab-btn" data-subtab="merchant"
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">사용처 설정</button>
+        </div>
+
+        <div class="logs-layout-container">
+          <!-- 1) 수신 로그 서브 탭 -->
+          <div id="subtab-logs-list" class="sub-logs-content active" style="width: 100%;">
+            <div class="card glass logs-card">
+              <div class="card-header">
+                <h3>Home Assistant 수신 알림 로그 (최근 100건)</h3>
+                <button class="btn btn-secondary btn-sm" id="refresh-logs-btn"><i data-lucide="refresh-cw"></i>
+                  새로고침</button>
+              </div>
+              <div class="logs-grid" id="logs-grid-container">
+                <!-- Dynamic cards -->
+              </div>
+            </div>
           </div>
-          <div class="logs-grid" id="logs-grid-container">
-            <!-- Dynamic cards -->
+
+          <!-- 2) 자동 분류규칙 서브 탭 -->
+          <div id="subtab-rules" class="sub-logs-content" style="width: 100%;">
+            <div class="rules-layout">
+              <!-- Rules List -->
+              <div class="card glass rules-list-card">
+                <div class="card-header">
+                  <h3>자동 분류 정규식 규칙</h3>
+                  <button class="btn btn-primary btn-sm" id="new-rule-btn"><i data-lucide="plus"></i> 규칙 추가</button>
+                </div>
+                <div class="rules-list" id="rules-list-container">
+                  <!-- Dynamic rules -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3) 사용처 설정 서브 탭 -->
+          <div id="subtab-merchant" class="sub-logs-content" style="width: 100%;">
+            <div style="display: flex; flex-direction: column; gap: 2rem;">
+              <!-- 사용처별 카테고리 매핑 설정 카드 -->
+              <div class="card glass settings-form-card">
+                <h3>사용처별 카테고리 자동 설정</h3>
+                <div class="info-box">
+                  <p>알림 분석으로 추출된 사용처(가맹점)에 대해 우선 적용할 카테고리를 설정합니다. 가계부 수동 등록/수정 시에도 자동 등록되며, 이곳에서 직접 관리할 수 있습니다.</p>
+                </div>
+                <div
+                  style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                  <span id="merchant-preset-badge"
+                    style="font-size: 0.78rem; color: var(--text-secondary); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 3px 10px;"></span>
+                  <button type="button" id="btn-seed-presets" onclick="applyFranchisePresets()"
+                    style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25)); border: 1px solid rgba(99,102,241,0.4); border-radius: 8px; color: #a5b4fc; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
+                    <i data-lucide="zap" style="width:14px;height:14px;"></i> 모든 가맹점 프리셋 일괄 배치
+                  </button>
+                </div>
+                <form id="merchant-category-form" style="margin-bottom: 1.5rem;">
+                  <input type="hidden" id="mcat-id" value="">
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem;">
+                    <div style="flex: 1; min-width: 150px;">
+                      <input type="text" id="mcat-merchant" placeholder="예: (주)우아한형제들" required
+                        style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text-primary);">
+                    </div>
+                    <div style="flex: 1; min-width: 120px;">
+                      <select id="mcat-category" required
+                        style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text-primary);">
+                        <!-- Dynamic options from categories -->
+                      </select>
+                    </div>
+                    <button type="submit" id="btn-mcat-submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
+                    <button type="button" id="btn-mcat-cancel" class="btn" style="display: none; padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary);">취소</button>
+                  </div>
+                </form>
+                <div
+                  style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead>
+                      <tr
+                        style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; background: rgba(255,255,255,0.02);">
+                        <th style="padding: 10px 12px;">사용처명</th>
+                        <th style="padding: 10px 12px;">매핑 카테고리</th>
+                        <th style="padding: 10px 12px; width: 60px; text-align: center;">동작</th>
+                      </tr>
+                    </thead>
+                    <tbody id="merchant-category-table-body">
+                      <!-- Dynamic Rows -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 앱 패키지별 결제수단 자동 매핑 설정 카드 -->
+              <div class="card glass settings-form-card">
+                <h3>앱 패키지별 결제수단 자동 매핑</h3>
+                <div class="info-box">
+                  <p>알림 수신 시 알림센서의 앱 패키지명(package)을 기반으로 지정된 결제수단(카드/은행)을 가계부에 자동 등록합니다. (예: <code>com.shinhan.smartshinhan</code>
+                    ➔ 신한카드)</p>
+                </div>
+                <form id="package-paymethod-form" style="margin-bottom: 1.5rem;">
+                  <input type="hidden" id="pkm-id" value="">
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem;">
+                    <div style="flex: 1; min-width: 150px;">
+                      <input type="text" id="pkm-package" placeholder="예: com.shinhan.smartshinhan" required
+                        style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text-primary); font-family: monospace;">
+                    </div>
+                    <div style="flex: 1; min-width: 120px;">
+                      <select id="pkm-pay-method" required
+                        style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text-primary);">
+                        <!-- Dynamic options from payMethods -->
+                      </select>
+                    </div>
+                    <button type="submit" id="btn-pkm-submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
+                    <button type="button" id="btn-pkm-cancel" class="btn" style="display: none; padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary);">취소</button>
+                  </div>
+                </form>
+                <div
+                  style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
+                  <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead>
+                      <tr
+                        style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; background: rgba(255,255,255,0.02);">
+                        <th style="padding: 10px 12px;">앱 패키지명(Package)</th>
+                        <th style="padding: 10px 12px;">매핑 결제수단</th>
+                        <th style="padding: 10px 12px; width: 60px; text-align: center;">동작</th>
+                      </tr>
+                    </thead>
+                    <tbody id="package-paymethod-table-body">
+                      <!-- Dynamic Rows -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -513,12 +642,6 @@
           <button class="settings-tab-btn active" data-subtab="default"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">사용자
             설정</button>
-          <button class="settings-tab-btn" data-subtab="rules"
-            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">자동
-            분류규칙</button>
-          <button class="settings-tab-btn" data-subtab="merchant"
-            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">사용처
-            설정</button>
           <button class="settings-tab-btn" data-subtab="balance"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">잔액
             설정</button>
@@ -575,118 +698,7 @@
             </div>
           </div>
 
-          <!-- 2) 자동 분류규칙 서브 탭 -->
-          <div id="subtab-rules" class="sub-settings-content" style="width: 100%;">
-            <div class="rules-layout">
-              <!-- Rules List -->
-              <div class="card glass rules-list-card">
-                <div class="card-header">
-                  <h3>자동 분류 정규식 규칙</h3>
-                  <button class="btn btn-primary btn-sm" id="new-rule-btn"><i data-lucide="plus"></i> 규칙 추가</button>
-                </div>
-                <div class="rules-list" id="rules-list-container">
-                  <!-- Dynamic rules -->
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <!-- 3) 사용처 설정 서브 탭 -->
-          <div id="subtab-merchant" class="sub-settings-content" style="width: 100%;">
-            <div style="display: flex; flex-direction: column; gap: 2rem;">
-              <!-- 사용처별 카테고리 매핑 설정 카드 -->
-              <div class="card glass settings-form-card">
-                <h3>사용처별 카테고리 자동 설정</h3>
-                <div class="info-box">
-                  <p>알림 분석으로 추출된 사용처(가맹점)에 대해 우선 적용할 카테고리를 설정합니다. 가계부 수동 등록/수정 시에도 자동 등록되며, 이곳에서 직접 관리할 수 있습니다.</p>
-                </div>
-                <div
-                  style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-                  <span id="merchant-preset-badge"
-                    style="font-size: 0.78rem; color: var(--text-secondary); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 3px 10px;"></span>
-                  <button type="button" id="btn-seed-presets" onclick="applyFranchisePresets()"
-                    style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25)); border: 1px solid rgba(99,102,241,0.4); border-radius: 8px; color: #a5b4fc; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
-                    <i data-lucide="zap" style="width:14px;height:14px;"></i> 모든 가맹점 프리셋 일괄 배치
-                  </button>
-                </div>
-                <form id="merchant-category-form" style="margin-bottom: 1.5rem;">
-                  <input type="hidden" id="mcat-id" value="">
-                  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem;">
-                    <div style="flex: 1; min-width: 150px;">
-                      <input type="text" id="mcat-merchant" placeholder="예: (주)우아한형제들" required
-                        style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text-primary);">
-                    </div>
-                    <div style="flex: 1; min-width: 120px;">
-                      <select id="mcat-category" required
-                        style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text-primary);">
-                        <!-- Dynamic options from categories -->
-                      </select>
-                    </div>
-                    <button type="submit" id="btn-mcat-submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
-                    <button type="button" id="btn-mcat-cancel" class="btn" style="display: none; padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary);">취소</button>
-                  </div>
-                </form>
-                <div
-                  style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
-                  <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <thead>
-                      <tr
-                        style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; background: rgba(255,255,255,0.02);">
-                        <th style="padding: 10px 12px;">사용처명</th>
-                        <th style="padding: 10px 12px;">매핑 카테고리</th>
-                        <th style="padding: 10px 12px; width: 60px; text-align: center;">동작</th>
-                      </tr>
-                    </thead>
-                    <tbody id="merchant-category-table-body">
-                      <!-- Dynamic Rows -->
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <!-- 앱 패키지별 결제수단 자동 매핑 설정 카드 -->
-              <div class="card glass settings-form-card">
-                <h3>앱 패키지별 결제수단 자동 매핑</h3>
-                <div class="info-box">
-                  <p>알림 수신 시 알림센서의 앱 패키지명(package)을 기반으로 지정된 결제수단(카드/은행)을 가계부에 자동 등록합니다. (예: <code>com.shinhan.smartshinhan</code>
-                    ➔ 신한카드)</p>
-                </div>
-                <form id="package-paymethod-form" style="margin-bottom: 1.5rem;">
-                  <input type="hidden" id="pkm-id" value="">
-                  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem;">
-                    <div style="flex: 1; min-width: 150px;">
-                      <input type="text" id="pkm-package" placeholder="예: com.shinhan.smartshinhan" required
-                        style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text-primary); font-family: monospace;">
-                    </div>
-                    <div style="flex: 1; min-width: 120px;">
-                      <select id="pkm-pay-method" required
-                        style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text-primary);">
-                        <!-- Dynamic options from payMethods -->
-                      </select>
-                    </div>
-                    <button type="submit" id="btn-pkm-submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
-                    <button type="button" id="btn-pkm-cancel" class="btn" style="display: none; padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary);">취소</button>
-                  </div>
-                </form>
-                <div
-                  style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
-                  <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <thead>
-                      <tr
-                        style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; background: rgba(255,255,255,0.02);">
-                        <th style="padding: 10px 12px;">앱 패키지명(Package)</th>
-                        <th style="padding: 10px 12px;">매핑 결제수단</th>
-                        <th style="padding: 10px 12px; width: 60px; text-align: center;">동작</th>
-                      </tr>
-                    </thead>
-                    <tbody id="package-paymethod-table-body">
-                      <!-- Dynamic Rows -->
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
 
           <!-- 4) 잔액 설정 서브 탭 -->
           <div id="subtab-balance" class="sub-settings-content" style="width: 100%;">
@@ -1131,13 +1143,13 @@
   </nav>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=1.9.90"></script>
-  <script src="./dashboard.js?v=1.9.90"></script>
-  <script src="./transactions.js?v=1.9.90"></script>
-  <script src="./card_bank_view.js?v=1.9.90"></script>
-  <script src="./rules.js?v=1.9.90"></script>
-  <script src="./analytics.js?v=1.9.90"></script>
-  <script src="./settings.js?v=1.9.90"></script>
+  <script src="./app.js?v=1.9.91"></script>
+  <script src="./dashboard.js?v=1.9.91"></script>
+  <script src="./transactions.js?v=1.9.91"></script>
+  <script src="./card_bank_view.js?v=1.9.91"></script>
+  <script src="./rules.js?v=1.9.91"></script>
+  <script src="./analytics.js?v=1.9.91"></script>
+  <script src="./settings.js?v=1.9.91"></script>
 </body>
 
 </html>

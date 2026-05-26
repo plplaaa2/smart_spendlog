@@ -2,6 +2,55 @@
 // 3. 정규식 규칙 및 알림 로그 탭 로직
 // ==========================================
 
+// 로그 화면 내부 서브 탭 관련 바인딩 상태
+let isLogsSubTabInitialized = false;
+
+function initLogsSubTabs() {
+  if (isLogsSubTabInitialized) return;
+  
+  const tabBtns = document.querySelectorAll('.logs-tab-btn');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const subtab = btn.dataset.subtab;
+      switchLogsSubTab(subtab);
+    });
+  });
+  
+  isLogsSubTabInitialized = true;
+}
+
+function switchLogsSubTab(subtab) {
+  // 버튼 액티브 클래스 조정
+  document.querySelectorAll('.logs-tab-btn').forEach(btn => {
+    if (btn.dataset.subtab === subtab) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  // 컨텐츠 액티브 클래스 조정
+  document.querySelectorAll('.sub-logs-content').forEach(content => {
+    if (content.id === `subtab-${subtab}`) {
+      content.classList.add('active');
+    } else {
+      content.classList.remove('active');
+    }
+  });
+
+  // 서브 탭별 데이터 로드
+  if (subtab === 'logs-list') {
+    loadLogs();
+  } else if (subtab === 'rules') {
+    loadRules();
+  } else if (subtab === 'merchant') {
+    if (typeof loadMerchantCategories === 'function') {
+      loadMerchantCategories();
+    }
+  }
+}
+
+
 async function loadRules() {
   try {
     const rules = await fetch('api/rules').then(r => r.json());

@@ -41,10 +41,6 @@ function switchSettingsSubTab(subtab) {
   // 서브 탭별 데이터 로드
   if (subtab === 'default') {
     loadSettingsTab();
-  } else if (subtab === 'rules') {
-    loadRules();
-  } else if (subtab === 'merchant') {
-    loadMerchantCategories();
   } else if (subtab === 'balance') {
     loadBalanceSettings();
   } else if (subtab === 'data') {
