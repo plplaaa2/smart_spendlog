@@ -342,6 +342,38 @@ function generatePatternFromText(text) {
     }
   }
 
+  // 상태 감지 (승인, 사용, 취소, 출금, 입금 등)
+  const statusMatch = cleanText.match(/(승인|사용|취소|출금|입금|결제)/);
+  if (statusMatch) {
+    const idx = statusMatch.index;
+    const len = statusMatch[0].length;
+    if (!isOverlapping(idx, idx + len)) {
+      blocks.push({
+        type: '상태',
+        start: idx,
+        end: idx + len,
+        regex: escapeRegexChars(statusMatch[0]),
+        value: statusMatch[0]
+      });
+    }
+  }
+
+  // 결제방식 감지
+  const payMethodMatch = cleanText.match(/(?:신용|체크)(?:\(일시불,[\d*]+\))?/) || cleanText.match(/(?:신용|체크|일시불|\d+개월\s*할부)/);
+  if (payMethodMatch) {
+    const idx = payMethodMatch.index;
+    const len = payMethodMatch[0].length;
+    if (!isOverlapping(idx, idx + len)) {
+      blocks.push({
+        type: '결제방식',
+        start: idx,
+        end: idx + len,
+        regex: '(?<pay_method>[^\\s/]+)',
+        value: payMethodMatch[0]
+      });
+    }
+  }
+
   // 7. 계좌번호 감지 (마스킹 문자 '*'가 포함된 계좌번호 패턴 최우선 감지)
   const accountMatch = cleanText.match(/\d{3,}\*+[-\d*]*/) || 
                        cleanText.match(/[-\d*]*\*+[-\d*]*/) ||
