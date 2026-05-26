@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.82"><!-- 캐시 무효화 버전 갱신 (수신로그 재시도 버튼 위치 이동 반영) -->
+  <link rel="stylesheet" href="./style.css?v=1.9.85"><!-- 캐시 무효화 버전 갱신 (데스크탑 상단 검색/필터 레이아웃 복원 반영) -->
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons CDN -->
@@ -677,6 +677,7 @@ action:
                   </button>
                 </div>
                 <form id="merchant-category-form" style="margin-bottom: 1.5rem;">
+                  <input type="hidden" id="mcat-id" value="">
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem;">
                     <div style="flex: 1; min-width: 150px;">
                       <input type="text" id="mcat-merchant" placeholder="예: (주)우아한형제들" required
@@ -688,7 +689,8 @@ action:
                         <!-- Dynamic options from categories -->
                       </select>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
+                    <button type="submit" id="btn-mcat-submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
+                    <button type="button" id="btn-mcat-cancel" class="btn" style="display: none; padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary);">취소</button>
                   </div>
                 </form>
                 <div
@@ -717,6 +719,7 @@ action:
                     ➔ 신한카드)</p>
                 </div>
                 <form id="package-paymethod-form" style="margin-bottom: 1.5rem;">
+                  <input type="hidden" id="pkm-id" value="">
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem;">
                     <div style="flex: 1; min-width: 150px;">
                       <input type="text" id="pkm-package" placeholder="예: com.shinhan.smartshinhan" required
@@ -728,7 +731,8 @@ action:
                         <!-- Dynamic options from payMethods -->
                       </select>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
+                    <button type="submit" id="btn-pkm-submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
+                    <button type="button" id="btn-pkm-cancel" class="btn" style="display: none; padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary);">취소</button>
                   </div>
                 </form>
                 <div

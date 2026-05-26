@@ -94,17 +94,25 @@ router.get('/package_pay_methods', async (req, res) => {
 router.post('/package_pay_methods', async (req, res) => {
   try {
     const db = await getDB(req.username);
-    const { package: pkgName, pay_method } = req.body;
+    const { id, package: pkgName, pay_method } = req.body;
 
     if (!pkgName || !pay_method) {
       return res.status(400).json({ error: '패키지명과 결제수단명은 필수 값입니다.' });
     }
 
-    const result = await db.run(
-      'INSERT OR REPLACE INTO package_pay_methods (package, pay_method) VALUES (?, ?)',
-      [pkgName, pay_method]
-    );
-    res.json({ success: true, id: result.lastID });
+    if (id) {
+      await db.run(
+        'UPDATE package_pay_methods SET package = ?, pay_method = ? WHERE id = ?',
+        [pkgName, pay_method, id]
+      );
+      res.json({ success: true, id });
+    } else {
+      const result = await db.run(
+        'INSERT OR REPLACE INTO package_pay_methods (package, pay_method) VALUES (?, ?)',
+        [pkgName, pay_method]
+      );
+      res.json({ success: true, id: result.lastID });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

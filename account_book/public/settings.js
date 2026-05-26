@@ -227,13 +227,35 @@ async function loadMerchantCategories() {
                 ${item.category}
               </span>
             </td>
-            <td data-label="동작" style="padding: 10px 12px; text-align: center;">
+            <td data-label="동작" style="padding: 10px 12px; text-align: center; display: flex; justify-content: center; gap: 4px;">
+              <button class="btn btn-edit-merchant-cat" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;">
+                <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i>
+              </button>
               <button class="btn btn-delete-merchant-cat" data-id="${item.id}" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;">
                 <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
               </button>
             </td>
           `;
           
+          // 수정 이벤트 핸들러 바인딩
+          const editBtn = tr.querySelector('.btn-edit-merchant-cat');
+          editBtn.addEventListener('click', () => {
+            const idInput = document.getElementById('mcat-id');
+            const merchantInput = document.getElementById('mcat-merchant');
+            const catSelect = document.getElementById('mcat-category');
+            const submitBtn = document.getElementById('btn-mcat-submit');
+            const cancelBtn = document.getElementById('btn-mcat-cancel');
+            
+            if (idInput) idInput.value = item.id;
+            if (merchantInput) merchantInput.value = item.merchant;
+            if (catSelect) catSelect.value = item.category;
+            if (submitBtn) submitBtn.textContent = '수정 완료';
+            if (cancelBtn) cancelBtn.style.display = 'inline-block';
+            
+            // 상단 입력창으로 스크롤 이동
+            merchantInput.focus();
+          });
+
           // 삭제 이벤트 핸들러 바인딩
           const delBtn = tr.querySelector('.btn-delete-merchant-cat');
           delBtn.addEventListener('click', async () => {
@@ -357,13 +379,35 @@ async function loadPackagePayMethods() {
               ${item.pay_method}
             </span>
           </td>
-          <td data-label="동작" style="padding: 10px 12px; text-align: center;">
+          <td data-label="동작" style="padding: 10px 12px; text-align: center; display: flex; justify-content: center; gap: 4px;">
+            <button class="btn btn-edit-package-pay-method" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;">
+              <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i>
+            </button>
             <button class="btn btn-delete-package-pay-method" data-id="${item.id}" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;">
               <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
             </button>
           </td>
         `;
         
+        // 수정 이벤트 핸들러 바인딩
+        const editBtn = tr.querySelector('.btn-edit-package-pay-method');
+        editBtn.addEventListener('click', () => {
+          const idInput = document.getElementById('pkm-id');
+          const packageInput = document.getElementById('pkm-package');
+          const payMethodSelect = document.getElementById('pkm-pay-method');
+          const submitBtn = document.getElementById('btn-pkm-submit');
+          const cancelBtn = document.getElementById('btn-pkm-cancel');
+          
+          if (idInput) idInput.value = item.id;
+          if (packageInput) packageInput.value = item.package;
+          if (payMethodSelect) payMethodSelect.value = item.pay_method;
+          if (submitBtn) submitBtn.textContent = '수정 완료';
+          if (cancelBtn) cancelBtn.style.display = 'inline-block';
+          
+          // 상단 입력창으로 스크롤 이동
+          packageInput.focus();
+        });
+
         // 삭제 이벤트 핸들러 바인딩
         const delBtn = tr.querySelector('.btn-delete-package-pay-method');
         delBtn.addEventListener('click', async () => {

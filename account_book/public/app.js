@@ -829,26 +829,46 @@ function initEventListeners() {
   if (mcatForm) {
     mcatForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const id = document.getElementById('mcat-id').value;
       const merchant = document.getElementById('mcat-merchant').value.trim();
       const category = document.getElementById('mcat-category').value;
 
       if (!merchant || !category) return;
 
       try {
+        const payload = { merchant, category };
+        if (id) payload.id = parseInt(id, 10);
+
         const res = await fetch('api/merchant_categories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ merchant, category })
+          body: JSON.stringify(payload)
         }).then(r => r.json());
 
         if (res.success) {
+          document.getElementById('mcat-id').value = '';
           document.getElementById('mcat-merchant').value = '';
+          document.getElementById('btn-mcat-submit').textContent = '추가/변경';
+          document.getElementById('btn-mcat-cancel').style.display = 'none';
           await loadMerchantCategories();
+          alert(id ? '사용처 카테고리 설정이 수정되었습니다.' : '사용처 카테고리 설정이 추가되었습니다.');
+        } else {
+          alert('저장 실패: ' + (res.error || '오류가 발생했습니다.'));
         }
       } catch (err) {
         alert('매핑 저장 실패: ' + err.message);
       }
     });
+
+    const mcatCancelBtn = document.getElementById('btn-mcat-cancel');
+    if (mcatCancelBtn) {
+      mcatCancelBtn.addEventListener('click', () => {
+        document.getElementById('mcat-id').value = '';
+        document.getElementById('mcat-merchant').value = '';
+        document.getElementById('btn-mcat-submit').textContent = '추가/변경';
+        mcatCancelBtn.style.display = 'none';
+      });
+    }
   }
 
   // 앱 패키지별 결제수단 매핑 폼 서브밋
@@ -858,26 +878,46 @@ function initEventListeners() {
   if (pkmForm) {
     pkmForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const id = document.getElementById('pkm-id').value;
       const package = document.getElementById('pkm-package').value.trim();
       const pay_method = document.getElementById('pkm-pay-method').value;
 
       if (!package || !pay_method) return;
 
       try {
+        const payload = { package, pay_method };
+        if (id) payload.id = parseInt(id, 10);
+
         const res = await fetch('api/package_pay_methods', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ package, pay_method })
+          body: JSON.stringify(payload)
         }).then(r => r.json());
 
         if (res.success) {
+          document.getElementById('pkm-id').value = '';
           document.getElementById('pkm-package').value = '';
+          document.getElementById('btn-pkm-submit').textContent = '추가/변경';
+          document.getElementById('btn-pkm-cancel').style.display = 'none';
           await loadPackagePayMethods();
+          alert(id ? '앱 패키지 결제수단 설정이 수정되었습니다.' : '앱 패키지 결제수단 설정이 추가되었습니다.');
+        } else {
+          alert('저장 실패: ' + (res.message || '오류가 발생했습니다.'));
         }
       } catch (err) {
         alert('매핑 저장 실패: ' + err.message);
       }
     });
+
+    const pkmCancelBtn = document.getElementById('btn-pkm-cancel');
+    if (pkmCancelBtn) {
+      pkmCancelBtn.addEventListener('click', () => {
+        document.getElementById('pkm-id').value = '';
+        document.getElementById('pkm-package').value = '';
+        document.getElementById('btn-pkm-submit').textContent = '추가/변경';
+        pkmCancelBtn.style.display = 'none';
+      });
+    }
   }
 
   // 잔액 초기화 버튼

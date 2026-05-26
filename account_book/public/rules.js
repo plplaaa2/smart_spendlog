@@ -483,7 +483,7 @@ function autoGeneratePattern(silent = false) {
         if (rawDate.includes('월')) {
           regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일)';
         } else {
-          const sep = rawDate.match(/[/\-.]/)[0];
+          const sep = dateMatch[0].match(/[/\-.]/)[0];
           regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2})`;
         }
         blocks.push({

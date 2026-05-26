@@ -242,6 +242,56 @@ select option {
   word-break: break-all;
 }
 
+.control-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.search-filters {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+}
+
+.search-box i,
+.search-box svg {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.search-box input {
+  width: 100%;
+  height: 42px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 0.5rem 1rem 0.5rem 2.5rem;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.search-box input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
 .select-filter {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);

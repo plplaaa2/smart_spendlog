@@ -6,8 +6,8 @@ function parseNotification(text, rules, fallbackDatetime = null) {
 
   for (const rule of rules) {
     try {
-      // 정규식 컴파일
-      const regex = new RegExp(rule.pattern);
+      // 정규식 컴파일 (amount 캡처 인덱스를 획득하기 위해 'd' 플래그 추가)
+      const regex = new RegExp(rule.pattern, 'd');
       const match = regex.exec(text);
 
       if (match) {
@@ -26,6 +26,40 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         // 금액이 정상적으로 파싱되지 않으면 규칙이 부적합하다고 보고 다른 규칙 탐색
         if (amount === null || isNaN(amount)) {
           continue;
+        }
+
+        // [중요] 금액 오인 매칭 검증 (날짜/시간의 연도, 시, 분 등을 금액으로 오인하여 가계부 자동등록되는 것 방지)
+        if (match.indices && match.indices.groups && match.indices.groups.amount) {
+          const [amountStart, amountEnd] = match.indices.groups.amount;
+          
+          // 텍스트에 나타날 수 있는 표준 날짜 및 시간 형식들
+          const dateTimeRegexes = [
+            /\b\d{4}[.\-/]\d{1,2}[.\-/]\d{1,2}\b/g,
+            /\b\d{1,2}[.\-/]\d{1,2}\b/g,
+            /\b\d{1,2}월\s*\d{1,2}일\b/g,
+            /\b\d{2}:\d{2}(?::\d{2})?\b/g
+          ];
+          
+          let isDateTime = false;
+          for (const dtRegex of dateTimeRegexes) {
+            let dtMatch;
+            while ((dtMatch = dtRegex.exec(text)) !== null) {
+              const dtStart = dtMatch.index;
+              const dtEnd = dtMatch.index + dtMatch[0].length;
+              
+              // 추출된 금액 캡처 영역이 날짜/시간 포맷 영역 내부에 완전히 포함되어 있는 경우
+              if (amountStart >= dtStart && amountEnd <= dtEnd) {
+                isDateTime = true;
+                break;
+              }
+            }
+            if (isDateTime) break;
+          }
+          
+          if (isDateTime) {
+            console.log(`[파서] 금액(${amount})이 날짜/시간 영역(${text.substring(amountStart, amountEnd)})에 속하므로 이중등록 및 오인매핑 방지를 위해 규칙 "${rule.name}" 매칭을 거부합니다.`);
+            continue;
+          }
         }
 
         // 2. 사용처(merchant) 파싱
@@ -150,7 +184,66 @@ function generatePatternFromText(text) {
     }
   }
 
-  // 2. 금액 감지 ("원"이 붙어있는 금액 우선 감지)
+  // 2. 시간/일시 감지 (금액 감지보다 먼저 처리하여 연도/날짜가 금액으로 오인되는 것을 방지합니다)
+  const timeMatch = cleanText.match(/\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
+                    cleanText.match(/\d{2}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
+                    cleanText.match(/\d{1,2}월\s*\d{1,2}일\s*\d{2}:\d{2}/) || 
+                    cleanText.match(/\d{2}[/\-.]\d{2}\s+\d{2}:\d{2}/) || 
+                    cleanText.match(/\d{2}:\d{2}/);
+  if (timeMatch) {
+    let regex = '(?<time>\\d{2}:\\d{2})';
+    const rawTime = timeMatch[0];
+    const start = timeMatch.index;
+    const end = timeMatch.index + rawTime.length;
+    
+    if (!isOverlapping(start, end)) {
+      if (rawTime.includes('월') && rawTime.includes('일')) {
+        regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일\\s*\\d{2}:\\d{2})';
+      } else if (rawTime.includes(':') && (rawTime.includes('/') || rawTime.includes('-') || rawTime.includes('.'))) {
+        const sep = rawTime.match(/[/\-.]/)[0];
+        const partCount = (rawTime.split(sep).length - 1);
+        if (partCount === 2) {
+          const yearLen = rawTime.split(sep)[0].length;
+          regex = `(?<time>\\d{${yearLen}}${escapeRegexChars(sep)}\\d{1,2}${escapeRegexChars(sep)}\\d{1,2}\\s+\\d{2}:\\d{2})`;
+        } else {
+          regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2}\\s+\\d{2}:\\d{2})`;
+        }
+      }
+      blocks.push({
+        type: '시간',
+        start,
+        end,
+        regex,
+        value: rawTime
+      });
+    }
+  } else {
+    const dateMatch = cleanText.match(/\d{2}[/\-.]\d{2}/) || cleanText.match(/\d{1,2}월\s*\d{1,2}일/);
+    if (dateMatch) {
+      const rawDate = dateMatch[0];
+      const start = dateMatch.index;
+      const end = dateMatch.index + rawDate.length;
+      
+      if (!isOverlapping(start, end)) {
+        let regex = `(?<time>\\d{2}[/\\-.]\\d{2})`;
+        if (rawDate.includes('월')) {
+          regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일)';
+        } else {
+          const sep = rawDate.match(/[/\-.]/)[0];
+          regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2})`;
+        }
+        blocks.push({
+          type: '날짜',
+          start,
+          end,
+          regex,
+          value: rawDate
+        });
+      }
+    }
+  }
+
+  // 3. 금액 감지 ("원"이 붙어있는 금액 우선 감지)
   const amountWithWonRegex = /([\d,]+)\s*원/g;
   let m;
   let amountDetected = false;
@@ -170,7 +263,7 @@ function generatePatternFromText(text) {
     }
   }
 
-  // 2-2. "원"이 안 붙은 순수 숫자 금액 감지
+  // 3-2. "원"이 안 붙은 순수 숫자 금액 감지
   if (!amountDetected) {
     const nakedAmountRegex = /(?<!\d|\*|-)([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{3,8})(?!\d|\*|-)/g;
     let nm;
