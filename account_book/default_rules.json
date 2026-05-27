@@ -43,15 +43,9 @@
             "type": "EXPENSE"
         },
         {
-            "name": "교통",
+            "name": "교통/주유",
             "color": "#37b24d",
             "icon": "car",
-            "type": "EXPENSE"
-        },
-        {
-            "name": "주유",
-            "color": "#fd7e14",
-            "icon": "fuel",
             "type": "EXPENSE"
         },
         {

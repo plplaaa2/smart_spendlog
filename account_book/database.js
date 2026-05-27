@@ -212,9 +212,13 @@ async function initUserDB(username) {
   try {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('구독', '#862e9c', 'repeat', 'EXPENSE')");
   } catch (e) {}
-  // 주유 카테고리 강제 마이그레이션 주입
+  // 교통/주유 카테고리 강제 마이그레이션 주입 및 기존 데이터 병합
   try {
-    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('주유', '#fd7e14', 'fuel', 'EXPENSE')");
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('교통/주유', '#37b24d', 'car', 'EXPENSE')");
+    await dbInstance.run("UPDATE transactions SET category = '교통/주유' WHERE category IN ('교통', '주유')");
+    await dbInstance.run("UPDATE rules SET category = '교통/주유' WHERE category IN ('교통', '주유')");
+    await dbInstance.run("UPDATE merchant_categories SET category = '교통/주유' WHERE category IN ('교통', '주유')");
+    await dbInstance.run("DELETE FROM categories WHERE name IN ('교통', '주유')");
   } catch (e) {}
 
   // 기존 카테고리 중 수입(INCOME) 카테고리의 type 값을 올바르게 강제 보정 (수입 수정 시 카테고리 누락 방지)
