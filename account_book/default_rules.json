@@ -55,6 +55,12 @@
             "type": "EXPENSE"
         },
         {
+            "name": "공과금",
+            "color": "#e8590c",
+            "icon": "receipt",
+            "type": "EXPENSE"
+        },
+        {
             "name": "생활/마트",
             "color": "#cc5de8",
             "icon": "shopping-cart",

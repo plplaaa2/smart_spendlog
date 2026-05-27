@@ -315,10 +315,10 @@ const FRANCHISE_PRESETS = [
   { keyword: '지니뮤직', category: '주거/통신' },
   { keyword: '스포티파이', category: '주거/통신' },
   { keyword: 'SPOTIFY', category: '주거/통신' },
-  { keyword: '한국전력', category: '주거/통신' },
-  { keyword: '한전', category: '주거/통신' },
-  { keyword: '도시가스', category: '주거/통신' },
-  { keyword: '수도요금', category: '주거/통신' },
+  { keyword: '한국전력', category: '공과금' },
+  { keyword: '한전', category: '공과금' },
+  { keyword: '도시가스', category: '공과금' },
+  { keyword: '수도요금', category: '공과금' },
 
   // =============================================
   // 문화/여가

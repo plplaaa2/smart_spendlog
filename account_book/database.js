@@ -204,6 +204,10 @@ async function initUserDB(username) {
   try {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('투자', '#087f5b', 'trending-up', 'EXPENSE')");
   } catch (e) {}
+  // 공과금 카테고리 강제 마이그레이션 주입
+  try {
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('공과금', '#e8590c', 'receipt', 'EXPENSE')");
+  } catch (e) {}
 
   // 기존 카테고리 중 수입(INCOME) 카테고리의 type 값을 올바르게 강제 보정 (수입 수정 시 카테고리 누락 방지)
   // 의존성: default_rules.json의 카테고리 구성 정의 및 public/app.js의 updateCategorySelect와 연결됩니다.
