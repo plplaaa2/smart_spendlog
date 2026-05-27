@@ -460,69 +460,7 @@ function autoGeneratePattern(silent = false) {
     }
   }
 
-  // 2. 금액 감지 ("원"이 붙어있는 금액 우선 감지)
-  const amountWithWonRegex = /([\d,]+)\s*원/g;
-  let m;
-  let amountDetected = false;
-  while ((m = amountWithWonRegex.exec(cleanText)) !== null) {
-    const idx = m.index;
-    const len = m[0].length;
-    if (!isOverlapping(idx, idx + len)) {
-      blocks.push({
-        type: '금액',
-        start: idx,
-        end: idx + len,
-        regex: '(?<amount>[\\d,]+)원',
-        value: m[0]
-      });
-      amountDetected = true;
-      break;
-    }
-  }
-
-  // 2-2. "원"이 안 붙은 순수 숫자 금액 감지
-  if (!amountDetected) {
-    const nakedAmountRegex = /(?<!\d|\*|-)([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{3,8})(?!\d|\*|-)/g;
-    let nm;
-    while ((nm = nakedAmountRegex.exec(cleanText)) !== null) {
-      const idx = nm.index;
-      const len = nm[0].length;
-      if (!isOverlapping(idx, idx + len)) {
-        const prefix = cleanText.substring(Math.max(0, idx - 10), idx);
-        if (!/잔액|잔고/.test(prefix)) {
-          blocks.push({
-            type: '금액',
-            start: idx,
-            end: idx + len,
-            regex: '(?<amount>[\\d,]+)',
-            value: nm[0]
-          });
-          amountDetected = true;
-          break;
-        }
-      }
-    }
-  }
-
-  // 3. 포인트(지원금) 감지 (예: P6,900점, 6,900포인트 등)
-  const pointRegex = /(?:포인트|점수|P|마일리지|하트)\s*([\d,]+)\s*(?:원|점|P)?/g;
-  let pm;
-  while ((pm = pointRegex.exec(cleanText)) !== null) {
-    const idx = pm.index;
-    const len = pm[0].length;
-    if (!isOverlapping(idx, idx + len)) {
-      blocks.push({
-        type: '포인트',
-        start: idx,
-        end: idx + len,
-        regex: '(?:포인트|P)\\s*(?<used_point>[\\d,]+)\\s*(?:원|점|P)?',
-        value: pm[0]
-      });
-      break;
-    }
-  }
-
-  // 4. 시간/일시 감지
+  // 2. 시간/일시 감지 (금액 감지보다 먼저 처리하여 연도/날짜가 금액으로 오인되는 것을 방지합니다)
   const timeMatch = cleanText.match(/\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
                     cleanText.match(/\d{2}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
                     cleanText.match(/\d{1,2}월\s*\d{1,2}일\s*\d{2}:\d{2}/) || 
@@ -567,7 +505,7 @@ function autoGeneratePattern(silent = false) {
         if (rawDate.includes('월')) {
           regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일)';
         } else {
-          const sep = dateMatch[0].match(/[/\-.]/)[0];
+          const sep = rawDate.match(/[/\-.]/)[0];
           regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2})`;
         }
         blocks.push({
@@ -581,7 +519,51 @@ function autoGeneratePattern(silent = false) {
     }
   }
 
-  // 5. 잔액 감지
+  // 3. 금액 감지 ("원"이 붙어있는 금액 우선 감지)
+  const amountWithWonRegex = /([\d,]+)\s*원/g;
+  let m;
+  let amountDetected = false;
+  while ((m = amountWithWonRegex.exec(cleanText)) !== null) {
+    const idx = m.index;
+    const len = m[0].length;
+    if (!isOverlapping(idx, idx + len)) {
+      blocks.push({
+        type: '금액',
+        start: idx,
+        end: idx + len,
+        regex: '(?<amount>[\\d,]+)원',
+        value: m[0]
+      });
+      amountDetected = true;
+      break;
+    }
+  }
+
+  // 3-2. "원"이 안 붙은 순수 숫자 금액 감지
+  if (!amountDetected) {
+    const nakedAmountRegex = /(?<!\d|\*|-)([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{3,8})(?!\d|\*|-)/g;
+    let nm;
+    while ((nm = nakedAmountRegex.exec(cleanText)) !== null) {
+      const idx = nm.index;
+      const len = nm[0].length;
+      if (!isOverlapping(idx, idx + len)) {
+        const prefix = cleanText.substring(Math.max(0, idx - 10), idx);
+        if (!/잔액|잔고/.test(prefix)) {
+          blocks.push({
+            type: '금액',
+            start: idx,
+            end: idx + len,
+            regex: '(?<amount>[\\d,]+)',
+            value: nm[0]
+          });
+          amountDetected = true;
+          break;
+        }
+      }
+    }
+  }
+
+  // 4. 잔액 감지
   const balanceMatch = cleanText.match(/(?:잔액|잔고)\s*:?\s*([\d,]+)\s*원?/);
   if (balanceMatch) {
     const start = balanceMatch.index;
@@ -600,7 +582,7 @@ function autoGeneratePattern(silent = false) {
     }
   }
 
-  // 6. 누적금액 감지
+  // 5. 누적금액 감지
   const cumulativeMatch = cleanText.match(/누적(?:.*?금액)?\s*:?\s*([\d,]+)\s*원?/);
   if (cumulativeMatch) {
     const start = cumulativeMatch.index;
@@ -616,6 +598,24 @@ function autoGeneratePattern(silent = false) {
         regex,
         value: cumulativeMatch[0]
       });
+    }
+  }
+
+  // 6. 포인트/마일리지 감지 (used_point)
+  const pointRegex = /(?:포인트|점수|P|마일리지|하트)\s*([\d,]+)\s*(?:원|점|P)?/g;
+  let pm;
+  while ((pm = pointRegex.exec(cleanText)) !== null) {
+    const idx = pm.index;
+    const len = pm[0].length;
+    if (!isOverlapping(idx, idx + len)) {
+      blocks.push({
+        type: '포인트차감',
+        start: idx,
+        end: idx + len,
+        regex: '(?:포인트|P)\\s*(?<used_point>[\\d,]+)\\s*(?:원|점|P)?',
+        value: pm[0]
+      });
+      break;
     }
   }
 
@@ -635,7 +635,7 @@ function autoGeneratePattern(silent = false) {
     }
   }
 
-  // 7-2. 결제방식 감지
+  // 8. 결제방식 감지
   const payMethodMatch = cleanText.match(/(?:신용|체크)(?:\(일시불,[\d*]+\))?/) || cleanText.match(/(?:신용|체크|일시불|\d+개월\s*할부)/);
   if (payMethodMatch) {
     const idx = payMethodMatch.index;
@@ -651,28 +651,35 @@ function autoGeneratePattern(silent = false) {
     }
   }
 
-  // 8. 계좌번호 감지 (마스킹 문자 '*'가 포함된 계좌번호 패턴 최우선 감지)
-  const accountMatch = cleanText.match(/\d{3,}\*+[-\d*]*/) || 
-                       cleanText.match(/[-\d*]*\*+[-\d*]*/) ||
-                       cleanText.match(/\d{3,}[-\d*]{2,}/) || 
-                       cleanText.match(/[\d*-]{5,}/);
-  if (accountMatch && !accountMatch[0].includes('/') && !accountMatch[0].includes(':')) {
-    if (!accountMatch[0].includes('원')) {
-      const start = accountMatch.index;
-      const end = accountMatch.index + accountMatch[0].length;
+  // 9. 계좌번호 감지 (마스킹 문자 '*'가 포함된 계좌번호 패턴 최우선 감지 및 다중 탐색)
+  const accountRegexes = [
+    /\d{3,}\*+[-\d*]*/g,
+    /[-\d*]*\*+[-\d*]*/g,
+    /\d{3,}[-\d*]{2,}/g,
+    /[\d*-]{5,}/g
+  ];
+
+  for (const acRegex of accountRegexes) {
+    let am;
+    while ((am = acRegex.exec(cleanText)) !== null) {
+      const val = am[0];
+      if (val.includes('/') || val.includes(':') || val.includes('원')) continue;
+      
+      const start = am.index;
+      const end = am.index + val.length;
       if (!isOverlapping(start, end)) {
         blocks.push({
           type: '계좌번호',
           start,
           end,
           regex: '(?<account>[\\d*-]+)',
-          value: accountMatch[0]
+          value: val
         });
       }
     }
   }
 
-  // 8-2. 고객명/예금주명 마스킹 감지
+  // 10. 고객명/예금주명 마스킹 감지
   const nameMatch = cleanText.match(/[가-힣]\*[가-힣](?:님|대님)?/);
   if (nameMatch) {
     const start = nameMatch.index;
@@ -691,7 +698,7 @@ function autoGeneratePattern(silent = false) {
   // 감지된 고유 블록 정렬
   blocks.sort((a, b) => a.start - b.start);
 
-  // 9. 사용처(merchant) 감지 (블록들 사이에 빈 공간 중 가장 상점명다운 문자열 추출)
+  // 11. 사용처(merchant) 감지 (블록들 사이에 빈 공간 중 가장 상점명다운 문자열 추출)
   let bestGapIndex = -1;
   let maxCleanLen = -1;
 
@@ -707,11 +714,14 @@ function autoGeneratePattern(silent = false) {
   gaps.forEach(g => {
     const txt = cleanText.substring(g.start, g.end);
     // 잔액, 잔고, 누적 등 명백히 가맹점명이 아닌 고유 텍스트가 들어가 있는 여백은 제외
-    if (/잔액|잔고|누적/.test(txt)) return;
+    if (/잔액|잔고|누적|입금|출금/.test(txt)) return;
     
-    const cleanTxt = txt.replace(/[^가-힣a-zA-Z0-9]/g, '');
-    if (cleanTxt.length > maxCleanLen) {
-      maxCleanLen = cleanTxt.length;
+    // 한글이나 영문이 최소 1글자 이상 포함되어 있지 않은 gap은 제외 (숫자, 특수문자, 마스킹만 있는 경우 방지)
+    const cleanLetters = txt.replace(/[^가-힣a-zA-Z]/g, '');
+    if (cleanLetters.length === 0) return;
+
+    if (cleanLetters.length > maxCleanLen) {
+      maxCleanLen = cleanLetters.length;
       bestGapIndex = g.index;
     }
   });
@@ -792,12 +802,23 @@ function autoGeneratePattern(silent = false) {
     suggested += formatGapToRegex(frontGap);
   }
 
+  const usedTypes = new Set();
+
   // 2. 블록과 블록 사이 갭 정밀 결합
   for (let i = 0; i < blocks.length; i++) {
     let blockRegex = blocks[i].regex;
     if (blocks[i].type === '사용처' && i === blocks.length - 1) {
       blockRegex = '(?<merchant>.+)(?:\\s+[\\d,]+)?';
     }
+    
+    if (blocks[i].type !== '사용처') {
+      if (usedTypes.has(blocks[i].type)) {
+        blockRegex = blockRegex.replace(/\(\?<[a-zA-Z0-9_]+>/g, '(?:');
+      } else {
+        usedTypes.add(blocks[i].type);
+      }
+    }
+    
     suggested += blockRegex;
     if (i < blocks.length - 1) {
       const gapText = cleanText.substring(blocks[i].end, blocks[i+1].start);

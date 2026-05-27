@@ -272,20 +272,21 @@ function generatePatternFromText(text) {
       const idx = nm.index;
       const len = nm[0].length;
       if (!isOverlapping(idx, idx + len)) {
-        blocks.push({
-          type: '금액',
-          start: idx,
-          end: idx + len,
-          regex: '(?<amount>[\\d,]+)',
-          value: nm[0]
-        });
-        amountDetected = true;
-        break;
+        const prefix = cleanText.substring(Math.max(0, idx - 10), idx);
+        if (!/잔액|잔고/.test(prefix)) {
+          blocks.push({
+            type: '금액',
+            start: idx,
+            end: idx + len,
+            regex: '(?<amount>[\\d,]+)',
+            value: nm[0]
+          });
+          amountDetected = true;
+          break;
+        }
       }
     }
   }
-
-
 
   // 4. 잔액 감지
   const balanceMatch = cleanText.match(/(?:잔액|잔고)\s*:?\s*([\d,]+)\s*원?/);
@@ -375,22 +376,29 @@ function generatePatternFromText(text) {
     }
   }
 
-  // 7. 계좌번호 감지 (마스킹 문자 '*'가 포함된 계좌번호 패턴 최우선 감지)
-  const accountMatch = cleanText.match(/\d{3,}\*+[-\d*]*/) || 
-                       cleanText.match(/[-\d*]*\*+[-\d*]*/) ||
-                       cleanText.match(/\d{3,}[-\d*]{2,}/) || 
-                       cleanText.match(/[\d*-]{5,}/);
-  if (accountMatch && !accountMatch[0].includes('/') && !accountMatch[0].includes(':')) {
-    if (!accountMatch[0].includes('원')) {
-      const start = accountMatch.index;
-      const end = accountMatch.index + accountMatch[0].length;
+  // 7. 계좌번호 감지 (마스킹 문자 '*'가 포함된 계좌번호 패턴 최우선 감지 및 다중 탐색)
+  const accountRegexes = [
+    /\d{3,}\*+[-\d*]*/g,
+    /[-\d*]*\*+[-\d*]*/g,
+    /\d{3,}[-\d*]{2,}/g,
+    /[\d*-]{5,}/g
+  ];
+
+  for (const acRegex of accountRegexes) {
+    let am;
+    while ((am = acRegex.exec(cleanText)) !== null) {
+      const val = am[0];
+      if (val.includes('/') || val.includes(':') || val.includes('원')) continue;
+      
+      const start = am.index;
+      const end = am.index + val.length;
       if (!isOverlapping(start, end)) {
         blocks.push({
           type: '계좌번호',
           start,
           end,
           regex: '(?<account>[\\d*-]+)',
-          value: accountMatch[0]
+          value: val
         });
       }
     }
@@ -435,9 +443,14 @@ function generatePatternFromText(text) {
 
   gaps.forEach(g => {
     const txt = cleanText.substring(g.start, g.end);
-    const cleanTxt = txt.replace(/[^가-힣a-zA-Z0-9]/g, '');
-    if (cleanTxt.length > maxCleanLen) {
-      maxCleanLen = cleanTxt.length;
+    if (/잔액|잔고|누적|입금|출금/.test(txt)) return;
+    
+    // 한글이나 영문이 최소 1글자 이상 포함되어 있지 않은 gap은 제외 (숫자, 특수문자, 마스킹만 있는 경우 방지)
+    const cleanLetters = txt.replace(/[^가-힣a-zA-Z]/g, '');
+    if (cleanLetters.length === 0) return;
+
+    if (cleanLetters.length > maxCleanLen) {
+      maxCleanLen = cleanLetters.length;
       bestGapIndex = g.index;
     }
   });
@@ -445,6 +458,7 @@ function generatePatternFromText(text) {
   // 10. 최종 정규식 조립
   let finalRegex = '^';
   let lastIndex = 0;
+  const usedTypes = new Set();
 
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
@@ -457,7 +471,14 @@ function generatePatternFromText(text) {
       finalRegex += escapeRegexChars(prefixGap);
     }
     
-    finalRegex += b.regex;
+    let blockRegex = b.regex;
+    if (usedTypes.has(b.type)) {
+      blockRegex = blockRegex.replace(/\(\?<[a-zA-Z0-9_]+>/g, '(?:');
+    } else {
+      usedTypes.add(b.type);
+    }
+    
+    finalRegex += blockRegex;
     lastIndex = b.end;
   }
 
