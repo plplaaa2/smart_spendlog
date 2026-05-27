@@ -377,6 +377,25 @@ const FRANCHISE_PRESETS = [
   { keyword: '대성마이맥', category: '교육/학습' },
   { keyword: '공단기', category: '교육/학습' },
   { keyword: '사이버대', category: '교육/학습' },
+
+  // =============================================
+  // 보험
+  // =============================================
+  { keyword: '삼성화재', category: '보험' },
+  { keyword: '현대해상', category: '보험' },
+  { keyword: 'DB손해보험', category: '보험' },
+  { keyword: 'KB손해보험', category: '보험' },
+  { keyword: '메리츠화재', category: '보험' },
+  { keyword: '한화손해보험', category: '보험' },
+  { keyword: '교보생명', category: '보험' },
+  { keyword: '삼성생명', category: '보험' },
+  { keyword: '한화생명', category: '보험' },
+  { keyword: '신한라이프', category: '보험' },
+  { keyword: '동양생명', category: '보험' },
+  { keyword: '흥국화재', category: '보험' },
+  { keyword: '우체국보험', category: '보험' },
+  { keyword: '생명보험', category: '보험' },
+  { keyword: '손해보험', category: '보험' },
 ];
 
 module.exports = { FRANCHISE_PRESETS };
