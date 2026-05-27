@@ -291,6 +291,13 @@ const FRANCHISE_PRESETS = [
   { keyword: '이스타항공', category: '교통' },
   { keyword: '대한항공', category: '교통' },
   { keyword: '아시아나', category: '교통' },
+  { keyword: 'GS칼텍스', category: '주유' },
+  { keyword: 'SK에너지', category: '주유' },
+  { keyword: 'S-OIL', category: '주유' },
+  { keyword: '에쓰오일', category: '주유' },
+  { keyword: '현대오일뱅크', category: '주유' },
+  { keyword: '알뜰주유소', category: '주유' },
+  { keyword: '주유소', category: '주유' },
 
   // =============================================
   // 주거/통신

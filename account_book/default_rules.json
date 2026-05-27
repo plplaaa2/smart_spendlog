@@ -49,6 +49,12 @@
             "type": "EXPENSE"
         },
         {
+            "name": "주유",
+            "color": "#fd7e14",
+            "icon": "fuel",
+            "type": "EXPENSE"
+        },
+        {
             "name": "주거/통신",
             "color": "#fcc419",
             "icon": "home",
