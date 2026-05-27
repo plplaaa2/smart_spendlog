@@ -617,3 +617,11 @@
   border-bottom: 2px solid var(--accent-color);
   border-radius: 8px 8px 0 0;
 }
+
+/* Analytics layout adjustments */
+.analytics-double-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}

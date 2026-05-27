@@ -9,6 +9,9 @@
   .charts-grid {
     grid-template-columns: 1fr;
   }
+  .analytics-double-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* 태블릿/소형 브라우저 반응형 (900px) */
