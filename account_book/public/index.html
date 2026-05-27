@@ -90,13 +90,22 @@
           <span>설정</span>
         </button>
       </nav>
+      <!-- Sidebar Clock Card -->
+      <div class="sidebar-clock-card" id="sidebar_clock_card" style="display: none;">
+        <div class="clock-icon">
+          <i data-lucide="clock"></i>
+        </div>
+        <div class="clock-info">
+          <div class="clock-date" id="clock-date"></div>
+          <div class="clock-time" id="clock-time"></div>
+        </div>
+      </div>
       <!-- User Profile (Sidebar Bottom) -->
       <div class="user-profile-container" id="user_profile" style="display: none;">
         <div class="user-avatar">
           <i data-lucide="user"></i>
         </div>
         <div class="user-info">
-          <div class="user-datetime" id="user-datetime"></div>
           <span class="user-name" id="current_user_name">admin</span>
           <span class="user-role">사용자</span>
         </div>

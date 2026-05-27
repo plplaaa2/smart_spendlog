@@ -125,7 +125,7 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  margin-top: auto;
+  margin-top: 5px;
 }
 
 .user-avatar {
@@ -218,15 +218,58 @@
   display: none;
 }
 
-/* User datetime widget styling */
-.user-datetime {
+/* Sidebar Clock Card styling */
+.sidebar-clock-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin: 5px 0;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  margin-top: auto; /* Push down to the bottom above the profile card */
+}
+
+.clock-icon {
+  width: 32px;
+  height: 32px;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent-color);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.clock-icon i,
+.clock-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.clock-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.clock-date {
   font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.clock-time {
+  font-size: 0.95rem;
+  font-weight: 700;
   font-family: 'Outfit', sans-serif;
-  color: var(--text-secondary);
-  opacity: 0.8;
-  margin-bottom: 3px;
-  white-space: nowrap;
-  letter-spacing: 0.2px;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+  line-height: 1.2;
 }
 
 /* Sidebar collapse toggle button styling */
@@ -299,6 +342,17 @@ body.sidebar-collapsed .sidebar-footer {
 
 body.sidebar-collapsed .sidebar-footer .status-text {
   display: none;
+}
+
+body.sidebar-collapsed .sidebar-clock-card {
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.75rem 0;
+  margin: 5px 0;
+}
+
+body.sidebar-collapsed .clock-info {
+  display: none !important;
 }
 
 body.sidebar-collapsed .user-profile-container {

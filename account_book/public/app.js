@@ -145,6 +145,8 @@ async function attemptLogin(isAuto = false) {
       
       document.getElementById('login_overlay').style.display = 'none';
       document.getElementById('user_profile').style.display = 'flex';
+      const clockCard = document.getElementById('sidebar_clock_card');
+      if (clockCard) clockCard.style.display = 'flex';
       document.getElementById('current_user_name').textContent = `${currentUser}`;
       const mobileNameEl = document.getElementById('mobile_current_user_name');
       if (mobileNameEl) mobileNameEl.textContent = `${currentUser}`;
@@ -173,6 +175,8 @@ function checkLogin() {
   const profile = document.getElementById('user_profile');
   if (currentUser) {
     if (overlay) overlay.style.display = 'none';
+    const clockCard = document.getElementById('sidebar_clock_card');
+    if (clockCard) clockCard.style.display = 'flex';
     if (profile) {
       profile.style.display = 'flex';
       const nameEl = document.getElementById('current_user_name');
@@ -183,6 +187,8 @@ function checkLogin() {
     return true;
   } else {
     if (overlay) overlay.style.display = 'flex';
+    const clockCard = document.getElementById('sidebar_clock_card');
+    if (clockCard) clockCard.style.display = 'none';
     if (profile) profile.style.display = 'none';
     
     if (currentSession) {
@@ -1215,8 +1221,9 @@ function initSidebarCollapse() {
 
 // 실시간 사이드바 날짜/시간 업데이트
 function startSidebarClock() {
-  const datetimeEl = document.getElementById('user-datetime');
-  if (!datetimeEl) return;
+  const dateEl = document.getElementById('clock-date');
+  const timeEl = document.getElementById('clock-time');
+  if (!dateEl || !timeEl) return;
 
   function updateClock() {
     const now = new Date();
@@ -1227,7 +1234,8 @@ function startSidebarClock() {
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
     
-    datetimeEl.textContent = `${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
+    dateEl.textContent = `${year}-${month}-${date}`;
+    timeEl.textContent = `${hours}:${minutes}:${seconds}`;
   }
 
   updateClock();
