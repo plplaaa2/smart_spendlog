@@ -191,6 +191,50 @@ function renderAssetGrid(assets) {
           </div>
         `;
       }
+
+      // 카드 실적 목표 정보
+      let performanceGoalHtml = '';
+      let cardGoals = {};
+      if (state.settings.card_performance_goals) {
+        try {
+          cardGoals = typeof state.settings.card_performance_goals === 'string' 
+            ? JSON.parse(state.settings.card_performance_goals) 
+            : state.settings.card_performance_goals;
+        } catch (e) {
+          cardGoals = {};
+        }
+      }
+      
+      const goalAmount = cardGoals[asset.name] ? parseInt(cardGoals[asset.name], 10) || 0 : 0;
+      const hasGoal = goalAmount > 0;
+      if (hasGoal) {
+        const spent = asset.monthExpense || 0;
+        const percent = Math.min(100, Math.round((spent / goalAmount) * 100));
+        const diffAmount = goalAmount - spent;
+        
+        let statusText = '';
+        if (diffAmount > 0) {
+          statusText = `실적 달성까지 <span style="font-weight: 600; color: #a5b4fc;">${formatCurrency(diffAmount)}</span> 남음`;
+        } else {
+          statusText = `<span style="font-weight: 600; color: #10b981;">실적 충족 완료! 🎉</span>`;
+        }
+        
+        performanceGoalHtml = `
+          <div class="asset-card-detail-rows" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem;">
+            <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.75rem;">
+              <span style="color: var(--text-secondary);">월 실적 달성률 (${percent}%)</span>
+              <span style="color: var(--text-color); font-weight: 500;">${formatCurrency(spent)} / ${formatCurrency(goalAmount)}</span>
+            </div>
+            <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-top: 0.15rem;">
+              <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); border-radius: 3px; transition: width 0.3s ease;"></div>
+            </div>
+            <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-top: 0.15rem;">
+              <span style="color: var(--text-secondary); width: 100%; text-align: right;">${statusText}</span>
+            </div>
+          </div>
+        `;
+      }
+
       card.innerHTML = `
         <div class="asset-card-item-header" style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
           <div class="asset-card-icon card-icon" style="background: rgba(99, 102, 241, 0.15); color: #6366f1; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
@@ -207,7 +251,8 @@ function renderAssetGrid(assets) {
             <span class="asset-card-value card-color" style="font-weight: 700; font-size: 1.1rem; color: #f43f5e;">${formatCurrency(asset.monthExpense)}</span>
           </div>
           ${pointHtml}
-          <div class="asset-card-footer-row" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: ${hasPoint ? '0.5rem' : '0px'}">
+          ${performanceGoalHtml}
+          <div class="asset-card-footer-row" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: ${(hasPoint || hasGoal) ? '0.5rem' : '0px'}">
             <span class="asset-card-subtext" style="font-size: 0.75rem; color: var(--text-secondary);">이번 달 신용/체크 누적 사용 금액</span>
           </div>
         </div>

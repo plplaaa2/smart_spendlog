@@ -246,8 +246,53 @@ async function loadBalanceSettings() {
         });
       }
     }
+
+    // 카드사 결제수단만 필터링하여 카드 실적 목표 입력창 그리기
+    const performanceGoalsContainer = document.getElementById('settings-card-performance-goals-container');
+    if (performanceGoalsContainer) {
+      performanceGoalsContainer.innerHTML = '';
+      
+      let cardPerformanceGoals = {};
+      if (settings.card_performance_goals) {
+        try {
+          cardPerformanceGoals = typeof settings.card_performance_goals === 'string' ? JSON.parse(settings.card_performance_goals) : settings.card_performance_goals;
+        } catch (e) {
+          cardPerformanceGoals = {};
+        }
+      }
+
+      let payMethods = state.payMethods;
+      if (!payMethods || payMethods.length === 0) {
+        payMethods = await fetch('api/pay_methods').then(r => r.json());
+        state.payMethods = payMethods;
+      }
+
+      const cardPayMethods = payMethods.filter(pm => pm.name.includes('카드'));
+
+      if (cardPayMethods.length === 0) {
+        performanceGoalsContainer.innerHTML = '<p class="text-secondary text-xs" style="text-align:center; padding:1rem;">등록된 카드사 결제 수단이 없습니다.</p>';
+      } else {
+        cardPayMethods.forEach(pm => {
+          const val = cardPerformanceGoals[pm.name] || 0;
+          const row = document.createElement('div');
+          row.style.display = 'flex';
+          row.style.justifyContent = 'space-between';
+          row.style.alignItems = 'center';
+          row.style.gap = '1rem';
+          row.style.padding = '0.4rem 0';
+          row.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+
+          row.innerHTML = `
+            <span style="font-size: 0.85rem; color: var(--text-color); font-weight: 500;">${pm.name} 목표 실적</span>
+            <input type="number" class="settings-card-performance-goal-input" data-name="${pm.name}" value="${val}" min="0" placeholder="0" 
+                   style="width: 150px; font-size: 0.85rem; padding: 0.35rem 0.5rem; text-align: right; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-color);">
+          `;
+          performanceGoalsContainer.appendChild(row);
+        });
+      }
+    }
   } catch (err) {
-    console.error('잔액/포인트 설정 로드 실패:', err);
+    console.error('잔액/포인트/실적 설정 로드 실패:', err);
   }
 }
 

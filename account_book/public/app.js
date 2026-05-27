@@ -892,11 +892,19 @@ function initEventListeners() {
         initial_points[name] = val;
       });
 
+      // 카드사별 월 실적 목표 객체 구성
+      const card_performance_goals = {};
+      document.querySelectorAll('.settings-card-performance-goal-input').forEach(input => {
+        const name = input.dataset.name;
+        const val = parseInt(input.value, 10) || 0;
+        card_performance_goals[name] = val;
+      });
+
       try {
         const res = await fetch('api/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initial_balance, initial_balances, initial_points })
+          body: JSON.stringify({ initial_balance, initial_balances, initial_points, card_performance_goals })
         });
 
         if (!res.ok) {
@@ -906,7 +914,7 @@ function initEventListeners() {
 
         const data = await res.json();
         if (data.success) {
-          alert('잔액 및 포인트 설정이 저장되었습니다.');
+          alert('잔액, 포인트 및 실적 설정이 저장되었습니다.');
           await loadMetadata();
           await loadBalanceSettings();
           if (state.currentTab === 'dashboard') {
