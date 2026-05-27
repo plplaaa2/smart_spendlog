@@ -76,6 +76,8 @@ async function initApp() {
   initMonth();
   await loadMetadata();
   initEventListeners();
+  initSidebarCollapse();
+  startSidebarClock();
   switchTab('dashboard'); // 첫 페이지 로드
   lucide.createIcons();
 }
@@ -1187,4 +1189,47 @@ function openPackageMappingModal(senderPackage) {
 function closePackageMappingModal() {
   const modal = document.getElementById('package-mapping-modal');
   if (modal) modal.classList.remove('active');
+}
+
+// 사이드바 접기/펼치기 제어
+function initSidebarCollapse() {
+  const toggleBtn = document.getElementById('sidebar-collapse-toggle');
+  if (!toggleBtn) return;
+
+  // 로컬스토리지에서 이전 상태 복원
+  const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+  if (isCollapsed) {
+    document.body.classList.add('sidebar-collapsed');
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('sidebar-collapsed', collapsed);
+    
+    // 차트 크기가 변하므로 리사이즈 이벤트 강제 트리거
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 300); // CSS 트랜지션 완료 후 실행
+  });
+}
+
+// 실시간 사이드바 날짜/시간 업데이트
+function startSidebarClock() {
+  const datetimeEl = document.getElementById('user-datetime');
+  if (!datetimeEl) return;
+
+  function updateClock() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const date = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    datetimeEl.textContent = `${year}-${month}-${date} ${hours}:${minutes}:${seconds}`;
+  }
+
+  updateClock();
+  setInterval(updateClock, 1000);
 }

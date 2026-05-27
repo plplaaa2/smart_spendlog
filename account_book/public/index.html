@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.5"><!-- 캐시 무효화 버전 갱신 (월간 소비분석 디테일 및 폼 가독성 레이아웃 개선) -->
+  <link rel="stylesheet" href="./style.css?v=1.9.6"><!-- 캐시 무효화 버전 갱신 (사이드바 접기 및 실시간 날짜/시간 위젯 추가) -->
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons CDN -->
@@ -96,6 +96,7 @@
           <i data-lucide="user"></i>
         </div>
         <div class="user-info">
+          <div class="user-datetime" id="user-datetime"></div>
           <span class="user-name" id="current_user_name">admin</span>
           <span class="user-role">사용자</span>
         </div>
@@ -107,6 +108,10 @@
         <span class="status-indicator online"></span>
         <span class="status-text">HA 연동 활성화</span>
       </div>
+      <!-- Collapse toggle button -->
+      <button class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" title="사이드바 접기/펼치기">
+        <i data-lucide="chevron-left"></i>
+      </button>
     </aside>
 
     <!-- Main Content Area -->
@@ -1231,13 +1236,13 @@
   </nav>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=1.9.5"></script>
-  <script src="./dashboard.js?v=1.9.5"></script>
-  <script src="./transactions.js?v=1.9.5"></script>
-  <script src="./card_bank_view.js?v=1.9.5"></script>
-  <script src="./rules.js?v=1.9.5"></script>
-  <script src="./analytics.js?v=1.9.5"></script>
-  <script src="./settings.js?v=1.9.5"></script>
+  <script src="./app.js?v=1.9.6"></script>
+  <script src="./dashboard.js?v=1.9.6"></script>
+  <script src="./transactions.js?v=1.9.6"></script>
+  <script src="./card_bank_view.js?v=1.9.6"></script>
+  <script src="./rules.js?v=1.9.6"></script>
+  <script src="./analytics.js?v=1.9.6"></script>
+  <script src="./settings.js?v=1.9.6"></script>
 </body>
 
 </html>

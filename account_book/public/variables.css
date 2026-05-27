@@ -27,6 +27,7 @@
   
   /* Layout Options */
   --sidebar-width: 260px;
+  --sidebar-width-collapsed: 72px;
   --transition-speed: 0.3s;
   --border-radius: 16px;
 }
