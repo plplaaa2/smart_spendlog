@@ -447,11 +447,12 @@ function renderAnalyticsCategoryTable(compareData) {
 
   const { compare, current_label, prev_label } = compareData;
 
-  // 테이블 제목 및 헤더 텍스트 변경
+  // 테이블 제목 및 헤더 텍스트 변경 (단위 표기 추가)
   if (tableTitle) {
     const compareModeSelect = document.getElementById('analytics-compare-mode');
     const isMom = compareModeSelect && compareModeSelect.value === 'mom';
-    tableTitle.textContent = isMom ? '카테고리별 전월 대비 소비 증감' : '카테고리별 전년 대비 소비 증감';
+    tableTitle.innerHTML = (isMom ? '카테고리별 전월 대비 소비 증감' : '카테고리별 전년 대비 소비 증감') + 
+      ' <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-secondary); margin-left: 6px;">(단위: 천원)</span>';
   }
   if (headerPrev) headerPrev.textContent = prev_label;
   if (headerCurrent) headerCurrent.textContent = current_label;
@@ -464,6 +465,12 @@ function renderAnalyticsCategoryTable(compareData) {
     return;
   }
 
+  // 천원 단위 콤마 포맷 헬퍼
+  const formatThousand = (val) => {
+    const rounded = Math.round(val / 1000);
+    return new Intl.NumberFormat('ko-KR').format(rounded);
+  };
+
   list.forEach(c => {
     const diff = c.current_total - c.prev_total;
     let rateStr = '--';
@@ -474,22 +481,25 @@ function renderAnalyticsCategoryTable(compareData) {
       rateStr = '+100%';
     }
 
-    let diffText = '0원';
+    let diffText = '0';
     let diffClass = '';
 
-    if (diff > 0) {
-      diffText = `▲ +${formatCurrency(diff)}`;
+    const diffRounded = Math.round(diff / 1000);
+    const diffAbsFormatted = new Intl.NumberFormat('ko-KR').format(Math.abs(diffRounded));
+
+    if (diffRounded > 0) {
+      diffText = `▲ +${diffAbsFormatted}`;
       diffClass = 'text-down'; // 소비 증가 = 부정적(적색)
-    } else if (diff < 0) {
-      diffText = `▼ ${formatCurrency(diff)}`;
+    } else if (diffRounded < 0) {
+      diffText = `▼ -${diffAbsFormatted}`;
       diffClass = 'text-up'; // 소비 감소 = 긍정적(녹색)
     }
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td data-label="카테고리" class="text-bold">${c.category}</td>
-      <td data-label="${prev_label}" class="text-right font-mono">${formatCurrency(c.prev_total)}</td>
-      <td data-label="${current_label}" class="text-right font-mono">${formatCurrency(c.current_total)}</td>
+      <td data-label="${prev_label}" class="text-right font-mono">${formatThousand(c.prev_total)}</td>
+      <td data-label="${current_label}" class="text-right font-mono">${formatThousand(c.current_total)}</td>
       <td data-label="변동액" class="text-right font-mono ${diffClass}">${diffText}</td>
       <td data-label="증감률" class="text-right font-mono ${diffClass}">${rateStr}</td>
     `;
