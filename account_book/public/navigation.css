@@ -198,6 +198,9 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2.5rem;
+  max-width: 1200px;
+  margin-right: auto;
+  width: 100%;
 }
 
 .main-header h1 {

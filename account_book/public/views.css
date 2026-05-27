@@ -504,8 +504,10 @@
 }
 
 .settings-form-card, 
+.reset-card,
 .guide-card {
   margin-bottom: 0;
+  max-width: 760px;
 }
 
 .settings-form-card h3,

@@ -2,6 +2,10 @@
 // 6. 소비 분석(Analytics) 탭 로직
 // ==========================================
 
+if (window.Chart) {
+  Chart.defaults.font.family = "'Outfit', 'Noto Sans KR', sans-serif";
+}
+
 async function loadAnalytics() {
   const yearSelect = document.getElementById('analytics-year-select');
   const compareModeSelect = document.getElementById('analytics-compare-mode');
@@ -54,26 +58,57 @@ async function loadAnalytics() {
   const compareMode = compareModeSelect ? compareModeSelect.value : 'yoy';
   const selectedMonth = monthSelect ? monthSelect.value : '1';
 
+  const chart1Title = document.getElementById('analytics-chart1-title');
+  const chart2Title = document.getElementById('analytics-chart2-title');
+
   try {
-    // API 호출: 연도별 월별 흐름, 최근 12개월 추이, 비교 데이터
-    const [yearlyData, monthlyData, compareData] = await Promise.all([
-      fetch(`api/analytics/yearly?year=${selectedYear}`).then(r => r.json()),
-      fetch(`api/analytics/monthly`).then(r => r.json()),
-      fetch(`api/analytics/compare?mode=${compareMode}&year=${selectedYear}&month=${selectedMonth}`).then(r => r.json())
-    ]);
+    if (compareMode === 'mom') {
+      // 월간 분석 모드일 때 타이틀 변경
+      if (chart1Title) chart1Title.textContent = `${selectedMonth}월 수입 vs 지출 일별 추이`;
+      if (chart2Title) chart2Title.textContent = `카테고리별 ${selectedMonth}월 소비 누적`;
 
-    // 1. 연간 수입 vs 지출 월별 비교 차트 렌더링
-    renderAnalyticsYearlyChart(yearlyData.monthly);
+      // API 호출: 월간 상세(일별 흐름 및 카테고리별 지출), 최근 12개월 추이, 비교 데이터
+      const [monthlyDetail, monthlyData, compareData] = await Promise.all([
+        fetch(`api/analytics/monthly-detail?year=${selectedYear}&month=${selectedMonth}`).then(r => r.json()),
+        fetch(`api/analytics/monthly`).then(r => r.json()),
+        fetch(`api/analytics/compare?mode=${compareMode}&year=${selectedYear}&month=${selectedMonth}`).then(r => r.json())
+      ]);
 
-    // 2. 카테고리별 누적 소비 차트 렌더링
-    renderAnalyticsCategoryChart(yearlyData.categories);
+      // 1. 월간 수입 vs 지출 일별 추이 차트 렌더링
+      renderAnalyticsDailyChart(monthlyDetail.daily, selectedMonth);
 
-    // 3. 최근 12개월 자산 추이 차트 렌더링
-    renderAnalyticsMonthlyChart(monthlyData);
+      // 2. 카테고리별 월간 누적 소비 차트 렌더링 (isMonthly = true)
+      renderAnalyticsCategoryChart(monthlyDetail.categories, true);
 
-    // 4. 전년/전월 대비 소비 증감 테이블 렌더링
-    renderAnalyticsCategoryTable(compareData);
+      // 3. 최근 12개월 자산 추이 차트 렌더링
+      renderAnalyticsMonthlyChart(monthlyData);
 
+      // 4. 전년/전월 대비 소비 증감 테이블 렌더링
+      renderAnalyticsCategoryTable(compareData);
+    } else {
+      // 연간 분석 모드일 때 타이틀 변경
+      if (chart1Title) chart1Title.textContent = `${selectedYear}년 수입 vs 지출 월별 추이`;
+      if (chart2Title) chart2Title.textContent = `카테고리별 ${selectedYear}년 소비 누적`;
+
+      // API 호출: 연도별 월별 흐름, 최근 12개월 추이, 비교 데이터
+      const [yearlyData, monthlyData, compareData] = await Promise.all([
+        fetch(`api/analytics/yearly?year=${selectedYear}`).then(r => r.json()),
+        fetch(`api/analytics/monthly`).then(r => r.json()),
+        fetch(`api/analytics/compare?mode=${compareMode}&year=${selectedYear}&month=${selectedMonth}`).then(r => r.json())
+      ]);
+
+      // 1. 연간 수입 vs 지출 월별 비교 차트 렌더링
+      renderAnalyticsYearlyChart(yearlyData.monthly);
+
+      // 2. 카테고리별 연간 누적 소비 차트 렌더링 (isMonthly = false)
+      renderAnalyticsCategoryChart(yearlyData.categories, false);
+
+      // 3. 최근 12개월 자산 추이 차트 렌더링
+      renderAnalyticsMonthlyChart(monthlyData);
+
+      // 4. 전년/전월 대비 소비 증감 테이블 렌더링
+      renderAnalyticsCategoryTable(compareData);
+    }
   } catch (err) {
     console.error('소비 분석 데이터 로드 실패:', err);
   }
@@ -158,17 +193,107 @@ function renderAnalyticsYearlyChart(monthlyData) {
   });
 }
 
-// 2. 카테고리별 연 누적 소비 차트 (Doughnut Chart / Horizontal Bar)
-function renderAnalyticsCategoryChart(categories) {
+// 1-2. 월간 일별 수입 vs 지출 비교 차트 (Grouped Bar Chart)
+function renderAnalyticsDailyChart(dailyData, month) {
+  const ctx = document.getElementById('analyticsYearlyChart').getContext('2d');
+  if (analyticsYearlyChartInstance) {
+    analyticsYearlyChartInstance.destroy();
+  }
+
+  // 해당 월의 정확한 총 일수 구하기
+  const yearSelect = document.getElementById('analytics-year-select');
+  const year = yearSelect ? parseInt(yearSelect.value, 10) : new Date().getFullYear();
+  const numDays = new Date(year, parseInt(month, 10), 0).getDate();
+
+  const labels = Array.from({ length: numDays }, (_, i) => `${i + 1}일`);
+  const incomeData = Array(numDays).fill(0);
+  const expenseData = Array(numDays).fill(0);
+
+  dailyData.forEach(d => {
+    const dIdx = parseInt(d.day, 10) - 1;
+    if (dIdx >= 0 && dIdx < numDays) {
+      incomeData[dIdx] = d.income || 0;
+      expenseData[dIdx] = d.expense || 0;
+    }
+  });
+
+  analyticsYearlyChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '수입',
+          data: incomeData,
+          backgroundColor: '#10b981',
+          borderRadius: 3,
+          maxBarThickness: 8
+        },
+        {
+          label: '지출',
+          data: expenseData,
+          backgroundColor: '#6366f1',
+          borderRadius: 3,
+          maxBarThickness: 8
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { 
+          grid: { display: false }, 
+          ticks: { 
+            color: '#94a3b8',
+            font: { size: 9 },
+            autoSkip: true,
+            maxRotation: 0
+          } 
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: {
+            color: '#94a3b8',
+            precision: 0,
+            callback: function(value) {
+              if (Math.floor(value) !== value) {
+                return null;
+              }
+              if (value >= 10000) {
+                const manValue = value / 10000;
+                return parseFloat(manValue.toFixed(4)) + '만';
+              }
+              return value;
+            }
+          }
+        }
+      },
+      plugins: {
+        legend: { labels: { color: '#f8fafc' } },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return ` ${context.dataset.label}: ${formatCurrency(context.raw)}`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// 2. 카테고리별 누적 소비 차트 (Doughnut Chart / Horizontal Bar)
+function renderAnalyticsCategoryChart(categories, isMonthly = false) {
   const ctx = document.getElementById('analyticsCategoryChart').getContext('2d');
   if (analyticsCategoryChartInstance) {
     analyticsCategoryChartInstance.destroy();
   }
 
-  // 지출 카테고리 중 올해 실적이 있는 것들만 필터링
-  const filtered = categories.filter(c => c.current_year_total > 0);
+  // 지출 카테고리 중 실적이 있는 것들만 필터링 (월간 데이터는 total, 연간 데이터는 current_year_total)
+  const filtered = categories.filter(c => isMonthly ? (c.total > 0) : (c.current_year_total > 0));
   const labels = filtered.map(c => c.category);
-  const data = filtered.map(c => c.current_year_total);
+  const data = filtered.map(c => isMonthly ? c.total : c.current_year_total);
   const colors = filtered.map(c => {
     const style = state.categoryMap[c.category];
     return style ? style.color : '#868e96';

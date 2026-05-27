@@ -210,6 +210,49 @@ router.get('/analytics/monthly', async (req, res) => {
   }
 });
 
+// 특정 월의 상세 분석 (일별 흐름 및 카테고리별 지출, 이체 제외)
+router.get('/analytics/monthly-detail', async (req, res) => {
+  try {
+    const db = await getDB(req.username);
+    const { year, month } = req.query;
+    if (!year || !month) {
+      return res.status(400).json({ error: '조회할 연도(year)와 월(month)을 지정해 주세요.' });
+    }
+
+    const targetMonth = `${year}-${String(month).padStart(2, '0')}`;
+
+    // 1. 일자별 수입 및 지출 (이체 제외)
+    const dailyRows = await db.all(`
+      SELECT 
+        strftime('%d', datetime) as day,
+        SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as expense
+      FROM transactions
+      WHERE datetime LIKE ?
+      GROUP BY day
+      ORDER BY day ASC
+    `, [`${targetMonth}%`]);
+
+    // 2. 카테고리별 지출 (이체 제외)
+    const categoryRows = await db.all(`
+      SELECT 
+        category,
+        SUM(amount) as total
+      FROM transactions
+      WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category != '이체/입금'
+      GROUP BY category
+      ORDER BY total DESC
+    `, [`${targetMonth}%`]);
+
+    res.json({
+      daily: dailyRows,
+      categories: categoryRows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 연도별 월별 흐름 및 카테고리 비교
 router.get('/analytics/yearly', async (req, res) => {
   try {

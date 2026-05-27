@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.0_r2"><!-- 캐시 무효화 버전 갱신 (로그 및 규칙/사용처 설정 탭 이관 반영) -->
+  <link rel="stylesheet" href="./style.css?v=1.9.5"><!-- 캐시 무효화 버전 갱신 (월간 소비분석 디테일 및 폼 가독성 레이아웃 개선) -->
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Lucide Icons CDN -->
@@ -605,13 +605,13 @@
         <!-- Yearly Flow Chart & Category Flow Chart -->
         <div class="charts-grid" style="margin-bottom: 2rem;">
           <div class="card glass chart-card">
-            <h3>연간 수입 vs 지출 월별 추이</h3>
+            <h3 id="analytics-chart1-title">연간 수입 vs 지출 월별 추이</h3>
             <div class="chart-container" style="height: 280px; position: relative;">
               <canvas id="analyticsYearlyChart"></canvas>
             </div>
           </div>
           <div class="card glass chart-card">
-            <h3>카테고리별 연간 소비 누적</h3>
+            <h3 id="analytics-chart2-title">카테고리별 연간 소비 누적</h3>
             <div class="chart-container" style="height: 280px; position: relative;">
               <canvas id="analyticsCategoryChart"></canvas>
             </div>
@@ -620,7 +620,7 @@
 
         <!-- Monthly Asset flow bar chart & category comparison table -->
         <div class="analytics-double-layout"
-          style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.5rem; align-items: start;">
+          style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 1.5rem; align-items: start;">
           <div class="card glass chart-card" style="height: 100%;">
             <h3>최근 12개월 자산 흐름 추이 (수입 vs 지출)</h3>
             <div class="chart-container" style="height: 320px; position: relative; margin-top: 1rem;">
@@ -1231,13 +1231,13 @@
   </nav>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=1.9.4"></script>
-  <script src="./dashboard.js?v=1.9.4"></script>
-  <script src="./transactions.js?v=1.9.4"></script>
-  <script src="./card_bank_view.js?v=1.9.4"></script>
-  <script src="./rules.js?v=1.9.4"></script>
-  <script src="./analytics.js?v=1.9.4"></script>
-  <script src="./settings.js?v=1.9.4"></script>
+  <script src="./app.js?v=1.9.5"></script>
+  <script src="./dashboard.js?v=1.9.5"></script>
+  <script src="./transactions.js?v=1.9.5"></script>
+  <script src="./card_bank_view.js?v=1.9.5"></script>
+  <script src="./rules.js?v=1.9.5"></script>
+  <script src="./analytics.js?v=1.9.5"></script>
+  <script src="./settings.js?v=1.9.5"></script>
 </body>
 
 </html>
