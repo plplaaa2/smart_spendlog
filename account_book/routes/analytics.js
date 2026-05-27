@@ -363,4 +363,73 @@ router.get('/analytics/compare', async (req, res) => {
   }
 });
 
+// 월별 고정지출 분석 API (구독, 보험, 공과금, 주거/통신 등)
+// 요약: 선택한 연도/월 기준 고정비 카테고리에 속하는 지출을 분석하고 최근 6개월 월별 추이 및 거래내역 목록을 반환합니다.
+// 의존성: database.js (getDB)와 연동됩니다.
+router.get('/analytics/fixed', async (req, res) => {
+  try {
+    const db = await getDB(req.username);
+    const { year, month } = req.query;
+    if (!year || !month) {
+      return res.status(400).json({ error: '조회할 연도(year)와 월(month)을 지정해 주세요.' });
+    }
+
+    const targetMonth = `${year}-${String(month).padStart(2, '0')}`;
+    const fixedCategories = ['구독', '보험', '공과금', '주거/통신'];
+    const placeholders = fixedCategories.map(() => '?').join(',');
+
+    // 1. 해당 월 총 지출액 (비율 계산용, 이체/송금 제외)
+    const totalSpentRow = await db.get(
+      "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
+      [`${targetMonth}%`]
+    );
+    const totalSpent = totalSpentRow.total || 0;
+
+    // 2. 해당 월 총 고정지출액 합계
+    const fixedTotalRow = await db.get(
+      `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders})`,
+      [`${targetMonth}%`, ...fixedCategories]
+    );
+    const fixedTotal = fixedTotalRow.total || 0;
+
+    // 3. 카테고리별 고정지출액 합계 (도넛 차트용)
+    const categoryRows = await db.all(
+      `SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders}) GROUP BY category ORDER BY total DESC`,
+      [`${targetMonth}%`, ...fixedCategories]
+    );
+
+    // 4. 고정지출 상세 내역 목록 (테이블용, 최근순)
+    const transactionRows = await db.all(
+      `SELECT id, datetime, merchant, category, pay_method, amount, memo FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders}) ORDER BY datetime DESC`,
+      [`${targetMonth}%`, ...fixedCategories]
+    );
+
+    // 5. 최근 6개월간 월별 고정지출 추이 (바/라인 차트용)
+    const monthlyTrend = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+      d.setMonth(d.getMonth() - i);
+      const targetM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const trendRow = await db.get(
+        `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders})`,
+        [`${targetM}%`, ...fixedCategories]
+      );
+      monthlyTrend.push({
+        month: targetM,
+        total: trendRow.total || 0
+      });
+    }
+
+    res.json({
+      totalSpent,
+      fixedTotal,
+      categories: categoryRows,
+      transactions: transactionRows,
+      trend: monthlyTrend
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

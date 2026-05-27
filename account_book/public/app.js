@@ -47,6 +47,7 @@ window.fetch = async function (resource, options = {}) {
 let state = {
   currentTab: 'dashboard',
   currentSubTab: 'all', // transactions 탭 내 서브 탭 ('all', 'cards', 'banks')
+  currentAnalyticsSubTab: 'trend', // analytics 탭 내 서브 탭 ('trend', 'fixed')
   currentMonth: '', // YYYY-MM 포맷
   categories: [],
   payMethods: [],
@@ -61,6 +62,8 @@ let trendChartInstance = null;
 let analyticsYearlyChartInstance = null;
 let analyticsCategoryChartInstance = null;
 let analyticsMonthlyChartInstance = null;
+let fixedMonthlyTrendChartInstance = null;
+let fixedCategoryChartInstance = null;
 
 // 초기화
 document.addEventListener('DOMContentLoaded', async () => {
@@ -551,6 +554,37 @@ function initEventListeners() {
           view.style.display = 'block';
         } else {
           view.style.display = 'none';
+        }
+      });
+
+      // 데이터 새로고침
+      refreshCurrentTabData();
+    });
+  });
+
+  // 소비 분석 내 서브 탭 클릭 이벤트
+  document.querySelectorAll('.analytics-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const subtab = btn.dataset.subtab;
+      state.currentAnalyticsSubTab = subtab;
+
+      // 서브 탭 버튼 active 클래스 토글
+      document.querySelectorAll('.analytics-tab-btn').forEach(b => {
+        if (b.dataset.subtab === subtab) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
+
+      // 서브 탭 뷰 토글
+      document.querySelectorAll('.analytics-subview-content').forEach(view => {
+        if (view.id === `analytics-subview-${subtab}`) {
+          view.style.display = 'block';
+          view.classList.add('active');
+        } else {
+          view.style.display = 'none';
+          view.classList.remove('active');
         }
       });
 
