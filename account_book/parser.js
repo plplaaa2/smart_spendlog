@@ -65,6 +65,7 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         // 2. 사용처(merchant) 파싱
         let merchant = groups.merchant || groups.usage || '알수없음';
         merchant = merchant.trim();
+        merchant = addKoreanBrandName(merchant); // 영문 브랜드 한글명 추가 (예: VIPS -> VIPS(빕스))
 
         // 3. 결제 일시(datetime) 파싱
         let datetimeStr = '';
@@ -478,6 +479,80 @@ function generatePatternFromText(text) {
 
 function escapeRegexChars(str) {
   return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+/**
+ * 영문 브랜드명을 감지하여 한글명을 괄호와 함께 추가합니다. (예: VIPS -> VIPS(빕스))
+ * 이미 한글명이 포함되어 있는 경우 중복 추가를 방지합니다.
+ * @param {string} merchant 사용처 이름
+ * @returns {string} 변환된 사용처 이름
+ */
+function addKoreanBrandName(merchant) {
+  if (!merchant) return merchant;
+
+  // 영문 브랜드 -> 한글 브랜드 매핑
+  const brandMap = {
+    'VIPS': '빕스',
+    'STARBUCKS': '스타벅스',
+    'MCDONALD': '맥도날드',
+    'BURGER KING': '버거킹',
+    'BURGERKING': '버거킹',
+    'SUBWAY': '써브웨이',
+    'SHAKE SHACK': '쉐이크쉑',
+    'FIVE GUYS': '파이브가이즈',
+    'PIZZA HUT': '피자헛',
+    'DOMINO': '도미노',
+    'PAPA JOHN': '파파존스',
+    'OUTBACK': '아웃백',
+    'DUNKIN': '던킨',
+    'SMOOTHIE KING': '스무디킹',
+    'BLUE BOTTLE': '블루보틀',
+    '7-ELEVEN': '세븐일레븐',
+    '7ELEVEN': '세븐일레븐',
+    'MINISTOP': '미니스톱',
+    'E-MART': '이마트',
+    'HOMEPLUS': '홈플러스',
+    'COSTCO': '코스트코',
+    'TRADERS': '트레이더스',
+    'DAISO': '다이소',
+    'IKEA': '이케아',
+    'COUPANG': '쿠팡',
+    'AUCTION': '옥션',
+    'AMAZON': '아마존',
+    'ALIEXPRESS': '알리익스프레스',
+    'TEMU': '테무',
+    'SHEIN': '쉬인',
+    'UNIQLO': '유니클로',
+    'ZARA': '자라',
+    '8SECONDS': '에잇세컨즈',
+    'NIKE': '나이키',
+    'ADIDAS': '아디다스',
+    'NEW BALANCE': '뉴발란스',
+    'THE NORTH FACE': '노스페이스',
+    'POLO': '폴로',
+    'MUSINSA': '무신사',
+    'UBER': '우버',
+    'NETFLIX': '넷플릭스',
+    'SPOTIFY': '스포티파이',
+    'STEAM': '스팀',
+    'PLAYSTATION': '플레이스테이션',
+    'UDEMY': '유데미',
+    'COURSERA': '코세라'
+  };
+
+  let updatedMerchant = merchant;
+  
+  for (const [eng, kor] of Object.entries(brandMap)) {
+    const engRegex = new RegExp(escapeRegexChars(eng), 'i');
+    const korRegex = new RegExp(escapeRegexChars(kor));
+
+    if (engRegex.test(updatedMerchant) && !korRegex.test(updatedMerchant)) {
+      updatedMerchant = updatedMerchant.replace(engRegex, (match) => `${match}(${kor})`);
+      break;
+    }
+  }
+
+  return updatedMerchant;
 }
 
 module.exports = {
