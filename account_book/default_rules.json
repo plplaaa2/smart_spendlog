@@ -61,6 +61,12 @@
             "type": "EXPENSE"
         },
         {
+            "name": "구독",
+            "color": "#862e9c",
+            "icon": "repeat",
+            "type": "EXPENSE"
+        },
+        {
             "name": "생활/마트",
             "color": "#cc5de8",
             "icon": "shopping-cart",
