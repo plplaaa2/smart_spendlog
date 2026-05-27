@@ -172,6 +172,25 @@ function renderAssetGrid(assets) {
     card.style.padding = '1.25rem';
     card.style.borderRadius = '12px';
     card.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+
+    // 결제 수단 클릭 시 거래 내역 탭의 해당 자산 뷰로 필터링 연동
+    if (!asset.isTotal) {
+      card.style.cursor = 'pointer';
+      card.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease';
+      card.addEventListener('click', () => {
+        navigateToAsset(asset.name, asset.isCard);
+      });
+
+      // 마우스 호버 마이크로 애니메이션 효과
+      card.addEventListener('mouseenter', () => {
+        card.style.transform = 'translateY(-3px)';
+        card.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = 'translateY(0)';
+        card.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+      });
+    }
     
     if (asset.isCard) {
       // 의존성: index.js의 /api/stats 응답 구조에서 제공하는 initialPoint 및 remainingPoint와 연동됩니다.

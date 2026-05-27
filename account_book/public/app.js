@@ -421,6 +421,59 @@ function switchTab(tabId) {
   refreshCurrentTabData();
 }
 
+function switchTransactionSubTab(subtab) {
+  state.currentSubTab = subtab;
+
+  // 서브 탭 버튼 active 클래스 토글
+  document.querySelectorAll('.tx-subtab-btn').forEach(b => {
+    if (b.dataset.subtab === subtab) {
+      b.classList.add('active');
+    } else {
+      b.classList.remove('active');
+    }
+  });
+
+  // 서브 탭 뷰 토글
+  document.querySelectorAll('.tx-subview-content').forEach(view => {
+    if (view.id === `tx-subview-${subtab}`) {
+      view.style.display = 'block';
+    } else {
+      view.style.display = 'none';
+    }
+  });
+}
+
+function navigateToAsset(name, isCard) {
+  // 1. 거래 내역 탭으로 메인 전환
+  switchTab('transactions');
+  
+  if (isCard) {
+    // 2. 카드 서브 탭으로 전환
+    switchTransactionSubTab('cards');
+    // 3. 필터 셀렉터 값 변경
+    const filter = document.getElementById('card-select-filter');
+    if (filter) {
+      filter.value = name;
+    }
+    // 4. 데이터 로드
+    if (typeof loadCardExpenses === 'function') {
+      loadCardExpenses();
+    }
+  } else {
+    // 2. 은행 서브 탭으로 전환
+    switchTransactionSubTab('banks');
+    // 3. 필터 셀렉터 값 변경
+    const filter = document.getElementById('bank-select-filter');
+    if (filter) {
+      filter.value = name;
+    }
+    // 4. 데이터 로드
+    if (typeof loadBankTransactions === 'function') {
+      loadBankTransactions();
+    }
+  }
+}
+
 function refreshCurrentTabData() {
   switch (state.currentTab) {
     case 'dashboard':
