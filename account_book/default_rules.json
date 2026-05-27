@@ -97,6 +97,12 @@
             "type": "EXPENSE"
         },
         {
+            "name": "투자",
+            "color": "#087f5b",
+            "icon": "trending-up",
+            "type": "EXPENSE"
+        },
+        {
             "name": "ATM/출금",
             "color": "#495057",
             "icon": "download",
