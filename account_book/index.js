@@ -77,7 +77,7 @@ app.use('/api', authenticateToken);
 app.use('/api', require('./routes/transactions'));
 app.use('/api', require('./routes/analytics'));
 app.use('/api', require('./routes/rules'));
-app.use('/api', require('./routes/settings'));
+app.use('/api', require('./routes/settings').router);
 
 let haWs = null;
 let wsSubscribedEntities = {};
@@ -179,6 +179,102 @@ async function connectHA() {
 // settings.js 라우터에서 호출 가능하도록 전역 바인딩
 app.locals.connectHA = connectHA;
 
+// 구글 드라이브 자동 백업 백그라운드 스케줄러
+function startGoogleAutoBackupScheduler() {
+  console.log('[Google Auto Backup] 정기 자동 백업 스케줄러 활성화.');
+  
+  // 1시간에 1회씩 체크하여 자정 00시 대에 가계부 자동 클라우드 백업을 진행합니다.
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      if (now.getHours() === 0) {
+        const todayStr = now.toISOString().slice(0, 10);
+        const users = getActiveUsers();
+        
+        // 의존성 동적 요구: 순환 참조 및 미초기화 문제 방지
+        const { refreshAccessToken, googleApiRequest } = require('./routes/settings');
+
+        for (const u of users) {
+          const db = await getDB(u);
+          try {
+            const autoBackupRow = await db.get("SELECT value FROM settings WHERE key = 'google_auto_backup_enabled'");
+            const refreshTokenRow = await db.get("SELECT value FROM settings WHERE key = 'google_refresh_token'");
+            const lastBackupRow = await db.get("SELECT value FROM settings WHERE key = 'google_last_auto_backup_date'");
+
+            if (autoBackupRow && autoBackupRow.value === 'true' && refreshTokenRow && refreshTokenRow.value) {
+              if (lastBackupRow && lastBackupRow.value === todayStr) {
+                continue; // 오늘 이미 자동 백업이 실행되었습니다.
+              }
+
+              console.log(`[Google Auto Backup][${u}] 정기 백업 시작...`);
+              const accessToken = await refreshAccessToken(db);
+
+              const adminDb = await getDB('admin');
+              const tables = [
+                'categories',
+                'pay_methods',
+                'rules',
+                'transactions',
+                'notification_logs',
+                'package_pay_methods',
+                'settings',
+                'merchant_categories'
+              ];
+
+              const backupData = {
+                version: '1.9.21',
+                username: u,
+                backup_date: now.toISOString(),
+                data: {}
+              };
+
+              for (const table of tables) {
+                const targetDb = table === 'rules' ? adminDb : db;
+                const rows = await targetDb.all(`SELECT * FROM ${table}`);
+                backupData.data[table] = rows;
+              }
+
+              const filename = `account_book_backup_${u}_${todayStr}_auto.json`;
+
+              const metadata = {
+                name: filename,
+                mimeType: 'application/json'
+              };
+
+              const boundary = 'foo_bar_boundary_server_auto';
+              const multipartBody = 
+                `\r\n--${boundary}\r\n` +
+                `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+                `${JSON.stringify(metadata)}\r\n` +
+                `\r\n--${boundary}\r\n` +
+                `Content-Type: application/json\r\n\r\n` +
+                `${JSON.stringify(backupData, null, 2)}\r\n` +
+                `--${boundary}--`;
+
+              await googleApiRequest(
+                'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+                'POST',
+                {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': `multipart/related; boundary=${boundary}`
+                },
+                multipartBody
+              );
+
+              await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_last_auto_backup_date', ?)", [todayStr]);
+              console.log(`[Google Auto Backup][${u}] 정기 백업 완료: ${filename}`);
+            }
+          } catch (userErr) {
+            console.error(`[Google Auto Backup][${u}] 정기 백업 실패:`, userErr.message);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Google Auto Backup Scheduler Error]', err);
+    }
+  }, 1000 * 60 * 60); // 1시간 주기 실행
+}
+
 // 서버 기동
 async function startServer() {
   await initDB(config.users);
@@ -190,10 +286,9 @@ async function startServer() {
   });
 
   connectHA();
+  startGoogleAutoBackupScheduler();
 
   // 초기 1회 센서 상태 동기화 및 고아 센서 제거 (3초 지연)
-  // 요약: 서버 기동 시 현재 활성화된 사용자의 센서를 갱신하고, 삭제된 사용자의 센서(고아 센서)는 HA API를 통해 삭제 처리합니다.
-  // 의존성: database.js의 cleanupOrphanedHASensors 및 updateHASensors 함수를 호출합니다.
   setTimeout(async () => {
     const users = getActiveUsers();
     
