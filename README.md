@@ -5,6 +5,8 @@
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/plplaaa2)
 
+[![Open your Home Assistant instance and show the add app repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fplplaaa2%2Fsmart_spendlog)
+
 Home Assistant Companion 앱의 알림(카드 승인 문자, 간편결제 푸시 등) 및 Webhook 호출을 수신하여 금액, 가맹점, 결제수단, 일시를 파싱하고 SQLite 데이터베이스에 기록한 뒤 웹 대시보드로 시각화하는 Smart Spendlog 서비스입니다.
 
 ---
@@ -47,6 +49,13 @@ Home Assistant Companion 앱의 알림(카드 승인 문자, 간편결제 푸시
 ## ⚙️ 설치 및 설정 방법
 
 ### 1. Add-on 설치
+
+#### 방법 A: 원클릭 추가 (권장)
+아래 버튼을 클릭하여 Home Assistant에 **Smart Spendlog** 저장소를 자동으로 추가하고 설치를 진행합니다.
+
+[![Open your Home Assistant instance and show the add app repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fplplaaa2%2Fsmart_spendlog)
+
+#### 방법 B: 수동 설치 (로컬)
 1. `account_book` 폴더를 Home Assistant 호스트의 `/addons` 디렉토리에 복사합니다.
 2. Home Assistant **설정 > 기기 및 서비스 > Add-on > 애드온 스토어** 메뉴로 이동합니다.
 3. 우측 상단 옵션 메뉴에서 **'애드온 재로드'**를 실행합니다.
