@@ -85,7 +85,7 @@ router.get('/settings', async (req, res) => {
 router.post('/settings', async (req, res) => {
   try {
     const db = await getDB(req.username);
-    const { ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, card_performance_goals, user_real_name, auto_rule_generation } = req.body;
+    const { ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, card_performance_goals, user_real_name, auto_rule_generation, pay_methods_order } = req.body;
 
     if (ws_sensor_entity !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ws_sensor_entity', ?)", [ws_sensor_entity]);
@@ -110,6 +110,9 @@ router.post('/settings', async (req, res) => {
     }
     if (auto_rule_generation !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_rule_generation', ?)", [String(auto_rule_generation)]);
+    }
+    if (pay_methods_order !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('pay_methods_order', ?)", [pay_methods_order]);
     }
 
     res.json({ success: true });
@@ -247,6 +250,7 @@ router.post('/settings/restore', async (req, res) => {
       // 복원 시 필수 이체 카테고리가 누락되지 않도록 강제 보강 주입
       await db.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('이체/송금', '#7950f2', 'arrow-left-right', 'EXPENSE')");
       await db.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('이체/입금', '#228be6', 'arrow-left-right', 'INCOME')");
+      await db.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('페이류', '#0ca678', 'wallet', 'EXPENSE')");
 
       // pay_methods 복구
       if (backupObj.data.pay_methods.length > 0) {

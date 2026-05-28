@@ -120,12 +120,6 @@ async function processIncomingNotification(newState, username) {
     parsedStatus = 'SUCCESS';
     matchedRuleId = result.rule_id || matchedRuleId;
 
-    // 사용처 카테고리 자동 매핑
-    // 요약: 정규식 규칙에 카테고리를 고정하지 않고, 파싱된 사용처명을 기준으로 사용처 매핑 테이블을 조회해 동적으로 할당(없으면 '기타')합니다.
-    // 의존성: database.js의 findCategoryByMerchant 헬퍼 함수를 호출합니다.
-    const matchedCategory = await findCategoryByMerchant(db, result.merchant);
-    let finalCategory = matchedCategory || '기타';
-
     // 패키지별 결제수단 자동 매핑 (패키지 매핑이 있으면 최우선 적용, 없으면 규칙/파싱 결과 적용)
     let finalPayMethod = result.pay_method;
     if (packageVal) {
@@ -137,6 +131,24 @@ async function processIncomingNotification(newState, username) {
 
     if (finalPayMethod === '_AUTO_MAPPING_') {
       finalPayMethod = '카드';
+    }
+
+    // 사용처 카테고리 자동 매핑
+    // 요약: 정규식 규칙에 카테고리를 고정하지 않고, 파싱된 사용처명을 기준으로 사용처 매핑 테이블을 조회해 동적으로 할당(없으면 '기타'/'페이류')합니다.
+    // 의존성: database.js의 findCategoryByMerchant 헬퍼 함수를 호출합니다.
+    const matchedCategory = await findCategoryByMerchant(db, result.merchant);
+    let finalCategory = matchedCategory;
+    if (!finalCategory) {
+      const lowerMerchant = result.merchant.toLowerCase();
+      const isPayCharge = lowerMerchant.includes('페이충전') || 
+                           lowerMerchant.includes('페이 충전') || 
+                           lowerMerchant.includes('페이머니') || 
+                           lowerMerchant.includes('네이버페이') || 
+                           lowerMerchant.includes('카카오페이') || 
+                           lowerMerchant.includes('토스페이') || 
+                           lowerMerchant.includes('토스머니');
+      const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
+      finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
     }
 
     // 통장 이동(자산 이동) 감지 및 강제 카테고리 변경
@@ -159,8 +171,7 @@ async function processIncomingNotification(newState, username) {
     };
     
     const isTransferMerchant = (realName && result.merchant === realName) || 
-                               ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant) ||
-                               isKoreanName(result.merchant);
+                               ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant);
 
     if (isTransferMerchant && isBank) {
       if (result.type === 'INCOME') {
@@ -336,11 +347,6 @@ router.post('/webhook', async (req, res) => {
       parsedStatus = 'SUCCESS';
       matchedRuleId = result.rule_id || matchedRuleId;
 
-      // 사용처 카테고리 자동 매핑
-      // 요약: 정규식 규칙에 카테고리를 고정하지 않고, 파싱된 사용처명을 기준으로 사용처 매핑 테이블을 조회해 동적으로 할당(없으면 '기타')합니다.
-      const matchedCategory = await findCategoryByMerchant(db, result.merchant);
-      let finalCategory = matchedCategory || '기타';
-
       // 패키지별 결제수단 자동 매핑 (패키지 매핑이 있으면 최우선 적용, 없으면 규칙/파싱 결과 적용)
       let finalPayMethod = result.pay_method;
       if (packageVal) {
@@ -352,6 +358,23 @@ router.post('/webhook', async (req, res) => {
 
       if (finalPayMethod === '_AUTO_MAPPING_') {
         finalPayMethod = '카드';
+      }
+
+      // 사용처 카테고리 자동 매핑
+      // 요약: 정규식 규칙에 카테고리를 고정하지 않고, 파싱된 사용처명을 기준으로 사용처 매핑 테이블을 조회해 동적으로 할당(없으면 '기타'/'페이류')합니다.
+      const matchedCategory = await findCategoryByMerchant(db, result.merchant);
+      let finalCategory = matchedCategory;
+      if (!finalCategory) {
+        const lowerMerchant = result.merchant.toLowerCase();
+        const isPayCharge = lowerMerchant.includes('페이충전') || 
+                             lowerMerchant.includes('페이 충전') || 
+                             lowerMerchant.includes('페이머니') || 
+                             lowerMerchant.includes('네이버페이') || 
+                             lowerMerchant.includes('카카오페이') || 
+                             lowerMerchant.includes('토스페이') || 
+                             lowerMerchant.includes('토스머니');
+        const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
+        finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
       }
 
       // 통장 이동(자산 이동) 감지 및 강제 카테고리 매핑
@@ -374,8 +397,7 @@ router.post('/webhook', async (req, res) => {
       };
       
       const isTransferMerchant = (realName && result.merchant === realName) || 
-                                 ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant) ||
-                                 isKoreanName(result.merchant);
+                                 ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant);
 
       if (isTransferMerchant && isBank) {
         if (result.type === 'INCOME') {
