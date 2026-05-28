@@ -266,6 +266,12 @@ async function initUserDB(username) {
     console.error('[DB 마이그레이션] 쇼핑 카테고리 고도화 마이그레이션 실패:', e);
   }
 
+  // 대출상환 카테고리 강제 마이그레이션 주입
+  // 의존성: default_rules.json의 카테고리 구성 정의 및 routes/analytics.js의 fixedCategories 와 연결됩니다.
+  try {
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('대출상환', '#e03131', 'landmark', 'EXPENSE')");
+  } catch (e) {}
+
   // 기존 카테고리 중 수입(INCOME) 카테고리의 type 값을 올바르게 강제 보정 (수입 수정 시 카테고리 누락 방지)
   // 의존성: default_rules.json의 카테고리 구성 정의 및 public/app.js의 updateCategorySelect와 연결됩니다.
   try {

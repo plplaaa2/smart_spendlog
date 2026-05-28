@@ -139,6 +139,12 @@
             "type": "EXPENSE"
         },
         {
+            "name": "대출상환",
+            "color": "#e03131",
+            "icon": "landmark",
+            "type": "EXPENSE"
+        },
+        {
             "name": "ATM/출금",
             "color": "#495057",
             "icon": "download",

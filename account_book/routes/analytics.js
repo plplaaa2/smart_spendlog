@@ -390,7 +390,7 @@ router.get('/analytics/fixed', async (req, res) => {
     }
 
     const targetMonth = `${year}-${String(month).padStart(2, '0')}`;
-    const fixedCategories = ['구독', '보험', '공과금', '주거/통신'];
+    const fixedCategories = ['구독', '보험', '공과금', '주거/통신', '대출상환']; // 대출상환 고정비 분석 추가. 의존성: default_rules.json, database.js의 카테고리 설정과 일치해야 합니다.
     const placeholders = fixedCategories.map(() => '?').join(',');
 
     // 1. 해당 월 총 지출액 (비율 계산용, 이체/송금 제외)
