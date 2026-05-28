@@ -136,23 +136,6 @@ action:
 
 ---
 
-## 💻 로컬 개발 환경 실행 방법 (Windows)
-
-Home Assistant 컨테이너 환경이 아닌 Windows 로컬 환경에서 단독 테스트 및 개발 시 아래 절차를 수행합니다.
-
-1. **의존성 모듈 설치**:
-   ```powershell
-   npm install
-   ```
-2. **서버 실행**:
-   ```powershell
-   node index.js
-   ```
-3. **웹 접속**: 브라우저를 열고 `http://localhost:8124`로 접속합니다.  
-   *(로컬 실행 시 SQLite DB 파일은 프로젝트 루트 하위의 `data/` 디렉토리 내에 독립 자동 생성됩니다.)*
-
----
-
 ## ☕ 후원 (Support)
 
 프로젝트 개발이 도움이 되셨다면 따뜻한 커피 한 잔 후원해 주세요!
