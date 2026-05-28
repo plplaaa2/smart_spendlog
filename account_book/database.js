@@ -228,6 +228,10 @@ async function initUserDB(username) {
   try {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('페이류', '#0ca678', 'wallet', 'EXPENSE')");
   } catch (e) {}
+  // 렌탈 카테고리 강제 마이그레이션 주입
+  try {
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('렌탈', '#5c7cfa', 'key', 'EXPENSE')");
+  } catch (e) {}
 
   // 쇼핑 -> 온라인쇼핑 카테고리 명칭 변경 및 해외직구 추가 마이그레이션
   try {
@@ -534,7 +538,7 @@ async function seedFranchisePresets(db, force = false) {
   let txUpdatedCount = 0;
   if (force) {
     for (const preset of FRANCHISE_PRESETS) {
-      if (['편의점', '음료/카페', '배달음식', '디저트', '패션/의류', '병원/약국', '해외직구'].includes(preset.category)) {
+      if (['편의점', '음료/카페', '배달음식', '디저트', '패션/의류', '병원/약국', '해외직구', '구독', '렌탈'].includes(preset.category)) {
         let sourceCategories = ["식비"];
         if (preset.category === '패션/의류') {
           sourceCategories = ["식비", "온라인쇼핑", "생활/마트"];
@@ -542,6 +546,10 @@ async function seedFranchisePresets(db, force = false) {
           sourceCategories = ["식비", "온라인쇼핑", "생활/마트"];
         } else if (preset.category === '병원/약국') {
           sourceCategories = ["식비", "기타", "의료/건강"];
+        } else if (preset.category === '구독') {
+          sourceCategories = ["식비", "온라인쇼핑", "문화/여가", "기타"];
+        } else if (preset.category === '렌탈') {
+          sourceCategories = ["식비", "온라인쇼핑", "생활/마트", "기타"];
         }
         for (const srcCat of sourceCategories) {
           const txResult = await db.run(

@@ -73,6 +73,12 @@
             "type": "EXPENSE"
         },
         {
+            "name": "렌탈",
+            "color": "#5c7cfa",
+            "icon": "key",
+            "type": "EXPENSE"
+        },
+        {
             "name": "생활/마트",
             "color": "#cc5de8",
             "icon": "shopping-cart",
