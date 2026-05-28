@@ -1,11 +1,11 @@
-# Home Assistant 가계부 Add-on (HA Account Book)
+# Smart Spendlog (HA Add-on)
 
 [![Home Assistant Add-on](https://img.shields.io/badge/Home%20Assistant-Add--on-blue?style=flat-square&logo=home-assistant)](https://github.com/plplaaa2/account_book)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange?style=flat-square)](https://github.com/hacs/integration)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/plplaaa2)
 
-Home Assistant Companion 앱의 알림(카드 승인 문자, 간편결제 푸시 등) 및 Webhook 호출을 수신하여 금액, 가맹점, 결제수단, 일시를 파싱하고 SQLite 데이터베이스에 기록한 뒤 웹 대시보드로 시각화하는 통합 가계부 서비스입니다.
+Home Assistant Companion 앱의 알림(카드 승인 문자, 간편결제 푸시 등) 및 Webhook 호출을 수신하여 금액, 가맹점, 결제수단, 일시를 파싱하고 SQLite 데이터베이스에 기록한 뒤 웹 대시보드로 시각화하는 Smart Spendlog 서비스입니다.
 
 ---
 
@@ -105,20 +105,20 @@ SQLite 데이터베이스 파일에 생성되는 핵심 테이블 명세입니�
 1. `account_book` 폴더를 Home Assistant 호스트의 `/addons` 디렉토리에 복사합니다.
 2. Home Assistant **설정 > 기기 및 서비스 > Add-on > 애드온 스토어** 메뉴로 이동합니다.
 3. 우측 상단 옵션 메뉴에서 **'애드온 재로드'**를 실행합니다.
-4. 로컬 목록에 나타난 **'HA Account Book'**을 선택한 뒤 **설치**를 진행합니다.
+4. 로컬 목록에 나타난 **'Smart Spendlog'**를 선택한 뒤 **설치**를 진행합니다.
 5. 설치 완료 후 **'사이드바에 표시'**를 켜고 **시작** 버튼을 누릅니다.
 
 ### 2. 스마트폰 알림 수집 설정
 #### 방법 A: WebSocket 연동 (권장)
 1. 스마트폰에 **Home Assistant 공식 Companion 앱**을 설치합니다.
 2. 앱 설정 내 **센서 관리** 메뉴에서 **'마지막 알림(Last Notification)'** 센서를 활성화합니다.
-3. 가계부 웹 UI 내 **설정 > 기본 설정**으로 이동하여 본인의 알림 센서 Entity ID(예: `sensor.phone_last_notification`)를 입력하고 등록합니다.
+3. Smart Spendlog 웹 UI 내 **설정 > 기본 설정**으로 이동하여 본인의 알림 센서 Entity ID(예: `sensor.phone_last_notification`)를 입력하고 등록합니다.
 
 #### 방법 B: HA 자동화를 통한 웹훅(Webhook) 호출
 수동으로 조건별 알림만 API를 호출해 전송하려면 아래와 같이 Home Assistant Automation을 작성합니다.
 
 ```yaml
-alias: "가계부: 카드 알림 전송 자동화"
+alias: "Smart Spendlog: 카드 알림 전송 자동화"
 trigger:
   - platform: state
     entity_id: sensor.my_phone_last_notification
