@@ -168,7 +168,7 @@ router.get('/settings/backup', async (req, res) => {
     ];
 
     const backupData = {
-      version: '1.9.18',
+      version: '1.9.19',
       username: req.username,
       backup_date: new Date().toISOString(),
       data: {}
