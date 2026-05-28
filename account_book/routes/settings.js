@@ -85,7 +85,7 @@ router.get('/settings', async (req, res) => {
 router.post('/settings', async (req, res) => {
   try {
     const db = await getDB(req.username);
-    const { ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, card_performance_goals, card_performance_days, user_real_name, auto_rule_generation, pay_methods_order, google_client_id, google_client_secret, google_redirect_uri, google_auto_backup_enabled } = req.body;
+    const { ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, card_performance_goals, card_performance_days, user_real_name, auto_rule_generation, pay_methods_order } = req.body;
 
     if (ws_sensor_entity !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ws_sensor_entity', ?)", [ws_sensor_entity]);
@@ -116,18 +116,6 @@ router.post('/settings', async (req, res) => {
     }
     if (pay_methods_order !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('pay_methods_order', ?)", [pay_methods_order]);
-    }
-    if (google_client_id !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_client_id', ?)", [google_client_id]);
-    }
-    if (google_client_secret !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_client_secret', ?)", [google_client_secret]);
-    }
-    if (google_redirect_uri !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_redirect_uri', ?)", [google_redirect_uri]);
-    }
-    if (google_auto_backup_enabled !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_auto_backup_enabled', ?)", [String(google_auto_backup_enabled)]);
     }
 
     res.json({ success: true });
@@ -197,7 +185,7 @@ router.get('/settings/backup', async (req, res) => {
     }
 
     // 한글 ID 포함 시 Content-Disposition 헤더 인코딩 오류(TypeError) 방지를 위해 RFC 6266 규격 준수 인코딩 적용
-    const rawFilename = `account_book_backup_${req.username}_${new Date().toISOString().slice(0,10)}.json`;
+    const rawFilename = `account_book_backup_${req.username}_${new Date().toISOString().slice(0, 10)}.json`;
     const encodedFilename = encodeURIComponent(rawFilename);
     res.setHeader('Content-disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
     res.setHeader('Content-type', 'application/json');
@@ -331,7 +319,7 @@ async function executeRestore(username, backupObj) {
     if (runAdminTx) {
       await adminDb.run('COMMIT');
     }
-    
+
     updateHASensors(username);
     return { success: true, message: '데이터가 성공적으로 복원되었습니다.' };
   } catch (txErr) {
@@ -339,7 +327,7 @@ async function executeRestore(username, backupObj) {
     if (runAdminTx) {
       try {
         await adminDb.run('ROLLBACK');
-      } catch (e) {}
+      } catch (e) { }
     }
     throw txErr;
   }
@@ -356,309 +344,6 @@ router.post('/settings/restore', async (req, res) => {
   }
 });
 
-// ==========================================
-// 구글 드라이브 백업 및 복원 API & 헬퍼
-// ==========================================
-const https = require('https');
-
-// 구글 API 호출을 위한 의존성 없는 HTTPS 요청 Helper
-function googleApiRequest(url, method, headers = {}, body = null) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(url);
-    const options = {
-      hostname: u.hostname,
-      port: 443,
-      path: u.pathname + u.search,
-      method: method,
-      headers: { ...headers }
-    };
-
-    if (body) {
-      const bodyStr = typeof body === 'string' ? body : body.toString();
-      options.headers['Content-Length'] = Buffer.byteLength(bodyStr);
-    }
-
-    const request = https.request(options, (response) => {
-      let data = '';
-      response.on('data', (chunk) => { data += chunk; });
-      response.on('end', () => {
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            resolve(data);
-          }
-        } else {
-          reject(new Error(`Google API HTTP ${response.statusCode}: ${data}`));
-        }
-      });
-    });
-
-    request.on('error', (err) => { reject(err); });
-    if (body) {
-      request.write(body);
-    }
-    request.end();
-  });
-}
-
-// Refresh Token을 사용하여 새로운 Access Token 갱신 함수
-async function refreshAccessToken(db) {
-  const clientIdRow = await db.get("SELECT value FROM settings WHERE key = 'google_client_id'");
-  const clientSecretRow = await db.get("SELECT value FROM settings WHERE key = 'google_client_secret'");
-  const refreshTokenRow = await db.get("SELECT value FROM settings WHERE key = 'google_refresh_token'");
-
-  if (!clientIdRow || !clientIdRow.value || !clientSecretRow || !clientSecretRow.value || !refreshTokenRow || !refreshTokenRow.value) {
-    throw new Error('Google OAuth 연동이 완료되지 않았습니다. 설정을 완료해 주세요.');
-  }
-
-  const tokenUrl = 'https://oauth2.googleapis.com/token';
-  const queryData = new URLSearchParams();
-  queryData.append('client_id', clientIdRow.value);
-  queryData.append('client_secret', clientSecretRow.value);
-  queryData.append('refresh_token', refreshTokenRow.value);
-  queryData.append('grant_type', 'refresh_token');
-
-  const res = await googleApiRequest(
-    tokenUrl,
-    'POST',
-    { 'Content-Type': 'application/x-www-form-urlencoded' },
-    queryData.toString()
-  );
-
-  if (res.error) {
-    throw new Error(`구글 토큰 갱신 실패: ${res.error_description || res.error}`);
-  }
-
-  if (res.access_token) {
-    await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_access_token', ?)", [res.access_token]);
-    return res.access_token;
-  } else {
-    throw new Error('Access Token을 받지 못했습니다.');
-  }
-}
-
-// 구글 드라이브 연동 상태 및 설정 정보 반환 API
-router.get('/settings/google/status', async (req, res) => {
-  try {
-    const db = await getDB(req.username);
-    const refreshTokenRow = await db.get("SELECT value FROM settings WHERE key = 'google_refresh_token'");
-    const hasRefreshToken = !!(refreshTokenRow && refreshTokenRow.value);
-    
-    const clientIdRow = await db.get("SELECT value FROM settings WHERE key = 'google_client_id'");
-    const clientSecretRow = await db.get("SELECT value FROM settings WHERE key = 'google_client_secret'");
-    const redirectUriRow = await db.get("SELECT value FROM settings WHERE key = 'google_redirect_uri'");
-    const autoBackupRow = await db.get("SELECT value FROM settings WHERE key = 'google_auto_backup_enabled'");
-
-    res.json({
-      connected: hasRefreshToken,
-      google_client_id: clientIdRow ? clientIdRow.value : '',
-      google_client_secret: clientSecretRow ? clientSecretRow.value : '',
-      google_redirect_uri: redirectUriRow ? redirectUriRow.value : '',
-      google_auto_backup_enabled: autoBackupRow ? autoBackupRow.value === 'true' : false
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Google OAuth 동의 화면 URL 생성 API
-router.get('/settings/google/auth-url', async (req, res) => {
-  try {
-    const db = await getDB(req.username);
-    const clientIdRow = await db.get("SELECT value FROM settings WHERE key = 'google_client_id'");
-    const redirectUriRow = await db.get("SELECT value FROM settings WHERE key = 'google_redirect_uri'");
-    
-    if (!clientIdRow || !clientIdRow.value) {
-      return res.status(400).json({ error: 'Google Client ID가 설정되지 않았습니다.' });
-    }
-    if (!redirectUriRow || !redirectUriRow.value) {
-      return res.status(400).json({ error: 'Google Redirect URI가 설정되지 않았습니다.' });
-    }
-
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + 
-      `client_id=${encodeURIComponent(clientIdRow.value)}` +
-      `&redirect_uri=${encodeURIComponent(redirectUriRow.value)}` +
-      `&response_type=code` +
-      `&scope=${encodeURIComponent('https://www.googleapis.com/auth/drive.file')}` +
-      `&access_type=offline` +
-      `&prompt=consent` +
-      `&state=${encodeURIComponent(req.username)}`;
-
-    res.json({ url: authUrl });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Google OAuth Callback 수신 및 Refresh Token 저장 API
-router.get('/settings/google/callback', async (req, res) => {
-  const { code, state } = req.query;
-  if (!code) {
-    return res.send('<script>alert("인증 코드가 유실되었습니다."); window.close();</script>');
-  }
-
-  // state에 전달된 username 복원, 기본값 admin
-  const username = state || 'admin';
-  
-  try {
-    const db = await getDB(username);
-    const clientIdRow = await db.get("SELECT value FROM settings WHERE key = 'google_client_id'");
-    const clientSecretRow = await db.get("SELECT value FROM settings WHERE key = 'google_client_secret'");
-    const redirectUriRow = await db.get("SELECT value FROM settings WHERE key = 'google_redirect_uri'");
-
-    if (!clientIdRow || !clientSecretRow || !redirectUriRow) {
-      return res.send('<script>alert("설정 정보(Client ID / Secret / Redirect URI)가 유실되어 연동할 수 없습니다."); window.close();</script>');
-    }
-
-    const tokenUrl = 'https://oauth2.googleapis.com/token';
-    const params = new URLSearchParams();
-    params.append('code', code);
-    params.append('client_id', clientIdRow.value);
-    params.append('client_secret', clientSecretRow.value);
-    params.append('redirect_uri', redirectUriRow.value);
-    params.append('grant_type', 'authorization_code');
-
-    const tokenRes = await googleApiRequest(
-      tokenUrl,
-      'POST',
-      { 'Content-Type': 'application/x-www-form-urlencoded' },
-      params.toString()
-    );
-
-    if (tokenRes.error) {
-      console.error('[Google OAuth Callback Exchange Error]', tokenRes);
-      return res.send(`<script>alert("구글 토큰 교환 실패: ${tokenRes.error_description || tokenRes.error}"); window.close();</script>`);
-    }
-
-    if (tokenRes.refresh_token) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_refresh_token', ?)", [tokenRes.refresh_token]);
-    } else {
-      console.warn('[Google OAuth] refresh_token이 수신되지 않음. 이미 동의 완료 상태일 수 있음.');
-    }
-
-    if (tokenRes.access_token) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_access_token', ?)", [tokenRes.access_token]);
-    }
-
-    res.send('<script>alert("구글 드라이브 계정 연동 완료!"); if(window.opener) { window.opener.location.reload(); } window.close();</script>');
-  } catch (err) {
-    console.error('[Google OAuth Callback Catch Error]', err);
-    res.send(`<script>alert("구글 연동 중 예외 발생: ${err.message}"); window.close();</script>`);
-  }
-});
-
-// 즉시 구글 드라이브로 백업 수행 API
-router.post('/settings/google/backup-now', async (req, res) => {
-  try {
-    const db = await getDB(req.username);
-    const accessToken = await refreshAccessToken(db);
-
-    const adminDb = await getDB('admin');
-    const tables = [
-      'categories',
-      'pay_methods',
-      'rules',
-      'transactions',
-      'notification_logs',
-      'package_pay_methods',
-      'settings',
-      'merchant_categories'
-    ];
-
-    const backupData = {
-      version: '1.9.21',
-      username: req.username,
-      backup_date: new Date().toISOString(),
-      data: {}
-    };
-
-    for (const table of tables) {
-      const targetDb = table === 'rules' ? adminDb : db;
-      const rows = await targetDb.all(`SELECT * FROM ${table}`);
-      backupData.data[table] = rows;
-    }
-
-    const filename = `account_book_backup_${req.username}_${new Date().toISOString().slice(0, 10)}.json`;
-
-    // Multipart 업로드
-    const metadata = {
-      name: filename,
-      mimeType: 'application/json'
-    };
-
-    const boundary = 'foo_bar_boundary_server';
-    const multipartBody = 
-      `\r\n--${boundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-      `${JSON.stringify(metadata)}\r\n` +
-      `\r\n--${boundary}\r\n` +
-      `Content-Type: application/json\r\n\r\n` +
-      `${JSON.stringify(backupData, null, 2)}\r\n` +
-      `--${boundary}--`;
-
-    const uploadRes = await googleApiRequest(
-      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-      'POST',
-      {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`
-      },
-      multipartBody
-    );
-
-    res.json({ success: true, file: uploadRes });
-  } catch (err) {
-    console.error('[Google Manual Backup Error]', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 구글 드라이브 백업 파일 목록 조회 API
-router.get('/settings/google/files', async (req, res) => {
-  try {
-    const db = await getDB(req.username);
-    const accessToken = await refreshAccessToken(db);
-
-    const query = encodeURIComponent(`name contains 'account_book_backup_' and mimeType='application/json' and trashed=false`);
-    const url = `https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=createdTime+desc&fields=files(id,name,createdTime)`;
-
-    const listRes = await googleApiRequest(url, 'GET', {
-      'Authorization': `Bearer ${accessToken}`
-    });
-
-    res.json(listRes.files || []);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 구글 드라이브 파일로부터 복원 API
-router.post('/settings/google/restore', async (req, res) => {
-  const { fileId } = req.body;
-  if (!fileId) {
-    return res.status(400).json({ error: 'fileId가 누락되었습니다.' });
-  }
-
-  try {
-    const db = await getDB(req.username);
-    const accessToken = await refreshAccessToken(db);
-
-    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-    const backupObj = await googleApiRequest(url, 'GET', {
-      'Authorization': `Bearer ${accessToken}`
-    });
-
-    const result = await executeRestore(req.username, backupObj);
-    res.json(result);
-  } catch (err) {
-    console.error('[Google Restore Error]', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 module.exports = {
-  router,
-  refreshAccessToken,
-  googleApiRequest
+  router
 };

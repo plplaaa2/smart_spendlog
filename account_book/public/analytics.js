@@ -58,6 +58,12 @@ async function loadAnalytics() {
   const compareMode = compareModeSelect ? compareModeSelect.value : 'yoy';
   const selectedMonth = monthSelect ? monthSelect.value : '1';
 
+  // 일반지출 서브 탭일 경우 전용 로더 호출
+  if (state.currentAnalyticsSubTab === 'general') {
+    loadGeneralAnalytics(selectedYear, selectedMonth);
+    return;
+  }
+
   // 고정지출 서브 탭일 경우 전용 로더 호출
   if (state.currentAnalyticsSubTab === 'fixed') {
     loadFixedAnalytics(selectedYear, selectedMonth);
@@ -681,6 +687,212 @@ function renderFixedCategoryChart(categories) {
 function renderFixedTransactionTable(transactions) {
   const tbody = document.getElementById('fixed-transaction-table-body');
   const footer = document.getElementById('fixed-transaction-table-footer');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (transactions.length === 0) {
+    if (footer) footer.style.display = 'block';
+    return;
+  }
+
+  if (footer) footer.style.display = 'none';
+
+  transactions.forEach(t => {
+    const tr = document.createElement('tr');
+    const catStyle = state.categoryMap[t.category] || { color: '#868e96', icon: 'help-circle' };
+
+    tr.innerHTML = `
+      <td data-label="날짜/시간" class="font-mono text-sm">${formatShortDate(t.datetime)}</td>
+      <td data-label="사용처" class="text-bold">${t.merchant}</td>
+      <td data-label="카테고리">
+        <span class="category-badge" style="background-color: ${catStyle.color}15; color: ${catStyle.color}; border: 1px solid ${catStyle.color}30;">
+          <i data-lucide="${catStyle.icon}"></i>
+          ${t.category}
+        </span>
+      </td>
+      <td data-label="결제수단" class="text-secondary text-sm">${t.pay_method || '-'}</td>
+      <td data-label="금액" class="text-right text-bold font-mono text-expense">${formatCurrency(t.amount)}</td>
+      <td data-label="메모" class="text-secondary text-sm">${t.memo || '-'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// 일반지출 데이터 로드 및 렌더링 총괄 함수
+// 요약: 선택한 년/월의 일반지출 정보를 API에서 호출하고, 카드 통계, 월별 추이 차트, 카테고리별 비중 차트, 내역 테이블을 그립니다.
+// 의존성: index.html의 general-total-value, general-ratio-value, non-general-total-value 등 DOM 엘리먼트 및 /api/analytics/general 과 연동됩니다.
+async function loadGeneralAnalytics(year, month) {
+  try {
+    const res = await fetch(`api/analytics/general?year=${year}&month=${month}`).then(r => r.json());
+    
+    // 1. 상단 요약 카드 데이터 반영
+    const generalTotal = res.generalTotal || 0;
+    const totalSpent = res.totalSpent || 0;
+    
+    const generalRatio = totalSpent > 0 ? Math.round((generalTotal / totalSpent) * 100) : 0;
+    const nonGeneralTotal = Math.max(0, totalSpent - generalTotal);
+
+    document.getElementById('general-total-value').textContent = formatCurrency(generalTotal);
+    document.getElementById('general-ratio-value').textContent = `${generalRatio}%`;
+    document.getElementById('non-general-total-value').textContent = formatCurrency(nonGeneralTotal);
+
+    // 2. 월별 일반지출 추이 차트 렌더링
+    renderGeneralMonthlyTrendChart(res.trend);
+
+    // 3. 일반지출 카테고리별 비중 차트 렌더링
+    renderGeneralCategoryChart(res.categories);
+
+    // 4. 일반지출 상세 거래 내역 테이블 렌더링
+    renderGeneralTransactionTable(res.transactions);
+
+    // 아이콘 새로 렌더링
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+  } catch (err) {
+    console.error('일반지출 분석 데이터 로드 실패:', err);
+  }
+}
+
+// 6개월 일반지출 추이 바 차트
+// 요약: 최근 6개월 동안의 일반지출 월별 합계를 바 차트로 렌더링합니다.
+// 의존성: index.html의 generalMonthlyTrendChart 캔버스 엘리먼트와 연동됩니다.
+function renderGeneralMonthlyTrendChart(trendData) {
+  const ctx = document.getElementById('generalMonthlyTrendChart').getContext('2d');
+  if (generalMonthlyTrendChartInstance) {
+    generalMonthlyTrendChartInstance.destroy();
+  }
+
+  const labels = trendData.map(d => {
+    const [y, m] = d.month.split('-');
+    return `${y.slice(2)}/${m}`;
+  });
+  const data = trendData.map(d => d.total || 0);
+
+  generalMonthlyTrendChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '일반지출 합계',
+        data,
+        backgroundColor: '#10b981',
+        borderRadius: 4,
+        maxBarThickness: 25
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: {
+            color: '#94a3b8',
+            precision: 0,
+            callback: function(value) {
+              if (Math.floor(value) !== value) return null;
+              if (value >= 10000) {
+                return (value / 10000).toFixed(0) + '만';
+              }
+              return value;
+            }
+          }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return ` 일반지출: ${formatCurrency(context.raw)}`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// 일반지출 카테고리별 비중 도넛 차트
+// 요약: 해당 월의 일반지출 카테고리별 비율을 도넛 차트로 표시합니다.
+// 의존성: index.html의 generalCategoryChart 캔버스 엘리먼트와 연동됩니다.
+function renderGeneralCategoryChart(categories) {
+  const ctx = document.getElementById('generalCategoryChart').getContext('2d');
+  if (generalCategoryChartInstance) {
+    generalCategoryChartInstance.destroy();
+  }
+
+  const filtered = categories.filter(c => c.total > 0);
+  const labels = filtered.map(c => c.category);
+  const data = filtered.map(c => c.total);
+  const colors = filtered.map(c => {
+    const style = state.categoryMap[c.category];
+    return style ? style.color : '#868e96';
+  });
+
+  if (filtered.length === 0) {
+    ctx.clearRect(0, 0, 300, 300);
+    generalCategoryChartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['데이터 없음'],
+        datasets: [{ data: [1], backgroundColor: ['rgba(255,255,255,0.05)'], borderWidth: 0 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+    return;
+  }
+
+  generalCategoryChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            color: '#f8fafc',
+            font: { size: 10 },
+            boxWidth: 10,
+            padding: 6
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const val = context.raw;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = Math.round((val / total) * 100);
+              return ` ${context.label}: ${formatCurrency(val)} (${percentage}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// 일반지출 거래 내역 테이블 렌더링
+// 요약: 해당 월의 일반지출 상세 내역 목록을 테이블에 렌더링합니다.
+// 의존성: index.html의 general-transaction-table-body 및 general-transaction-table-footer 엘리먼트와 연동됩니다.
+function renderGeneralTransactionTable(transactions) {
+  const tbody = document.getElementById('general-transaction-table-body');
+  const footer = document.getElementById('general-transaction-table-footer');
   if (!tbody) return;
 
   tbody.innerHTML = '';

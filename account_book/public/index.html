@@ -583,6 +583,8 @@
           style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--glass-border); margin-bottom: 1.5rem; padding-bottom: 0.5rem; flex-wrap: wrap;">
           <button class="analytics-tab-btn active" data-subtab="trend"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">소비 추이</button>
+          <button class="analytics-tab-btn" data-subtab="general"
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">일반지출 분석</button>
           <button class="analytics-tab-btn" data-subtab="fixed"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">고정지출 분석</button>
         </div>
@@ -672,6 +674,86 @@
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1-2) 일반지출 분석 서브 탭 -->
+        <div id="analytics-subview-general" class="analytics-subview-content" style="width: 100%; display: none;">
+          <!-- 일반지출 통계 요약 카드 3개 -->
+          <div class="stats-grid" style="margin-bottom: 1.5rem;">
+            <div class="card glass stat-card">
+              <div class="stat-header">
+                <span class="stat-label">이번 달 일반지출</span>
+                <div class="stat-icon-wrapper expense"><i data-lucide="shopping-bag"></i></div>
+              </div>
+              <div class="stat-value" id="general-total-value">0원</div>
+              <div class="stat-footer">
+                <span class="text-secondary">고정지출을 제외한 변동성 지출</span>
+              </div>
+            </div>
+            <div class="card glass stat-card">
+              <div class="stat-header">
+                <span class="stat-label">일반지출 비율</span>
+                <div class="stat-icon-wrapper budget"><i data-lucide="pie-chart"></i></div>
+              </div>
+              <div class="stat-value" id="general-ratio-value">0%</div>
+              <div class="stat-footer">
+                <span class="text-secondary">이번 달 총 지출액 대비 비중</span>
+              </div>
+            </div>
+            <div class="card glass stat-card">
+              <div class="stat-header">
+                <span class="stat-label">일반지출 제외 지출액</span>
+                <div class="stat-icon-wrapper savings"><i data-lucide="shield-check"></i></div>
+              </div>
+              <div class="stat-value" id="non-general-total-value">0원</div>
+              <div class="stat-footer">
+                <span class="text-secondary">고정비 등 나머지 지출 합계</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 차트 그리드 -->
+          <div class="charts-grid" style="margin-bottom: 2rem;">
+            <div class="card glass chart-card">
+              <h3>일반지출 월별 추이 (최근 6개월)</h3>
+              <div class="chart-container" style="height: 280px; position: relative;">
+                <canvas id="generalMonthlyTrendChart"></canvas>
+              </div>
+            </div>
+            <div class="card glass chart-card">
+              <h3>일반지출 카테고리별 비중</h3>
+              <div class="chart-container" style="height: 280px; position: relative;">
+                <canvas id="generalCategoryChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- 일반지출 상세 리스트 -->
+          <div class="card glass table-card">
+            <div class="card-header" style="padding-bottom: 1rem;">
+              <h3>이번 달 일반지출 거래 내역</h3>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>날짜/시간</th>
+                    <th>사용처</th>
+                    <th>카테고리</th>
+                    <th>결제수단</th>
+                    <th>금액</th>
+                    <th>메모</th>
+                  </tr>
+                </thead>
+                <tbody id="general-transaction-table-body">
+                  <!-- Dynamic rows -->
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer" id="general-transaction-table-footer">
+              <p class="empty-message">이번 달 일반지출 거래 내역이 없습니다.</p>
             </div>
           </div>
         </div>
@@ -898,61 +980,7 @@
                 </div>
               </div>
 
-              <!-- 구글 드라이브 자동 백업 및 연동 설정 카드 -->
-              <div class="card glass settings-form-card" id="google-drive-backup-card">
-                <h3 style="display: flex; align-items: center; gap: 8px;">
-                  <i data-lucide="cloud" style="stroke: #4285F4;"></i> 구글 드라이브 클라우드 백업
-                </h3>
-                <div class="info-box">
-                  <p>구글 API 콘솔에서 발급받은 OAuth Credentials 정보를 입력한 뒤 계정을 연동해 주세요. 연동 후에는 매일 자정 클라우드 자동 백업을 활성화하거나 원하실 때 즉시 백업/복원을 수행할 수 있습니다.</p>
-                </div>
-                <form id="google-settings-form" style="margin-top: 1rem;">
-                  <div class="form-group">
-                    <label for="settings-google-client-id">Google Client ID</label>
-                    <input type="text" id="settings-google-client-id" placeholder="12345678-xxxx.apps.googleusercontent.com">
-                  </div>
-                  <div class="form-group">
-                    <label for="settings-google-client-secret">Google Client Secret</label>
-                    <input type="password" id="settings-google-client-secret" placeholder="••••••••••••••••">
-                  </div>
-                  <div class="form-group">
-                    <label for="settings-google-redirect-uri">OAuth Redirect URI</label>
-                    <div class="info-box" style="padding: 6px 10px; font-size: 0.75rem; background: rgba(255,255,255,0.03);">
-                      <p>구글 API 콘솔 승인된 리디렉션 URI 목록에 아래 주소를 동일하게 추가해 주셔야 합니다.</p>
-                    </div>
-                    <input type="text" id="settings-google-redirect-uri" readonly style="background: rgba(255,255,255,0.04); color: var(--text-secondary); cursor: not-allowed;">
-                  </div>
-                  
-                  <div class="form-group" style="margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
-                    <input type="checkbox" id="settings-google-auto-backup" style="width: 18px; height: 18px; accent-color: var(--accent-color); cursor: pointer;">
-                    <label for="settings-google-auto-backup" style="cursor: pointer; font-size: 0.9rem; font-weight: normal; margin-bottom: 0; display: inline;">매일 자정 구글 드라이브에 자동 백업 실행</label>
-                  </div>
-                  
-                  <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem;">연동 환경설정 저장</button>
-                </form>
 
-                <div class="google-auth-actions" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 12px;">
-                  <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <span style="font-size: 0.9rem; font-weight: 500;">구글 계정 연동 상태:</span>
-                    <span id="google-connection-badge" class="badge" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; padding: 4px 10px; border-radius: 12px; font-size: 0.78rem;">연동 해제됨</span>
-                  </div>
-
-                  <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 0.5rem;">
-                    <button type="button" class="btn" id="btn-google-connect" style="background: #4285F4; border: none; color: white; display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px;">
-                      <i data-lucide="link" style="width: 16px; height: 16px;"></i> 구글 계정 인증 연동
-                    </button>
-                    <button type="button" class="btn btn-primary" id="btn-google-backup" disabled style="display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px;">
-                      <i data-lucide="cloud-lightning" style="width: 16px; height: 16px;"></i> 즉시 클라우드 백업
-                    </button>
-                    <button type="button" class="btn" id="btn-google-restore" disabled style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary); display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px;">
-                      <i data-lucide="cloud-download" style="width: 16px; height: 16px;"></i> 클라우드 백업 복원
-                    </button>
-                    <span id="google-loading-indicator" style="display: none; font-size: 0.85rem; color: var(--primary-color); align-items: center; gap: 0.25rem;">
-                      <i data-lucide="loader" class="animate-spin" style="width: 16px; height: 16px;"></i> 진행 중...
-                    </span>
-                  </div>
-                </div>
-              </div>
 
               <!-- Danger Zone (Data Reset) Card -->
               <div class="card glass reset-card" style="border-color: rgba(239, 68, 68, 0.25);">
@@ -1407,13 +1435,13 @@
   </nav>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=1.9.19"></script>
-  <script src="./dashboard.js?v=1.9.19"></script>
-  <script src="./transactions.js?v=1.9.19"></script>
-  <script src="./card_bank_view.js?v=1.9.19"></script>
-  <script src="./rules.js?v=1.9.19"></script>
-  <script src="./analytics.js?v=1.9.19"></script>
-  <script src="./settings.js?v=1.9.19"></script>
+  <script src="./app.js?v=1.9.26"></script>
+  <script src="./dashboard.js?v=1.9.26"></script>
+  <script src="./transactions.js?v=1.9.26"></script>
+  <script src="./card_bank_view.js?v=1.9.26"></script>
+  <script src="./rules.js?v=1.9.26"></script>
+  <script src="./analytics.js?v=1.9.26"></script>
+  <script src="./settings.js?v=1.9.26"></script>
 </body>
 
 </html>
