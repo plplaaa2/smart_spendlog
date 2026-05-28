@@ -132,12 +132,103 @@ async function loadDashboardData() {
   }
 }
 
+// Helper to determine closest card placement for grid drag and drop
+function getDragPlacement(container, x, y) {
+  const draggableElements = [...container.querySelectorAll('.asset-card-item:not(.total-type):not(.dragging)')];
+
+  let closest = { distance: Number.POSITIVE_INFINITY, element: null, centerX: 0, centerY: 0 };
+
+  draggableElements.forEach(child => {
+    const box = child.getBoundingClientRect();
+    const centerX = box.left + box.width / 2;
+    const centerY = box.top + box.height / 2;
+    const distance = Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2);
+
+    if (distance < closest.distance) {
+      closest = { distance, element: child, centerX, centerY };
+    }
+  });
+
+  return closest;
+}
+
+// Helper to initialize drag-and-drop on asset cards
+function initDragAndDropForCard(card, container) {
+  const handle = card.querySelector('.drag-handle');
+  if (!handle) return;
+
+  handle.addEventListener('mousedown', () => {
+    card.setAttribute('draggable', 'true');
+  });
+
+  handle.addEventListener('mouseup', () => {
+    card.setAttribute('draggable', 'false');
+  });
+
+  card.addEventListener('dragstart', (e) => {
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', card.dataset.name);
+  });
+
+  card.addEventListener('dragend', async () => {
+    card.classList.remove('dragging');
+    card.setAttribute('draggable', 'false');
+
+    // Collect the new order of all non-total card names
+    const cards = [...container.querySelectorAll('.asset-card-item:not(.total-type)')];
+    const newOrder = cards.map(c => c.dataset.name);
+
+    // Save the new order to the backend
+    try {
+      const response = await fetch('api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pay_methods_order: JSON.stringify(newOrder)
+        })
+      }).then(r => r.json());
+
+      if (response.success) {
+        console.log('결제수단 순서가 드래그로 저장되었습니다.');
+        state.settings.pay_methods_order = JSON.stringify(newOrder);
+      } else {
+        console.error('순서 저장 실패:', response.error);
+      }
+    } catch (err) {
+      console.error('순서 저장 중 오류:', err);
+    }
+  });
+}
+
 // 결제 수단별 월간 현황(자산 & 카드) 렌더링
 function renderAssetGrid(assets) {
   const container = document.getElementById('dashboard-asset-grid');
   if (!container) return;
 
   container.innerHTML = '';
+
+  // Initialize dragover on container once
+  if (!container.dataset.dragInitialized) {
+    container.dataset.dragInitialized = 'true';
+    
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const dragging = container.querySelector('.dragging');
+      if (!dragging) return;
+
+      const closest = getDragPlacement(container, e.clientX, e.clientY);
+      if (closest.element) {
+        if (e.clientX > closest.centerX) {
+          container.insertBefore(dragging, closest.element.nextSibling);
+        } else {
+          container.insertBefore(dragging, closest.element);
+        }
+      } else {
+        container.appendChild(dragging);
+      }
+    });
+  }
 
   // 유의미한 내역(초기 자산이 있거나, 이번 달 수입/지출 내역이 존재하는 결제수단만 필터링)
   const activeAssets = assets.filter(a => a.initialBalance !== 0 || a.monthIncome !== 0 || a.monthExpense !== 0);
@@ -173,11 +264,17 @@ function renderAssetGrid(assets) {
     card.style.borderRadius = '12px';
     card.style.border = '1px solid rgba(255, 255, 255, 0.08)';
 
+    if (!asset.isTotal) {
+      card.dataset.name = asset.name;
+    }
+
     // 결제 수단 클릭 시 거래 내역 탭의 해당 자산 뷰로 필터링 연동
     if (!asset.isTotal) {
       card.style.cursor = 'pointer';
       card.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease';
-      card.addEventListener('click', () => {
+      card.addEventListener('click', (e) => {
+        // 드래그 핸들을 클릭한 경우에는 네비게이션을 동작시키지 않음
+        if (e.target.closest('.drag-handle')) return;
         navigateToAsset(asset.name, asset.isCard);
       });
 
@@ -255,13 +352,18 @@ function renderAssetGrid(assets) {
       }
 
       card.innerHTML = `
-        <div class="asset-card-item-header" style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-          <div class="asset-card-icon card-icon" style="background: rgba(99, 102, 241, 0.15); color: #6366f1; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-            <i data-lucide="credit-card" style="width: 18px; height: 18px;"></i>
+        <div class="asset-card-item-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="asset-card-icon card-icon" style="background: rgba(99, 102, 241, 0.15); color: #6366f1; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+              <i data-lucide="credit-card" style="width: 18px; height: 18px;"></i>
+            </div>
+            <div class="asset-card-title-info" style="display: flex; flex-direction: column;">
+              <span class="asset-card-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-color);">${asset.name}</span>
+              <span class="asset-card-badge badge-card" style="font-size: 0.7rem; color: #6366f1; font-weight: 500; margin-top: 2px;">카드</span>
+            </div>
           </div>
-          <div class="asset-card-title-info" style="display: flex; flex-direction: column;">
-            <span class="asset-card-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-color);">${asset.name}</span>
-            <span class="asset-card-badge badge-card" style="font-size: 0.7rem; color: #6366f1; font-weight: 500; margin-top: 2px;">카드</span>
+          <div class="drag-handle" style="cursor: grab; color: var(--text-secondary); padding: 4px; display: flex; align-items: center; opacity: 0.3; transition: opacity 0.2s;">
+            <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
           </div>
         </div>
         <div class="asset-card-item-body">
@@ -312,13 +414,18 @@ function renderAssetGrid(assets) {
     } else {
       const balanceColor = asset.currentBalance < 0 ? '#ef4444' : '#10b981';
       card.innerHTML = `
-        <div class="asset-card-item-header" style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-          <div class="asset-card-icon bank-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-            <i data-lucide="landmark" style="width: 18px; height: 18px;"></i>
+        <div class="asset-card-item-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div class="asset-card-icon bank-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+              <i data-lucide="landmark" style="width: 18px; height: 18px;"></i>
+            </div>
+            <div class="asset-card-title-info" style="display: flex; flex-direction: column;">
+              <span class="asset-card-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-color);">${asset.name}</span>
+              <span class="asset-card-badge badge-bank" style="font-size: 0.7rem; color: #10b981; font-weight: 500; margin-top: 2px;">자산/은행</span>
+            </div>
           </div>
-          <div class="asset-card-title-info" style="display: flex; flex-direction: column;">
-            <span class="asset-card-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-color);">${asset.name}</span>
-            <span class="asset-card-badge badge-bank" style="font-size: 0.7rem; color: #10b981; font-weight: 500; margin-top: 2px;">자산/은행</span>
+          <div class="drag-handle" style="cursor: grab; color: var(--text-secondary); padding: 4px; display: flex; align-items: center; opacity: 0.3; transition: opacity 0.2s;">
+            <i data-lucide="grip-vertical" style="width: 16px; height: 16px;"></i>
           </div>
         </div>
         <div class="asset-card-item-body">
@@ -340,6 +447,10 @@ function renderAssetGrid(assets) {
       `;
     }
     container.appendChild(card);
+
+    if (!asset.isTotal) {
+      initDragAndDropForCard(card, container);
+    }
   });
 
   if (window.lucide) {
