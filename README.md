@@ -44,61 +44,6 @@ Home Assistant Companion 앱의 알림(카드 승인 문자, 간편결제 푸시
 
 ---
 
-## 📂 디렉토리 구조
-
-```
-account_book/
-├── config.json               # Home Assistant Add-on 메타데이터 및 Ingress 설정
-├── Dockerfile                # Alpine Node.js 기반 컨테이너 빌드 정의
-├── run.sh                    # Add-on 실행 진입점 셸 스크립트
-├── package.json              # Express, sqlite3, ws 의존성 정의
-├── default_rules.json        # 기본 카테고리, 결제수단 및 규칙 시드 데이터
-├── franchise_presets.js      # 230여 개 가맹점 키워드 및 카테고리 사전 파일
-├── database.js               # SQLite 데이터베이스 마이그레이션 및 시딩 제어 모듈
-├── parser.js                 # 실시간 알림 파싱 및 날짜/사용처 처리 모듈
-├── crypto_helper.js          # 암호화 및 복호화 헬퍼 모듈
-├── index.js                  # 백엔드 서버 엔트리포인트 (Express 웹 서비스 실행)
-├── routes/                   # 기능별 라우터 분할 디렉토리
-│   ├── auth.js               # 로그인/세션 관리 라우터
-│   ├── transactions.js       # 거래내역 관리 API 라우터
-│   ├── analytics.js          # 지출 분석/고정비 집계 API 라우터
-│   ├── rules.js              # 정규식 자동 분류 규칙 API 라우터
-│   ├── settings.js           # 초기 보유 자산/목표 실적/사용처 매핑 API 라우터
-│   └── webhook.js            # 외부 자동화 연동 웹훅 라우터
-└── public/                   # 프론트엔드 정적 리소스
-    ├── index.html            # 웹 UI 마크업 구조 정의
-    ├── app.js                # 메인 UI 상태, 탭 전환 및 공통 API 바인딩
-    ├── dashboard.js          # 대시보드 데이터 바인딩 및 차트 렌더링
-    ├── transactions.js       # 거래내역 조회, 수동 추가/수정/삭제 바인딩
-    ├── analysis.js           # 통합 소비 분석 및 차트 렌더링
-    ├── variables.css         # CSS 변수 및 전역 리셋 스타일
-    ├── navigation.css        # 사이드바 레이아웃 및 하단 네비게이션 CSS
-    ├── components.css        # 버튼, 인풋, 모달, 로그인 UI 컴포넌트 CSS
-    ├── views.css             # 탭별 개별 페이지 스타일 뷰 CSS
-    └── responsive.css        # 모바일 및 태블릿 미디어 쿼리 CSS
-```
-
----
-
-## 💾 데이터베이스 스키마 개요
-
-SQLite 데이터베이스 파일에 생성되는 핵심 테이블 명세입니다:
-
-| 테이블명 | 용도 | 주요 컬럼 |
-| :--- | :--- | :--- |
-| `categories` | 가계부 지출/수입 카테고리 마스터 | `id`, `name` (UNIQUE), `color`, `icon`, `type` |
-| `pay_methods` | 결제수단(은행/카드사/페이 등) 마스터 | `id`, `name` (UNIQUE) |
-| `rules` | 정규식 기반 알림 자동 분류 규칙 | `id`, `name` (UNIQUE), `pattern`, `category`, `pay_method`, `merchant_template`, `type` |
-| `pass_rules` | 수신 시 가계부 기록을 스킵할 패스 필터 규칙 | `id`, `name` (UNIQUE), `pattern`, `created_at` |
-| `transactions` | 입출금 거래 내역 데이터 | `id`, `type`, `amount`, `merchant`, `category`, `pay_method`, `datetime`, `memo`, `raw_text`, `used_point` |
-| `notification_logs` | 수신된 날것의 스마트폰 알림 히스토리 | `id`, `sender`, `raw_text`, `title`, `text`, `parsed_status`, `matched_rule_id`, `created_at` |
-| `package_pay_methods`| 발신 앱 패키지명 기준 결제수단 강제 매핑 | `id`, `package` (UNIQUE), `pay_method` |
-| `merchant_categories`| 가맹점별 카테고리 매핑 캐시 및 학습 데이터 | `id`, `merchant` (UNIQUE), `category` |
-| `settings` | 사용자 개인별 설정값 (예산, 초기 잔액 등) | `key` (PRIMARY KEY), `value` |
-| `login_security` | IP/사용자 계정별 로그인 실패 및 차단 기록 | `target` (PRIMARY KEY), `type`, `fail_count`, `last_failed_at`, `banned_until` |
-
----
-
 ## ⚙️ 설치 및 설정 방법
 
 ### 1. Add-on 설치
@@ -133,6 +78,25 @@ action:
         title: "{{ trigger.to_state.attributes.android.title }}"
         text: "{{ trigger.to_state.attributes.android.text }}"
 ```
+
+---
+
+## 💾 데이터베이스 스키마 개요
+
+SQLite 데이터베이스 파일에 생성되는 핵심 테이블 명세입니다:
+
+| 테이블명 | 용도 | 주요 컬럼 |
+| :--- | :--- | :--- |
+| `categories` | 가계부 지출/수입 카테고리 마스터 | `id`, `name` (UNIQUE), `color`, `icon`, `type` |
+| `pay_methods` | 결제수단(은행/카드사/페이 등) 마스터 | `id`, `name` (UNIQUE) |
+| `rules` | 정규식 기반 알림 자동 분류 규칙 | `id`, `name` (UNIQUE), `pattern`, `category`, `pay_method`, `merchant_template`, `type` |
+| `pass_rules` | 수신 시 가계부 기록을 스킵할 패스 필터 규칙 | `id`, `name` (UNIQUE), `pattern`, `created_at` |
+| `transactions` | 입출금 거래 내역 데이터 | `id`, `type`, `amount`, `merchant`, `category`, `pay_method`, `datetime`, `memo`, `raw_text`, `used_point` |
+| `notification_logs` | 수신된 날것의 스마트폰 알림 히스토리 | `id`, `sender`, `raw_text`, `title`, `text`, `parsed_status`, `matched_rule_id`, `created_at` |
+| `package_pay_methods`| 발신 앱 패키지명 기준 결제수단 강제 매핑 | `id`, `package` (UNIQUE), `pay_method` |
+| `merchant_categories`| 가맹점별 카테고리 매핑 캐시 및 학습 데이터 | `id`, `merchant` (UNIQUE), `category` |
+| `settings` | 사용자 개인별 설정값 (예산, 초기 잔액 등) | `key` (PRIMARY KEY), `value` |
+| `login_security` | IP/사용자 계정별 로그인 실패 및 차단 기록 | `target` (PRIMARY KEY), `type`, `fail_count`, `last_failed_at`, `banned_until` |
 
 ---
 
