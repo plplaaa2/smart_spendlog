@@ -1,5 +1,5 @@
 {
-  "name": "Account Book",
+  "name": "Smart Spendlog",
   "version": "1.9.27",
   "slug": "account_book",
   "description": "HA 알림 센서 수신 및 규칙 매핑 기반 가계부 서비스",
@@ -14,7 +14,7 @@
   "ingress": true,
   "ingress_port": 8124,
   "panel_icon": "mdi:book-open-variant",
-  "panel_title": "가계부",
+  "panel_title": "Smart Spendlog",
   "map": [
     "data:rw"
   ],
