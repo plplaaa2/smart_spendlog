@@ -261,6 +261,15 @@ async function loadBalanceSettings() {
         }
       }
 
+      let cardPerformanceDays = {};
+      if (settings.card_performance_days) {
+        try {
+          cardPerformanceDays = typeof settings.card_performance_days === 'string' ? JSON.parse(settings.card_performance_days) : settings.card_performance_days;
+        } catch (e) {
+          cardPerformanceDays = {};
+        }
+      }
+
       let payMethods = state.payMethods;
       if (!payMethods || payMethods.length === 0) {
         payMethods = await fetch('api/pay_methods').then(r => r.json());
@@ -274,18 +283,32 @@ async function loadBalanceSettings() {
       } else {
         cardPayMethods.forEach(pm => {
           const val = cardPerformanceGoals[pm.name] || 0;
+          const dayVal = cardPerformanceDays[pm.name] || 1;
           const row = document.createElement('div');
           row.style.display = 'flex';
           row.style.justifyContent = 'space-between';
           row.style.alignItems = 'center';
           row.style.gap = '1rem';
-          row.style.padding = '0.4rem 0';
+          row.style.padding = '0.5rem 0';
           row.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
 
           row.innerHTML = `
-            <span style="font-size: 0.85rem; color: var(--text-color); font-weight: 500;">${pm.name} 목표 실적</span>
-            <input type="number" class="settings-card-performance-goal-input" data-name="${pm.name}" value="${val}" min="0" placeholder="0" 
-                   style="width: 150px; font-size: 0.85rem; padding: 0.35rem 0.5rem; text-align: right; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-color);">
+            <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+              <span style="font-size: 0.85rem; color: var(--text-color); font-weight: 500;">${pm.name}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">목표:</span>
+                <input type="number" class="settings-card-performance-goal-input" data-name="${pm.name}" value="${val}" min="0" placeholder="0" 
+                       style="width: 100px; font-size: 0.85rem; padding: 0.35rem 0.5rem; text-align: right; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-color);">
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">시작일:</span>
+                <input type="number" class="settings-card-performance-day-input" data-name="${pm.name}" value="${dayVal}" min="1" max="28" placeholder="1" 
+                       style="width: 50px; font-size: 0.85rem; padding: 0.35rem 0.5rem; text-align: right; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-color);">
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">일</span>
+              </div>
+            </div>
           `;
           performanceGoalsContainer.appendChild(row);
         });

@@ -127,7 +127,7 @@ router.get('/stats', async (req, res) => {
       }
     });
 
-    // 해당 월 입출금
+    // 해당 월 입출금 (1일 ~ 말일 기본 달력 기준)
     const monthRows = await db.all(
       "SELECT pay_method, " +
       "SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as month_income, " +
@@ -144,6 +144,46 @@ router.get('/stats', async (req, res) => {
         };
       }
     });
+
+    // 카드 실적 기준일 설정 읽기
+    const perfDaysRow = await db.get("SELECT value FROM settings WHERE key = 'card_performance_days'");
+    let cardPerformanceDays = {};
+    if (perfDaysRow && perfDaysRow.value) {
+      try {
+        cardPerformanceDays = JSON.parse(perfDaysRow.value);
+      } catch (e) {
+        cardPerformanceDays = {};
+      }
+    }
+
+    // 카드 실적 기준일이 지정된 경우 개별 집계 보정
+    const [yearStr, monthStr] = month.split('-');
+    const yearVal = parseInt(yearStr, 10);
+    const monthVal = parseInt(monthStr, 10);
+
+    for (const pm of payMethods) {
+      const name = pm.name;
+      const startDay = parseInt(cardPerformanceDays[name] || 1, 10);
+      if (startDay > 1) {
+        // 커스텀 기간 계산 (예: 시작일이 15일이면 4월 15일 00:00:00 ~ 5월 14일 23:59:59)
+        const startYear = monthVal === 1 ? yearVal - 1 : yearVal;
+        const startMonth = monthVal === 1 ? 12 : monthVal - 1;
+        const startStr = `${startYear}-${String(startMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')} 00:00:00`;
+        const endStr = `${yearVal}-${String(monthVal).padStart(2, '0')}-${String(startDay - 1).padStart(2, '0')} 23:59:59`;
+
+        const customRow = await db.get(
+          "SELECT SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as month_income, " +
+          "SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as month_expense " +
+          "FROM transactions WHERE pay_method = ? AND datetime >= ? AND datetime <= ?",
+          [name, startStr, endStr]
+        );
+
+        monthMap[name] = {
+          monthIncome: customRow.month_income || 0,
+          monthExpense: customRow.month_expense || 0
+        };
+      }
+    }
 
     const assets = [];
     for (const m of payMethods) {

@@ -20,8 +20,32 @@ router.get('/transactions', async (req, res) => {
     const params = [];
 
     if (month) {
-      query += ' AND datetime LIKE ?';
-      params.push(`${month}%`);
+      let startDay = 1;
+      if (pay_method) {
+        const perfDaysRow = await db.get("SELECT value FROM settings WHERE key = 'card_performance_days'");
+        if (perfDaysRow && perfDaysRow.value) {
+          try {
+            const cardPerformanceDays = JSON.parse(perfDaysRow.value);
+            startDay = parseInt(cardPerformanceDays[pay_method] || 1, 10);
+          } catch (e) {}
+        }
+      }
+
+      if (startDay > 1) {
+        const [yearStr, monthStr] = month.split('-');
+        const yearVal = parseInt(yearStr, 10);
+        const monthVal = parseInt(monthStr, 10);
+        const startYear = monthVal === 1 ? yearVal - 1 : yearVal;
+        const startMonth = monthVal === 1 ? 12 : monthVal - 1;
+        const startStr = `${startYear}-${String(startMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')} 00:00:00`;
+        const endStr = `${yearVal}-${String(monthVal).padStart(2, '0')}-${String(startDay - 1).padStart(2, '0')} 23:59:59`;
+        
+        query += ' AND datetime >= ? AND datetime <= ?';
+        params.push(startStr, endStr);
+      } else {
+        query += ' AND datetime LIKE ?';
+        params.push(`${month}%`);
+      }
     }
 
     if (category) {

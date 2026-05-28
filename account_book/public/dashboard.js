@@ -320,6 +320,17 @@ function renderAssetGrid(assets) {
           cardGoals = {};
         }
       }
+
+      let cardPerformanceDays = {};
+      if (state.settings.card_performance_days) {
+        try {
+          cardPerformanceDays = typeof state.settings.card_performance_days === 'string'
+            ? JSON.parse(state.settings.card_performance_days)
+            : state.settings.card_performance_days;
+        } catch (e) {
+          cardPerformanceDays = {};
+        }
+      }
       
       const goalAmount = cardGoals[asset.name] ? parseInt(cardGoals[asset.name], 10) || 0 : 0;
       const hasGoal = goalAmount > 0;
@@ -334,11 +345,28 @@ function renderAssetGrid(assets) {
         } else {
           statusText = `<span style="font-weight: 600; color: #10b981;">실적 충족 완료! 🎉</span>`;
         }
+
+        let periodText = '';
+        const startDay = parseInt(cardPerformanceDays[asset.name] || 1, 10);
+        if (startDay > 1) {
+          const [yearStr, monthStr] = state.currentMonth.split('-');
+          const yearVal = parseInt(yearStr, 10);
+          const monthVal = parseInt(monthStr, 10);
+          const startYear = monthVal === 1 ? yearVal - 1 : yearVal;
+          const startMonth = monthVal === 1 ? 12 : monthVal - 1;
+          
+          const startMonthFormatted = String(startMonth).padStart(2, '0');
+          const startDayFormatted = String(startDay).padStart(2, '0');
+          const endMonthFormatted = String(monthVal).padStart(2, '0');
+          const endDayFormatted = String(startDay - 1).padStart(2, '0');
+          
+          periodText = ` <span style="font-size: 0.7rem; color: var(--text-secondary); font-weight: normal;">(${startMonthFormatted}/${startDayFormatted}~${endMonthFormatted}/${endDayFormatted})</span>`;
+        }
         
         performanceGoalHtml = `
           <div class="asset-card-detail-rows" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem;">
             <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.75rem;">
-              <span style="color: var(--text-secondary);">월 실적 달성률 (${percent}%)</span>
+              <span style="color: var(--text-secondary);">월 실적 달성률 (${percent}%)${periodText}</span>
               <span style="color: var(--text-color); font-weight: 500;">${formatCurrency(spent)} / ${formatCurrency(goalAmount)}</span>
             </div>
             <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-top: 0.15rem;">

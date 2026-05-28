@@ -85,7 +85,7 @@ router.get('/settings', async (req, res) => {
 router.post('/settings', async (req, res) => {
   try {
     const db = await getDB(req.username);
-    const { ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, card_performance_goals, user_real_name, auto_rule_generation, pay_methods_order } = req.body;
+    const { ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, card_performance_goals, card_performance_days, user_real_name, auto_rule_generation, pay_methods_order } = req.body;
 
     if (ws_sensor_entity !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ws_sensor_entity', ?)", [ws_sensor_entity]);
@@ -104,6 +104,9 @@ router.post('/settings', async (req, res) => {
     }
     if (card_performance_goals !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('card_performance_goals', ?)", [typeof card_performance_goals === 'string' ? card_performance_goals : JSON.stringify(card_performance_goals)]);
+    }
+    if (card_performance_days !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('card_performance_days', ?)", [typeof card_performance_days === 'string' ? card_performance_days : JSON.stringify(card_performance_days)]);
     }
     if (user_real_name !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('user_real_name', ?)", [user_real_name]);

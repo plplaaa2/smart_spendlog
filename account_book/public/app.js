@@ -995,11 +995,19 @@ function initEventListeners() {
         card_performance_goals[name] = val;
       });
 
+      // 카드사별 월 실적 기준일 객체 구성
+      const card_performance_days = {};
+      document.querySelectorAll('.settings-card-performance-day-input').forEach(input => {
+        const name = input.dataset.name;
+        const val = Math.max(1, Math.min(28, parseInt(input.value, 10) || 1));
+        card_performance_days[name] = val;
+      });
+
       try {
         const res = await fetch('api/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initial_balance, initial_balances, initial_points, card_performance_goals })
+          body: JSON.stringify({ initial_balance, initial_balances, initial_points, card_performance_goals, card_performance_days })
         });
 
         if (!res.ok) {
