@@ -63,10 +63,17 @@ Home Assistant Companion 앱의 알림(카드 승인 문자, 간편결제 푸시
 5. 설치 완료 후 **'사이드바에 표시'**를 켜고 **시작** 버튼을 누릅니다.
 
 ### 2. 스마트폰 알림 수집 설정
-#### 방법 A: WebSocket 연동 (권장)
-1. 스마트폰에 **Home Assistant 공식 Companion 앱**을 설치합니다.
-2. 앱 설정 내 **센서 관리** 메뉴에서 **'마지막 알림(Last Notification)'** 센서를 활성화합니다.
-3. Smart Spendlog 웹 UI 내 **설정 > 기본 설정**으로 이동하여 본인의 알림 센서 Entity ID(예: `sensor.phone_last_notification`)를 입력하고 등록합니다.
+
+#### 방법 A: WebSocket 연동 (권장 - Android 전용)
+Home Assistant 공식 앱의 **마지막 알림(Last Notification)** 센서를 활용하여 실시간으로 스마트폰 알림을 수신합니다.
+
+1. 스마트폰에 **Home Assistant 공식 Companion 앱**을 설치하고 로그인합니다.
+2. 앱 내 **설정 > 모바일 앱 > 센서 관리** 메뉴로 이동합니다.
+3. **'마지막 알림(Last Notification)'** 센서를 찾아 활성화합니다. (최초 설정 시 스마트폰 시스템의 '알림 접근 허용' 권한이 필요합니다.)
+4. ⚠️ **[중요] 알림 허용 앱 필터링**:
+   * 기본 상태에서는 스마트폰의 모든 알림이 Home Assistant로 전송되어 불필요한 배터리 소모와 로그 누적이 발생합니다.
+   * 센서 상세 설정 화면 내 **'허용 목록(Allow List)'** 또는 **'앱 필터링'** 옵션을 활성화한 뒤, 알림 수집을 원하는 **카드 승인 앱, 은행 앱, 간편결제(Toss, 삼성페이 등), 문자(SMS) 앱**만 선택하여 등록하십시오.
+5. **Smart Spendlog** 웹 UI 내 **설정 > 기본 설정** 서브 탭으로 이동하여 본인의 알림 센서 Entity ID(예: `sensor.phone_last_notification`)를 입력하고 저장합니다.
 
 #### 방법 B: HA 자동화를 통한 웹훅(Webhook) 호출
 수동으로 조건별 알림만 API를 호출해 전송하려면 아래와 같이 Home Assistant Automation을 작성합니다.
