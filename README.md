@@ -136,7 +136,17 @@ action:
 
 ---
 
-## ☕ 후원 (Support)
+## 💖 후원 (Support)
 
-프로젝트 개발이 도움이 되셨다면 따뜻한 커피 한 잔 후원해 주세요!
-- **Ko-fi**: [https://ko-fi.com/plplaaa2](https://ko-fi.com/plplaaa2)
+> [!NOTE]
+> **Smart Spendlog**는 광고 없는 완전한 오픈소스이며, 개인의 스마트홈 환경에 밀착된 자동화 지향 가계부 솔루션입니다.  
+> 지속적인 패치 제공과 고도화된 기능 추가를 위해 개발자에게 따뜻한 커피 한 잔을 후원해 주세요! ☕
+
+<p align="center">
+  <a href="https://ko-fi.com/plplaaa2" target="_blank">
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi" height="38" style="height: 38px; border: 0;" />
+  </a>
+  <br/>
+  <sub>여러분의 소중한 후원이 안정적인 메인터넌스와 신기능 업데이트의 든든한 원동력이 됩니다. 🙏</sub>
+</p>
+
