@@ -3,6 +3,7 @@
 [![Home Assistant Add-on](https://img.shields.io/badge/Home%20Assistant-Add--on-blue?style=flat-square&logo=home-assistant)](https://github.com/plplaaa2/account_book)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange?style=flat-square)](https://github.com/hacs/integration)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/plplaaa2)
 
 Home Assistant Companion 앱의 알림(카드 승인 문자, 간편결제 푸시 등) 및 Webhook 호출을 수신하여 금액, 가맹점, 결제수단, 일시를 파싱하고 SQLite 데이터베이스에 기록한 뒤 웹 대시보드로 시각화하는 통합 가계부 서비스입니다.
 
@@ -175,3 +176,10 @@ Home Assistant 컨테이너 환경이 아닌 Windows 로컬 환경에서 단독 
    ```
 3. **웹 접속**: 브라우저를 열고 `http://localhost:8124`로 접속합니다.  
    *(로컬 실행 시 SQLite DB 파일은 프로젝트 루트 하위의 `data/` 디렉토리 내에 독립 자동 생성됩니다.)*
+
+---
+
+## ☕ 후원 (Support)
+
+프로젝트 개발이 도움이 되셨다면 따뜻한 커피 한 잔 후원해 주세요!
+- **Ko-fi**: [https://ko-fi.com/plplaaa2](https://ko-fi.com/plplaaa2)
