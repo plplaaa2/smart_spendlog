@@ -200,37 +200,37 @@ const FRANCHISE_PRESETS = [
   { keyword: '팜클', category: '병원/약국' },
 
   // =============================================
-  // 쇼핑 - 온라인몰
+  // 온라인쇼핑 - 온라인몰
   // =============================================
-  { keyword: '쿠팡', category: '쇼핑' },
-  { keyword: 'COUPANG', category: '쇼핑' },
-  { keyword: '11번가', category: '쇼핑' },
-  { keyword: 'G마켓', category: '쇼핑' },
-  { keyword: '지마켓', category: '쇼핑' },
-  { keyword: '옥션', category: '쇼핑' },
-  { keyword: 'AUCTION', category: '쇼핑' },
-  { keyword: '위메프', category: '쇼핑' },
-  { keyword: '티몬', category: '쇼핑' },
-  { keyword: '인터파크', category: '쇼핑' },
-  { keyword: '네이버쇼핑', category: '쇼핑' },
-  { keyword: '카카오쇼핑', category: '쇼핑' },
-  { keyword: '무신사', category: '쇼핑' },
-  { keyword: '에이블리', category: '쇼핑' },
-  { keyword: '지그재그', category: '쇼핑' },
-  { keyword: '브랜디', category: '쇼핑' },
-  { keyword: '오늘의집', category: '쇼핑' },
-  { keyword: '마켓컬리', category: '쇼핑' },
-  { keyword: '컬리', category: '쇼핑' },
-  { keyword: '배민쇼핑', category: '쇼핑' },
-  { keyword: '아마존', category: '쇼핑' },
-  { keyword: 'AMAZON', category: '쇼핑' },
-  { keyword: '알리바바', category: '쇼핑' },
-  { keyword: '알리익스프레스', category: '쇼핑' },
-  { keyword: 'ALIEXPRESS', category: '쇼핑' },
-  { keyword: '테무', category: '쇼핑' },
-  { keyword: 'TEMU', category: '쇼핑' },
-  { keyword: '쉬인', category: '쇼핑' },
-  { keyword: 'SHEIN', category: '쇼핑' },
+  { keyword: '쿠팡', category: '온라인쇼핑' },
+  { keyword: 'COUPANG', category: '온라인쇼핑' },
+  { keyword: '11번가', category: '온라인쇼핑' },
+  { keyword: 'G마켓', category: '온라인쇼핑' },
+  { keyword: '지마켓', category: '온라인쇼핑' },
+  { keyword: '옥션', category: '온라인쇼핑' },
+  { keyword: 'AUCTION', category: '온라인쇼핑' },
+  { keyword: '위메프', category: '온라인쇼핑' },
+  { keyword: '티몬', category: '온라인쇼핑' },
+  { keyword: '인터파크', category: '온라인쇼핑' },
+  { keyword: '네이버쇼핑', category: '온라인쇼핑' },
+  { keyword: '카카오쇼핑', category: '온라인쇼핑' },
+  { keyword: '오늘의집', category: '온라인쇼핑' },
+  { keyword: '마켓컬리', category: '온라인쇼핑' },
+  { keyword: '컬리', category: '온라인쇼핑' },
+  { keyword: '배민쇼핑', category: '온라인쇼핑' },
+
+  // =============================================
+  // 해외직구
+  // =============================================
+  { keyword: '아마존', category: '해외직구' },
+  { keyword: 'AMAZON', category: '해외직구' },
+  { keyword: '알리바바', category: '해외직구' },
+  { keyword: '알리익스프레스', category: '해외직구' },
+  { keyword: 'ALIEXPRESS', category: '해외직구' },
+  { keyword: '테무', category: '해외직구' },
+  { keyword: 'TEMU', category: '해외직구' },
+  { keyword: '쉬인', category: '해외직구' },
+  { keyword: 'SHEIN', category: '해외직구' },
 
   // =============================================
   // 패션/의류 - 패션/의류/아웃도어 브랜드
@@ -263,6 +263,9 @@ const FRANCHISE_PRESETS = [
   { keyword: 'POLO', category: '패션/의류' },
   { keyword: '무신사', category: '패션/의류' },
   { keyword: 'MUSINSA', category: '패션/의류' },
+  { keyword: '에이블리', category: '패션/의류' },
+  { keyword: '지그재그', category: '패션/의류' },
+  { keyword: '브랜디', category: '패션/의류' },
 
   // =============================================
   // 교통

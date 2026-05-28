@@ -37,9 +37,15 @@
             "type": "EXPENSE"
         },
         {
-            "name": "쇼핑",
+            "name": "온라인쇼핑",
             "color": "#4dadf7",
             "icon": "shopping-bag",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "해외직구",
+            "color": "#15aabf",
+            "icon": "globe",
             "type": "EXPENSE"
         },
         {
