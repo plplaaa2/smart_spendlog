@@ -179,8 +179,6 @@ async function connectHA() {
 // settings.js 라우터에서 호출 가능하도록 전역 바인딩
 app.locals.connectHA = connectHA;
 
-}
-
 // 서버 기동
 async function startServer() {
   await initDB(config.users);
@@ -192,7 +190,6 @@ async function startServer() {
   });
 
   connectHA();
-  startGoogleAutoBackupScheduler();
 
   // 초기 1회 센서 상태 동기화 및 고아 센서 제거 (3초 지연)
   setTimeout(async () => {
