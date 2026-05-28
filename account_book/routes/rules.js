@@ -228,7 +228,19 @@ router.post('/parse-test', async (req, res) => {
     if (result) {
       const db = await getDB(req.username);
       const matchedCategory = await findCategoryByMerchant(db, result.merchant);
-      const finalCategory = matchedCategory || '기타';
+      let finalCategory = matchedCategory;
+      if (!finalCategory) {
+        const lowerMerchant = result.merchant.toLowerCase();
+        const isPayCharge = lowerMerchant.includes('페이충전') || 
+                             lowerMerchant.includes('페이 충전') || 
+                             lowerMerchant.includes('페이머니') || 
+                             lowerMerchant.includes('네이버페이') || 
+                             lowerMerchant.includes('카카오페이') || 
+                             lowerMerchant.includes('토스페이') || 
+                             lowerMerchant.includes('토스머니');
+        const isPayMethod = (result.pay_method.includes('페이') || result.pay_method.includes('머니')) && !result.pay_method.includes('삼성페이');
+        finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
+      }
       res.json({ success: true, result: { ...result, category: finalCategory } });
     } else {
       res.json({ success: false, message: '정규식 패턴이 문자열과 일치하지 않습니다.' });
@@ -306,9 +318,6 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
       parsedStatus = 'SUCCESS';
       matchedRuleId = result.rule_id || matchedRuleId;
 
-      const matchedCategory = await findCategoryByMerchant(db, result.merchant);
-      let finalCategory = matchedCategory || '기타';
-
       // 패키지별 결제수단 자동 매핑 (패키지 매핑이 있으면 최우선 적용, 없으면 규칙/파싱 결과 적용)
       let finalPayMethod = result.pay_method;
       if (sender && sender !== 'Unknown') {
@@ -320,6 +329,21 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
 
       if (finalPayMethod === '_AUTO_MAPPING_') {
         finalPayMethod = '카드';
+      }
+
+      const matchedCategory = await findCategoryByMerchant(db, result.merchant);
+      let finalCategory = matchedCategory;
+      if (!finalCategory) {
+        const lowerMerchant = result.merchant.toLowerCase();
+        const isPayCharge = lowerMerchant.includes('페이충전') || 
+                             lowerMerchant.includes('페이 충전') || 
+                             lowerMerchant.includes('페이머니') || 
+                             lowerMerchant.includes('네이버페이') || 
+                             lowerMerchant.includes('카카오페이') || 
+                             lowerMerchant.includes('토스페이') || 
+                             lowerMerchant.includes('토스머니');
+        const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
+        finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
       }
 
       // 통장 이동(자산 이동) 감지 및 강제 카테고리 매핑
@@ -342,8 +366,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
       };
       
       const isTransferMerchant = (realName && result.merchant === realName) || 
-                                 ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant) ||
-                                 isKoreanName(result.merchant);
+                                 ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant);
 
       if (isTransferMerchant && isBank) {
         if (result.type === 'INCOME') {

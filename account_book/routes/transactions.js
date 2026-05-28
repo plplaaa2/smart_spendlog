@@ -156,6 +156,21 @@ router.get('/pay_methods', async (req, res) => {
   try {
     const db = await getDB(req.username);
     const rows = await db.all('SELECT * FROM pay_methods ORDER BY id ASC');
+    const orderRow = await db.get("SELECT value FROM settings WHERE key = 'pay_methods_order'");
+    if (orderRow && orderRow.value) {
+      try {
+        const order = JSON.parse(orderRow.value);
+        if (Array.isArray(order)) {
+          rows.sort((a, b) => {
+            let indexA = order.indexOf(a.name);
+            let indexB = order.indexOf(b.name);
+            if (indexA === -1) indexA = 9999;
+            if (indexB === -1) indexB = 9999;
+            return indexA - indexB;
+          });
+        }
+      } catch (e) {}
+    }
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -97,6 +97,12 @@
             "type": "EXPENSE"
         },
         {
+            "name": "페이류",
+            "color": "#0ca678",
+            "icon": "wallet",
+            "type": "EXPENSE"
+        },
+        {
             "name": "이체/송금",
             "color": "#7950f2",
             "icon": "arrow-left-right",
@@ -172,7 +178,6 @@
     "pay_methods": [
         "현금",
         "계좌이체",
-        "네이버페이",
         "삼성페이",
         "국민은행",
         "신한은행",

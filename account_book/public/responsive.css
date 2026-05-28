@@ -91,6 +91,10 @@
     padding: 1rem; /* 모바일 카드 내부 패딩 완화 */
   }
 
+  .table-card .card-header {
+    padding: 1rem 1rem 0.5rem 1rem;
+  }
+
   /* 모바일 헤더 2줄 자동 개행 최적화 */
   .main-header {
     flex-direction: column;

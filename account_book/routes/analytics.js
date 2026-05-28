@@ -70,6 +70,21 @@ router.get('/stats', async (req, res) => {
 
     // 6. 결제 수단별(은행/카드) 통계 및 잔액 계산
     const payMethods = await db.all('SELECT name FROM pay_methods ORDER BY id ASC');
+    const orderRow = await db.get("SELECT value FROM settings WHERE key = 'pay_methods_order'");
+    if (orderRow && orderRow.value) {
+      try {
+        const order = JSON.parse(orderRow.value);
+        if (Array.isArray(order)) {
+          payMethods.sort((a, b) => {
+            let indexA = order.indexOf(a.name);
+            let indexB = order.indexOf(b.name);
+            if (indexA === -1) indexA = 9999;
+            if (indexB === -1) indexB = 9999;
+            return indexA - indexB;
+          });
+        }
+      } catch (e) {}
+    }
     
     // 초기 잔액 설정 읽기
     const balancesRow = await db.get("SELECT value FROM settings WHERE key = 'initial_balances'");
@@ -139,7 +154,7 @@ router.get('/stats', async (req, res) => {
         continue;
       }
       
-      const isCard = name.includes('카드') || name === '삼성페이'; // 삼성페이는 신용카드 결제와 같으므로 카드처럼 분류 (잔고 제외)
+      const isCard = name.includes('카드') || name.includes('페이') || name.includes('머니'); // 카드, 페이, 머니류는 잔고 제외 (소비로 분류)
       // 카드가 아닌 모든 결제수단(계좌이체 제외)은 자산으로 유연하게 판정하여 누락 방지
       const isAsset = !isCard && name !== '계좌이체';
                       

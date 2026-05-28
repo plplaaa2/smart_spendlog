@@ -45,6 +45,8 @@ function switchSettingsSubTab(subtab) {
     loadBalanceSettings();
   } else if (subtab === 'data') {
     lucide.createIcons();
+  } else if (subtab === 'pay-order') {
+    loadPayOrderSettings();
   }
 }
 
@@ -172,7 +174,7 @@ async function loadBalanceSettings() {
       // 의존성: routes/analytics.js의 api/stats 엔드포인트 내 자산 판정(isAsset) 로직과 완벽히 호환되어야 합니다.
       const filteredPayMethods = payMethods.filter(pm => {
         const name = pm.name;
-        if (name.includes('카드') || name === '계좌이체' || name === '삼성페이') {
+        if (name.includes('카드') || name === '계좌이체' || name.includes('페이') || name.includes('머니')) {
           return false;
         }
         return true;
@@ -549,3 +551,105 @@ async function loadPackagePayMethods() {
     console.error('패키지별 결제수단 목록 로드 실패:', err);
   }
 }
+
+// 결제수단 순서 설정 로직
+let localPayOrder = [];
+
+async function loadPayOrderSettings() {
+  try {
+    const payMethods = await fetch('api/pay_methods').then(r => r.json());
+    localPayOrder = payMethods.map(pm => pm.name);
+    renderPayOrderList();
+  } catch (err) {
+    console.error('결제수단 순서 로드 실패:', err);
+  }
+}
+
+function renderPayOrderList() {
+  const container = document.getElementById('settings-pay-order-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (localPayOrder.length === 0) {
+    container.innerHTML = '<p class="text-secondary text-xs" style="text-align:center; padding:1rem;">등록된 결제 수단이 없습니다.</p>';
+    return;
+  }
+
+  localPayOrder.forEach((name, index) => {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.justifyContent = 'space-between';
+    row.style.alignItems = 'center';
+    row.style.padding = '0.5rem 0.75rem';
+    row.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+    row.style.background = 'rgba(255,255,255,0.01)';
+    row.style.borderRadius = '6px';
+    row.style.marginBottom = '0.25rem';
+
+    const upDisabled = index === 0 ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : '';
+    const downDisabled = index === localPayOrder.length - 1 ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : '';
+
+    row.innerHTML = `
+      <span style="font-size: 0.9rem; color: var(--text-color); font-weight: 500;">${name}</span>
+      <div style="display: flex; gap: 0.25rem;">
+        <button class="btn btn-sm btn-move-up" data-index="${index}" ${upDisabled} style="padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-color); cursor: pointer; border-radius: 4px;">
+          ▲
+        </button>
+        <button class="btn btn-sm btn-move-down" data-index="${index}" ${downDisabled} style="padding: 4px 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-color); cursor: pointer; border-radius: 4px;">
+          ▼
+        </button>
+      </div>
+    `;
+
+    row.querySelector('.btn-move-up').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (index > 0) {
+        const temp = localPayOrder[index];
+        localPayOrder[index] = localPayOrder[index - 1];
+        localPayOrder[index - 1] = temp;
+        renderPayOrderList();
+      }
+    });
+
+    row.querySelector('.btn-move-down').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (index < localPayOrder.length - 1) {
+        const temp = localPayOrder[index];
+        localPayOrder[index] = localPayOrder[index + 1];
+        localPayOrder[index + 1] = temp;
+        renderPayOrderList();
+      }
+    });
+
+    container.appendChild(row);
+  });
+}
+
+// 순서 저장 버튼 리스너 바인딩
+document.addEventListener('DOMContentLoaded', () => {
+  const saveBtn = document.getElementById('btn-save-pay-order');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      try {
+        const response = await fetch('api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pay_methods_order: JSON.stringify(localPayOrder)
+          })
+        }).then(r => r.json());
+
+        if (response.success) {
+          alert('결제수단 순서가 성공적으로 저장되었습니다.');
+          if (typeof loadMetadata === 'function') {
+            await loadMetadata();
+          }
+        } else {
+          alert('순서 저장 실패: ' + (response.error || '알 수 없는 오류'));
+        }
+      } catch (err) {
+        alert('순서 저장 중 에러: ' + err.message);
+      }
+    });
+  }
+});

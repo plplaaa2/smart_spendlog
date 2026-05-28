@@ -127,7 +127,7 @@
 
 /* Recent Transactions List (Dashboard Component) */
 .recent-transactions-card {
-  margin-bottom: 0;
+  margin-bottom: 2rem;
 }
 
 .card-header {
@@ -624,4 +624,12 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
+}
+
+@media (min-width: 769px) {
+  .analytics-double-layout .table th,
+  .analytics-double-layout .table td {
+    padding: 0.75rem 0.5rem;
+    white-space: nowrap;
+  }
 }
