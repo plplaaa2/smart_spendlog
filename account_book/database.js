@@ -229,6 +229,39 @@ async function initUserDB(username) {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('페이류', '#0ca678', 'wallet', 'EXPENSE')");
   } catch (e) {}
 
+  // 쇼핑 -> 온라인쇼핑 카테고리 명칭 변경 및 해외직구 추가 마이그레이션
+  try {
+    // 1. categories 테이블에서 '쇼핑'을 '온라인쇼핑'으로 변경
+    await dbInstance.run("UPDATE categories SET name = '온라인쇼핑' WHERE name = '쇼핑'");
+    // 2. categories 테이블에 '해외직구' 주입
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('해외직구', '#15aabf', 'globe', 'EXPENSE')");
+    // 3. 기존 테이블들의 '쇼핑' 카테고리를 '온라인쇼핑'으로 일괄 전환
+    await dbInstance.run("UPDATE transactions SET category = '온라인쇼핑' WHERE category = '쇼핑'");
+    await dbInstance.run("UPDATE rules SET category = '온라인쇼핑' WHERE category = '쇼핑'");
+    await dbInstance.run("UPDATE merchant_categories SET category = '온라인쇼핑' WHERE category = '쇼핑'");
+
+    // 4. 프리셋 카테고리를 강제로 최신으로 업데이트 (해외직구 및 패션/의류 이동 대응)
+    for (const preset of FRANCHISE_PRESETS) {
+      await dbInstance.run(
+        "UPDATE merchant_categories SET category = ? WHERE merchant = ? AND category = '온라인쇼핑'",
+        [preset.category, preset.keyword]
+      );
+      // 5. 기존 거래내역 및 규칙 중 패션/의류 및 해외직구에 매칭되는 내역 소급 업데이트
+      if (['패션/의류', '해외직구'].includes(preset.category)) {
+        await dbInstance.run(
+          "UPDATE transactions SET category = ? WHERE category = '온라인쇼핑' AND merchant LIKE ?",
+          [preset.category, `%${preset.keyword}%`]
+        );
+        await dbInstance.run(
+          "UPDATE rules SET category = ? WHERE category = '온라인쇼핑' AND pattern LIKE ?",
+          [preset.category, `%${preset.keyword}%`]
+        );
+      }
+    }
+  } catch (e) {
+    console.error('[DB 마이그레이션] 쇼핑 카테고리 고도화 마이그레이션 실패:', e);
+  }
+
   // 기존 카테고리 중 수입(INCOME) 카테고리의 type 값을 올바르게 강제 보정 (수입 수정 시 카테고리 누락 방지)
   // 의존성: default_rules.json의 카테고리 구성 정의 및 public/app.js의 updateCategorySelect와 연결됩니다.
   try {
@@ -501,10 +534,12 @@ async function seedFranchisePresets(db, force = false) {
   let txUpdatedCount = 0;
   if (force) {
     for (const preset of FRANCHISE_PRESETS) {
-      if (['편의점', '음료/카페', '배달음식', '디저트', '패션/의류', '병원/약국'].includes(preset.category)) {
+      if (['편의점', '음료/카페', '배달음식', '디저트', '패션/의류', '병원/약국', '해외직구'].includes(preset.category)) {
         let sourceCategories = ["식비"];
         if (preset.category === '패션/의류') {
-          sourceCategories = ["식비", "쇼핑", "생활/마트"];
+          sourceCategories = ["식비", "온라인쇼핑", "생활/마트"];
+        } else if (preset.category === '해외직구') {
+          sourceCategories = ["식비", "온라인쇼핑", "생활/마트"];
         } else if (preset.category === '병원/약국') {
           sourceCategories = ["식비", "기타", "의료/건강"];
         }
