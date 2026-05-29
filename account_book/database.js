@@ -19,6 +19,26 @@ try {
 const dbs = {}; // username -> db instance
 const notifiedStates = {}; // 중복 알림 방지를 위한 전송 여부 상태 저장소 (username_YYYY-MM_type -> boolean)
 
+// 타임아웃 기능이 보강된 fetch 헬퍼 함수
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error(`요청 타임아웃 (${timeoutMs}ms 초과)`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 // 한글/특수문자 사용자명도 내부 식별자로 안전하게 사용할 수 있도록 ASCII 슬러그를 생성합니다.
 function getUserDbSlug(username) {
   if (!username || username === 'admin') {
@@ -862,7 +882,7 @@ async function updateHASensors(targetUser) {
       };
 
       try {
-        const response = await fetch(url, {
+        const response = await fetchWithTimeout(url, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -895,7 +915,7 @@ async function cleanupOrphanedHASensors(activeUsers = []) {
   try {
     const activeSuffixes = activeUsers.map(u => getSafeSuffix(u));
     const url = 'http://supervisor/core/api/states';
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -931,7 +951,7 @@ async function cleanupOrphanedHASensors(activeUsers = []) {
           console.log(`[HA WS][Cleanup] 고아 센서 감지: ${entityId} (Suffix: '${suffix}'). 삭제를 시도합니다.`);
           const deleteUrl = `http://supervisor/core/api/states/${entityId}`;
           try {
-            const delRes = await fetch(deleteUrl, {
+            const delRes = await fetchWithTimeout(deleteUrl, {
               method: 'DELETE',
               headers: {
                 'Authorization': `Bearer ${token}`
@@ -970,7 +990,7 @@ async function sendHANotification(title, message) {
   };
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

@@ -44,6 +44,11 @@ router.get('/settings/ha_notification_sensors', async (req, res) => {
         });
       });
 
+      request.setTimeout(10000);
+      request.on('timeout', () => {
+        request.destroy(new Error('Connection timeout (10s)'));
+      });
+
       request.on('error', (err) => { reject(err); });
       request.end();
     });

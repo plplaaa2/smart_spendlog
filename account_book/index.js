@@ -11,6 +11,7 @@ const express = require('express');
 const path = require('path');
 const WebSocket = require('ws');
 const fs = require('fs');
+const crypto = require('crypto');
 const { initDB, getDB, getActiveUsers, updateHASensors, cleanupOrphanedHASensors, createInAppNotification } = require('./database');
 
 const app = express();
@@ -63,6 +64,18 @@ const webhookModule = require('./routes/webhook');
 app.use('/api', require('./routes/auth'));
 app.use('/api', webhookModule.router);
 
+// 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
+function safeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 // 토큰 인증 미들웨어 (모든 API 엔드포인트 보호, 단 webhook, login 제외)
 const authenticateToken = (req, res, next) => {
   const token = req.headers['authorization'] || req.query.token || req.body.token;
@@ -76,7 +89,7 @@ const authenticateToken = (req, res, next) => {
   const secretToken = parts[0];
   const username = decodeURIComponent(parts[1] || 'admin');
 
-  if (secretToken === config.token) {
+  if (safeCompare(secretToken, config.token)) {
     req.username = username;
     return next();
   }
