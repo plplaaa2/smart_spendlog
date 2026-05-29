@@ -139,6 +139,13 @@
             <button id="month-select-trigger" class="icon-btn"><i data-lucide="calendar"></i></button>
             <button id="next-month-btn" class="icon-btn"><i data-lucide="chevron-right"></i></button>
           </div>
+          <!-- In-app Notification Bell -->
+          <div class="notification-bell-container" id="notification-bell-btn">
+            <button class="icon-btn" title="알림 센터">
+              <i data-lucide="bell"></i>
+              <span class="notification-badge" id="notification-badge" style="display: none;"></span>
+            </button>
+          </div>
           <!-- Mobile User Info & Logout Button -->
           <div class="mobile-user-container">
             <span class="mobile-user-name" id="mobile_current_user_name">admin</span>
@@ -1434,8 +1441,37 @@
     </button>
   </nav>
 
+  <!-- In-app Notification Drawer -->
+  <div id="notification-drawer" class="notification-drawer">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <i data-lucide="bell" style="width:18px; height:18px;"></i>
+        <span>알림 센터</span>
+      </div>
+      <button class="drawer-close-btn" id="notification-drawer-close">&times;</button>
+    </div>
+    <div class="drawer-controls">
+      <button class="btn-text-sm" id="btn-notifications-read-all">
+        <i data-lucide="check-check" style="width:14px; height:14px;"></i> 모두 읽음
+      </button>
+      <button class="btn-text-sm" id="btn-notifications-delete-all">
+        <i data-lucide="trash-2" style="width:14px; height:14px;"></i> 모두 삭제
+      </button>
+    </div>
+    <div class="drawer-content" id="notification-drawer-list">
+      <div class="empty-notifications">
+        <i data-lucide="bell-off" style="width:32px; height:32px; opacity:0.5; margin-bottom:0.5rem;"></i>
+        <p>최근 알림이 없습니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
   <!-- JavaScript files -->
   <script src="./app.js?v=1.9.26"></script>
+  <script src="./notifications.js?v=1.9.33"></script>
   <script src="./dashboard.js?v=1.9.26"></script>
   <script src="./transactions.js?v=1.9.26"></script>
   <script src="./card_bank_view.js?v=1.9.26"></script>

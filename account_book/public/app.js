@@ -678,6 +678,11 @@ function initEventListeners() {
         closeModal();
         if (state.currentTab === 'transactions') loadTransactions();
         else if (state.currentTab === 'dashboard') loadDashboardData();
+
+        // 인앱 알림 상태 즉시 동기화
+        if (window.NotificationsManager && typeof window.NotificationsManager.loadNotifications === 'function') {
+          window.NotificationsManager.loadNotifications();
+        }
       }
     } catch (err) {
       alert('저장 실패: ' + err.message);

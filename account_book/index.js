@@ -78,6 +78,7 @@ app.use('/api', require('./routes/transactions'));
 app.use('/api', require('./routes/analytics'));
 app.use('/api', require('./routes/rules'));
 app.use('/api', require('./routes/settings').router);
+app.use('/api', require('./routes/notifications'));
 
 let haWs = null;
 let wsSubscribedEntities = {};

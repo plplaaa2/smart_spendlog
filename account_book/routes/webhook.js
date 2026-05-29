@@ -9,7 +9,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { getDB, findCategoryByMerchant, updateHASensors } = require('../database');
+const { getDB, findCategoryByMerchant, updateHASensors, sendHANotification, createInAppNotification } = require('../database');
 const { parseNotification, generatePatternFromText } = require('../parser');
 
 // 현재 한국 시간(KST, UTC+9) 문자열을 YYYY-MM-DD HH:mm:ss 포맷으로 반환하는 헬퍼 함수
@@ -226,6 +226,23 @@ async function processIncomingNotification(newState, username) {
       [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', rawText, result.used_point || 0]
     );
     console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 사용 포인트: ${result.used_point || 0}]`);
+
+    if (finalCategory === '기타') {
+      const nameTag = targetUser === 'admin' ? '' : ` (${targetUser})`;
+      sendHANotification(
+        `🔍 [Smart Spendlog] 미분류 거래 등록 안내${nameTag}`,
+        `카테고리가 '기타'로 분류된 거래가 등록되었습니다.\n\n` +
+        `- 사용처: **${result.merchant}**\n` +
+        `- 금액: **${result.amount.toLocaleString()}원**\n\n` +
+        `정확한 소비 분석을 위해 규칙 설정을 확인해 주세요.`
+      );
+      await createInAppNotification(
+        targetUser,
+        'UNCLASSIFIED',
+        `미분류 거래 등록 안내`,
+        `카테고리가 '기타'로 분류된 거래가 등록되었습니다.\n- 사용처: ${result.merchant}\n- 금액: ${result.amount.toLocaleString()}원\n규칙 설정을 확인해 주세요.`
+      );
+    }
 
     updateHASensors(targetUser);
   } else {
@@ -453,6 +470,23 @@ router.post('/webhook', async (req, res) => {
         'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', finalRawText, result.used_point || 0]
       );
+
+      if (finalCategory === '기타') {
+        const nameTag = targetUser === 'admin' ? '' : ` (${targetUser})`;
+        sendHANotification(
+          `🔍 [Smart Spendlog] 미분류 거래 등록 안내${nameTag}`,
+          `카테고리가 '기타'로 분류된 거래가 등록되었습니다.\n\n` +
+          `- 사용처: **${result.merchant}**\n` +
+          `- 금액: **${result.amount.toLocaleString()}원**\n\n` +
+          `정확한 소비 분석을 위해 규칙 설정을 확인해 주세요.`
+        );
+        await createInAppNotification(
+          targetUser,
+          'UNCLASSIFIED',
+          `미분류 거래 등록 안내`,
+          `카테고리가 '기타'로 분류된 거래가 등록되었습니다.\n- 사용처: ${result.merchant}\n- 금액: ${result.amount.toLocaleString()}원\n규칙 설정을 확인해 주세요.`
+        );
+      }
 
       res.json({ success: true, transaction: { ...result, category: finalCategory, pay_method: finalPayMethod } });
       updateHASensors(targetUser);

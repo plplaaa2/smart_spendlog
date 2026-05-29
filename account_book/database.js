@@ -17,6 +17,7 @@ try {
 }
 
 const dbs = {}; // username -> db instance
+const notifiedStates = {}; // 중복 알림 방지를 위한 전송 여부 상태 저장소 (username_YYYY-MM_type -> boolean)
 
 // 한글/특수문자 사용자명도 내부 식별자로 안전하게 사용할 수 있도록 ASCII 슬러그를 생성합니다.
 function getUserDbSlug(username) {
@@ -169,6 +170,15 @@ async function initUserDB(username) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE,
       pattern TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS inapp_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT,
+      title TEXT,
+      message TEXT,
+      is_read INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -641,6 +651,171 @@ async function updateHASensors(targetUser) {
     const suffix = getSafeSuffix(targetUser);
     const nameTag = targetUser === 'admin' ? '' : ` (${targetUser})`;
 
+    // 예산 관련 알림 (초과 및 90% 임박) 판정
+    if (budget > 0) {
+      const overLimitKey = `${targetUser}_${currentMonth}_over_limit`;
+      const nearLimitKey = `${targetUser}_${currentMonth}_near_limit`;
+
+      // 1. 예산 초과 경고
+      if (expense > budget) {
+        if (!notifiedStates[overLimitKey]) {
+          notifiedStates[overLimitKey] = true;
+          const overAmount = expense - budget;
+          await sendHANotification(
+            `🚨 [Smart Spendlog] 이번 달 예산 초과 경고${nameTag}`,
+            `이번 달 지출액이 설정하신 예산을 초과했습니다!\n\n` +
+            `- 현재 지출: **${expense.toLocaleString()}원**\n` +
+            `- 설정 예산: **${budget.toLocaleString()}원**\n` +
+            `- 초과 금액: **${overAmount.toLocaleString()}원**`
+          );
+          await createInAppNotification(
+            targetUser,
+            'BUDGET_OVER',
+            `이번 달 예산 초과 경고`,
+            `이번 달 지출액이 설정하신 예산을 초과했습니다!\n- 현재 지출: ${expense.toLocaleString()}원\n- 설정 예산: ${budget.toLocaleString()}원\n- 초과 금액: ${overAmount.toLocaleString()}원`
+          );
+        }
+      } else {
+        // 지출을 취소/수정하여 예산 이하로 떨어졌다면, 알림 플래그를 해제
+        if (notifiedStates[overLimitKey]) {
+          delete notifiedStates[overLimitKey];
+        }
+
+        // 2. 예산 90% 소진 알림
+        if (expense >= budget * 0.9) {
+          if (!notifiedStates[nearLimitKey]) {
+            notifiedStates[nearLimitKey] = true;
+            await sendHANotification(
+              `⚠️ [Smart Spendlog] 예산 90% 소진 안내${nameTag}`,
+              `이번 달 설정하신 예산의 90% 이상을 소진했습니다. 계획적인 소비를 권장합니다.\n\n` +
+              `- 현재 지출: **${expense.toLocaleString()}원**\n` +
+              `- 남은 예산: **${(budget - expense).toLocaleString()}원**`
+            );
+            await createInAppNotification(
+              targetUser,
+              'BUDGET_NEAR',
+              `예산 90% 소진 안내`,
+              `이번 달 설정하신 예산의 90% 이상을 소진했습니다. 계획적인 소비를 권장합니다.\n- 현재 지출: ${expense.toLocaleString()}원\n- 남은 예산: ${(budget - expense).toLocaleString()}원`
+            );
+          }
+        } else {
+          // 지출을 취소/수정하여 90% 미만으로 떨어졌다면 알림 플래그 해제
+          if (notifiedStates[nearLimitKey]) {
+            delete notifiedStates[nearLimitKey];
+          }
+        }
+      }
+    }
+
+    // 순수이익 적자 경고 판정 (수입과 지출이 있고, 순수이익이 마이너스인 경우)
+    if (income > 0 && expense > 0) {
+      const deficitKey = `${targetUser}_${currentMonth}_net_profit_deficit`;
+      if (income < expense) {
+        if (!notifiedStates[deficitKey]) {
+          notifiedStates[deficitKey] = true;
+          const deficitAmount = expense - income;
+          await sendHANotification(
+            `📉 [Smart Spendlog] 이번 달 재정 적자 전환 경고${nameTag}`,
+            `이번 달 지출이 수입을 초과하여 적자 상태로 전환되었습니다!\n\n` +
+            `- 현재 수입: **${income.toLocaleString()}원**\n` +
+            `- 현재 지출: **${expense.toLocaleString()}원**\n` +
+            `- 적자 금액: **${deficitAmount.toLocaleString()}원**`
+          );
+          await createInAppNotification(
+            targetUser,
+            'DEFICIT',
+            `이번 달 재정 적자 전환 경고`,
+            `이번 달 지출이 수입을 초과하여 적자 상태로 전환되었습니다!\n- 현재 수입: ${income.toLocaleString()}원\n- 현재 지출: ${expense.toLocaleString()}원\n- 적자 금액: ${deficitAmount.toLocaleString()}원`
+          );
+        }
+      } else {
+        // 수입이 증가하거나 지출이 취소되어 다시 흑자가 되었다면 플래그 해제
+        if (notifiedStates[deficitKey]) {
+          delete notifiedStates[deficitKey];
+        }
+      }
+    }
+
+    // 3. 카드별 실적 달성 알림 판정
+    const goalsRow = await db.get("SELECT value FROM settings WHERE key = 'card_performance_goals'");
+    if (goalsRow && goalsRow.value) {
+      let cardGoals = {};
+      try {
+        cardGoals = JSON.parse(goalsRow.value);
+      } catch (e) {}
+
+      if (Object.keys(cardGoals).length > 0) {
+        // 카드 실적 기준일 설정 읽기
+        const perfDaysRow = await db.get("SELECT value FROM settings WHERE key = 'card_performance_days'");
+        let cardPerformanceDays = {};
+        if (perfDaysRow && perfDaysRow.value) {
+          try {
+            cardPerformanceDays = JSON.parse(perfDaysRow.value);
+          } catch (e) {}
+        }
+
+        const [yearStr, monthStr] = currentMonth.split('-');
+        const yearVal = parseInt(yearStr, 10);
+        const monthVal = parseInt(monthStr, 10);
+
+        for (const cardName of Object.keys(cardGoals)) {
+          const goal = parseInt(cardGoals[cardName], 10) || 0;
+          if (goal <= 0) continue;
+
+          const startDay = parseInt(cardPerformanceDays[cardName] || 1, 10);
+          let currentExpense = 0;
+
+          if (startDay > 1) {
+            // 커스텀 기간 계산
+            const startYear = monthVal === 1 ? yearVal - 1 : yearVal;
+            const startMonth = monthVal === 1 ? 12 : monthVal - 1;
+            const startStr = `${startYear}-${String(startMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')} 00:00:00`;
+            const endStr = `${yearVal}-${String(monthVal).padStart(2, '0')}-${String(startDay - 1).padStart(2, '0')} 23:59:59`;
+
+            const customRow = await db.get(
+              "SELECT SUM(amount) as expense FROM transactions " +
+              "WHERE pay_method = ? AND type = 'EXPENSE' AND category != '이체/송금' " +
+              "AND datetime >= ? AND datetime <= ?",
+              [cardName, startStr, endStr]
+            );
+            currentExpense = customRow ? customRow.expense || 0 : 0;
+          } else {
+            // 달력 기준 당월 지출
+            const calendarRow = await db.get(
+              "SELECT SUM(amount) as expense FROM transactions " +
+              "WHERE pay_method = ? AND type = 'EXPENSE' AND category != '이체/송금' " +
+              "AND datetime LIKE ?",
+              [cardName, `${currentMonth}%`]
+            );
+            currentExpense = calendarRow ? calendarRow.expense || 0 : 0;
+          }
+
+          const perfKey = `${targetUser}_${currentMonth}_perf_achieved_${cardName}`;
+          if (currentExpense >= goal) {
+            if (!notifiedStates[perfKey]) {
+              notifiedStates[perfKey] = true;
+              await sendHANotification(
+                `🎉 [Smart Spendlog] ${cardName} 실적 달성 완료${nameTag}`,
+                `축하합니다! 이번 달 **${cardName}**의 목표 실적을 달성했습니다.\n\n` +
+                `- 누적 실적: **${currentExpense.toLocaleString()}원**\n` +
+                `- 목표 실적: **${goal.toLocaleString()}원**`
+              );
+              await createInAppNotification(
+                targetUser,
+                'CARD_PERF',
+                `${cardName} 실적 달성 완료`,
+                `축하합니다! 이번 달 **${cardName}**의 목표 실적을 달성했습니다.\n- 누적 실적: ${currentExpense.toLocaleString()}원\n- 목표 실적: ${goal.toLocaleString()}원`
+              );
+            }
+          } else {
+            if (notifiedStates[perfKey]) {
+              delete notifiedStates[perfKey];
+            }
+          }
+        }
+      }
+    }
+
     const sensors = [
       {
         entity_id: `sensor.account_book_monthly_income${suffix}`,
@@ -778,6 +953,67 @@ async function cleanupOrphanedHASensors(activeUsers = []) {
   }
 }
 
+/**
+ * Home Assistant에 persistent_notification 알림을 전송합니다.
+ * @param {string} title - 알림 제목
+ * @param {string} message - 알림 내용
+ * 의존성: SUPERVISOR_TOKEN 환경변수를 사용하여 HA Core API를 호출합니다.
+ */
+async function sendHANotification(title, message) {
+  const token = process.env.SUPERVISOR_TOKEN;
+  if (!token) return;
+
+  const url = 'http://supervisor/core/api/services/persistent_notification/create';
+  const payload = {
+    title: title,
+    message: message
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      console.error(`[HA WS][Notification] 알림 전송 실패: HTTP ${response.status}`);
+    }
+  } catch (err) {
+    console.error('[HA WS][Notification] 알림 전송 중 에러 발생:', err.message);
+  }
+}
+
+/**
+ * 가계부 자체 인앱 알림을 생성하고 저장합니다.
+ * 또한, 30일이 지난 오래된 알림을 자동으로 정리합니다.
+ * @param {string} username - 대상 사용자
+ * @param {string} type - 알림 타입 ('BUDGET_OVER', 'BUDGET_NEAR', 'DEFICIT', 'CARD_PERF', 'UNCLASSIFIED')
+ * @param {string} title - 알림 제목
+ * @param {string} message - 알림 내용
+ */
+async function createInAppNotification(username, type, title, message) {
+  try {
+    const db = await getDB(username);
+    if (!db) return;
+
+    // 1. 알림 저장
+    await db.run(
+      'INSERT INTO inapp_notifications (type, title, message) VALUES (?, ?, ?)',
+      [type, title, message]
+    );
+
+    // 2. 30일 지난 알림 자동 정리 (Auto-cleanup)
+    await db.run(
+      "DELETE FROM inapp_notifications WHERE created_at < datetime('now', '-30 days')"
+    );
+  } catch (err) {
+    console.error(`[InApp Notification][${username}] 알림 생성 중 오류:`, err);
+  }
+}
+
 module.exports = {
   initDB,
   resetAllData,
@@ -790,5 +1026,7 @@ module.exports = {
   seedFranchisePresets,
   FRANCHISE_PRESETS,
   updateHASensors,
-  cleanupOrphanedHASensors
+  cleanupOrphanedHASensors,
+  sendHANotification,
+  createInAppNotification
 };
