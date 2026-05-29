@@ -11,7 +11,7 @@ const express = require('express');
 const path = require('path');
 const WebSocket = require('ws');
 const fs = require('fs');
-const { initDB, getDB, getActiveUsers, updateHASensors, cleanupOrphanedHASensors } = require('./database');
+const { initDB, getDB, getActiveUsers, updateHASensors, cleanupOrphanedHASensors, createInAppNotification } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 8124;
@@ -42,6 +42,20 @@ try {
 app.locals.config = config;
 
 app.use(express.json());
+
+// 에러 메시지 마스킹 미들웨어 (Information Disclosure 방지)
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (obj) {
+    if (res.statusCode === 500 && obj && typeof obj.error === 'string') {
+      console.error(`[서버 에러] [${req.method}] ${req.url} :`, obj.error);
+      obj.error = '서버 처리 중 오류가 발생했습니다. 자세한 오류 내용은 시스템 로그를 확인해 주세요.';
+    }
+    return originalJson.call(this, obj);
+  };
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 1. [인증 제외] 로그인 및 웹훅 수신 라우터 등록
@@ -201,6 +215,29 @@ async function startServer() {
 
     for (const u of users) {
       updateHASensors(u);
+    }
+
+    // 기본 보안 자격증명 사용 여부 검사 및 경고 등록
+    const hasDefaultToken = config.token === 'accountbook_secret_token';
+    const hasDefaultPassword = config.users && config.users.some(u => u.password === 'password');
+    
+    if (hasDefaultToken || hasDefaultPassword) {
+      console.warn(`\x1b[33m%s\x1b[0m`, `====================================================`);
+      console.warn(`\x1b[33m%s\x1b[0m`, ` ⚠️ [보안 경고] 기본 보안 설정이 감지되었습니다.`);
+      if (hasDefaultToken) console.warn(`\x1b[33m%s\x1b[0m`, ` - 기본 API 토큰(accountbook_secret_token)을 사용 중입니다.`);
+      if (hasDefaultPassword) console.warn(`\x1b[33m%s\x1b[0m`, ` - 기본 비밀번호(password)를 사용하는 계정이 존재합니다.`);
+      console.warn(`\x1b[33m%s\x1b[0m`, ` 외부망과 연결 시 심각한 보안 침해로 이어질 수 있으니`);
+      console.warn(`\x1b[33m%s\x1b[0m`, ` 반드시 options.json에서 토큰 및 비밀번호를 재설정하십시오.`);
+      console.warn(`\x1b[33m%s\x1b[0m`, `====================================================`);
+    
+      for (const u of users) {
+        try {
+          const warnMessage = `기본 보안 자격증명(기본 토큰 또는 기본 비밀번호)이 사용되고 있습니다. 외부망 노출 시 가계부 해킹 등의 위험이 있으므로, 애드온 구성(options.json)에서 고유한 보안 토큰과 비밀번호로 즉시 변경해 주십시오.`;
+          await createInAppNotification(u, 'SECURITY_ALERT', '⚠️ 시스템 보안 취약점 경고', warnMessage);
+        } catch (e) {
+          console.error(`[보안] 사용자 ${u}의 보안 인앱 알림 생성 실패:`, e.message);
+        }
+      }
     }
   }, 3000);
 }

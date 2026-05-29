@@ -265,6 +265,16 @@ router.post('/webhook', async (req, res) => {
   const packageVal = reqPackage || packageName || package_name || '';
   const targetUser = username || 'admin';
 
+  const config = req.app.locals.config;
+  // webhook_token 보안 검증 (options.json에 webhook_token이 정의되어 있는 경우에만 검증하여 하위 호환성 유지)
+  if (config && config.webhook_token) {
+    const receivedToken = req.headers['authorization'] || req.query.token || req.body.token;
+    if (receivedToken !== config.webhook_token) {
+      console.warn(`[웹훅 보안 경고][${targetUser}] 잘못된 웹훅 토큰으로 접근이 차단되었습니다.`);
+      return res.status(403).json({ error: 'Forbidden: Invalid webhook token' });
+    }
+  }
+
   console.log(`[웹훅][${targetUser}] 알림 수신: title="${title}", text="${text}", package="${packageVal}"`);
 
   if (!title && !text) {
