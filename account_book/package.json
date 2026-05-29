@@ -6,6 +6,10 @@
   "scripts": {
     "start": "node index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/plplaaa2/smart_spendlog.git"
+  },
   "dependencies": {
     "express": "^4.19.2",
     "sqlite": "^5.1.1",
