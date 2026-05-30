@@ -234,9 +234,9 @@ async function initUserDB(username) {
   try {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('투자', '#087f5b', 'trending-up', 'EXPENSE')");
   } catch (e) {}
-  // 공과금 카테고리 강제 마이그레이션 주입
+  // 수도광열비 카테고리 강제 마이그레이션 주입
   try {
-    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('공과금', '#e8590c', 'receipt', 'EXPENSE')");
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('수도광열비', '#e8590c', 'receipt', 'EXPENSE')");
   } catch (e) {}
   // 구독 카테고리 강제 마이그레이션 주입
   try {
@@ -302,10 +302,74 @@ async function initUserDB(username) {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('대출상환', '#e03131', 'landmark', 'EXPENSE')");
   } catch (e) {}
 
+  // 세금 카테고리 강제 마이그레이션 주입 및 기존 데이터 분류 재지정
+  try {
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('세금', '#495057', 'landmark', 'EXPENSE')");
+    const taxKeywords = ['세금', '지방세', '국세', '재산세', '자동차세', '과태료', '벌금', '위택스', 'WETAX', '인터넷지로', '지로', 'GIRO', '경찰청', '경찰서', '시청', '구청', '도청', '군청'];
+    for (const kw of taxKeywords) {
+      await dbInstance.run(
+        "UPDATE merchant_categories SET category = '세금' WHERE merchant = ? AND category IN ('공과금', '수도광열비')",
+        [kw]
+      );
+      await dbInstance.run(
+        "UPDATE transactions SET category = '세금' WHERE category IN ('공과금', '수도광열비') AND merchant LIKE ?",
+        [`%${kw}%`]
+      );
+      await dbInstance.run(
+        "UPDATE rules SET category = '세금' WHERE category IN ('공과금', '수도광열비') AND pattern LIKE ?",
+        [`%${kw}%`]
+      );
+    }
+  } catch (e) {
+    console.error('[DB 마이그레이션] 세금 카테고리 분리 마이그레이션 실패:', e);
+  }
+
+  // 공과금 -> 수도광열비 카테고리 명칭 변경 및 기존 데이터 이관 마이그레이션
+  try {
+    await dbInstance.run("UPDATE categories SET name = '수도광열비' WHERE name = '공과금'");
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('수도광열비', '#e8590c', 'receipt', 'EXPENSE')");
+    await dbInstance.run("UPDATE transactions SET category = '수도광열비' WHERE category = '공과금'");
+    await dbInstance.run("UPDATE rules SET category = '수도광열비' WHERE category = '공과금'");
+    await dbInstance.run("UPDATE merchant_categories SET category = '수도광열비' WHERE category = '공과금'");
+    await dbInstance.run("DELETE FROM categories WHERE name = '공과금'");
+  } catch (e) {
+    console.error('[DB 마이그레이션] 수도광열비 명칭 변경 마이그레이션 실패:', e);
+  }
+
+  // 주거/통신 -> 주거 명칭 변경 및 통신비 분리 마이그레이션
+  try {
+    await dbInstance.run("UPDATE categories SET name = '주거' WHERE name = '주거/통신'");
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('주거', '#fcc419', 'home', 'EXPENSE')");
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('통신비', '#1c7ed6', 'phone', 'EXPENSE')");
+    const telecomKeywords = ['SKT', 'KT', 'LGU+', 'LG유플러스', '알뜰폰', '통신', '텔레콤', '대리점'];
+    for (const kw of telecomKeywords) {
+      await dbInstance.run(
+        "UPDATE merchant_categories SET category = '통신비' WHERE merchant = ? AND category IN ('주거/통신', '주거')",
+        [kw]
+      );
+      await dbInstance.run(
+        "UPDATE transactions SET category = '통신비' WHERE category IN ('주거/통신', '주거') AND merchant LIKE ?",
+        [`%${kw}%`]
+      );
+      await dbInstance.run(
+        "UPDATE rules SET category = '통신비' WHERE category IN ('주거/통신', '주거') AND pattern LIKE ?",
+        [`%${kw}%`]
+      );
+    }
+    await dbInstance.run("UPDATE transactions SET category = '주거' WHERE category = '주거/통신'");
+    await dbInstance.run("UPDATE rules SET category = '주거' WHERE category = '주거/통신'");
+    await dbInstance.run("UPDATE merchant_categories SET category = '주거' WHERE category = '주거/통신'");
+    await dbInstance.run("DELETE FROM categories WHERE name = '주거/통신'");
+  } catch (e) {
+    console.error('[DB 마이그레이션] 주거 및 통신비 분리 마이그레이션 실패:', e);
+  }
+
   // 기존 카테고리 중 수입(INCOME) 카테고리의 type 값을 올바르게 강제 보정 (수입 수정 시 카테고리 누락 방지)
   // 의존성: default_rules.json의 카테고리 구성 정의 및 public/app.js의 updateCategorySelect와 연결됩니다.
   try {
-    await dbInstance.run("UPDATE categories SET type = 'INCOME' WHERE name IN ('월급', '부수입', '용돈(수입)', '이체/입금', 'ATM/입금', '기타수입')");
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('연금', '#fab005', 'piggy-bank', 'INCOME')");
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('지원금/환급금', '#be4bdb', 'gift', 'INCOME')");
+    await dbInstance.run("UPDATE categories SET type = 'INCOME' WHERE name IN ('월급', '부수입', '용돈(수입)', '이체/입금', 'ATM/입금', '기타수입', '연금', '지원금/환급금')");
   } catch (e) {}
 
 
@@ -574,7 +638,7 @@ async function seedFranchisePresets(db, force = false) {
   let txUpdatedCount = 0;
   if (force) {
     for (const preset of FRANCHISE_PRESETS) {
-      if (['편의점', '음료/카페', '배달음식', '디저트', '패션/의류', '병원/약국', '해외직구', '구독', '렌탈'].includes(preset.category)) {
+      if (['편의점', '음료/카페', '배달음식', '디저트', '패션/의류', '병원/약국', '해외직구', '구독', '렌탈', '세금', '수도광열비', '주거', '통신비', '연금', '지원금/환급금'].includes(preset.category)) {
         let sourceCategories = ["식비"];
         if (preset.category === '패션/의류') {
           sourceCategories = ["식비", "온라인쇼핑", "생활/마트"];
@@ -586,6 +650,18 @@ async function seedFranchisePresets(db, force = false) {
           sourceCategories = ["식비", "온라인쇼핑", "문화/여가", "기타"];
         } else if (preset.category === '렌탈') {
           sourceCategories = ["식비", "온라인쇼핑", "생활/마트", "기타"];
+        } else if (preset.category === '세금') {
+          sourceCategories = ["수도광열비", "공과금", "주거/통신", "기타"];
+        } else if (preset.category === '수도광열비') {
+          sourceCategories = ["공과금", "주거/통신", "기타"];
+        } else if (preset.category === '통신비') {
+          sourceCategories = ["주거/통신", "주거", "기타"];
+        } else if (preset.category === '주거') {
+          sourceCategories = ["주거/통신", "기타"];
+        } else if (preset.category === '연금') {
+          sourceCategories = ["기타수입", "부수입", "기타"];
+        } else if (preset.category === '지원금/환급금') {
+          sourceCategories = ["기타수입", "부수입", "기타"];
         }
         for (const srcCat of sourceCategories) {
           const txResult = await db.run(

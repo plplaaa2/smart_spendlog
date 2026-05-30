@@ -65,6 +65,9 @@ const FRANCHISE_PRESETS = [
   { keyword: 'BLUE BOTTLE', category: '음료/카페' },
   { keyword: '루이보스', category: '음료/카페' },
   { keyword: '빈브라더스', category: '음료/카페' },
+  { keyword: '카페', category: '음료/카페' },
+  { keyword: '커피', category: '음료/카페' },
+  { keyword: '커피숍', category: '음료/카페' },
 
   // =============================================
   // 배달음식 - 배달 플랫폼 앱
@@ -139,6 +142,42 @@ const FRANCHISE_PRESETS = [
   { keyword: '국대떡볶이', category: '식비' },
 
   // =============================================
+  // 식비 - 대명사 및 대표 메뉴 키워드
+  // =============================================
+  { keyword: '식당', category: '식비' },
+  { keyword: '칼국수', category: '식비' },
+  { keyword: '마라탕', category: '식비' },
+  { keyword: '감자탕', category: '식비' },
+  { keyword: '해장국', category: '식비' },
+  { keyword: '국밥', category: '식비' },
+  { keyword: '찌개', category: '식비' },
+  { keyword: '족발', category: '식비' },
+  { keyword: '보쌈', category: '식비' },
+  { keyword: '삼겹살', category: '식비' },
+  { keyword: '갈비', category: '식비' },
+  { keyword: '곱창', category: '식비' },
+  { keyword: '막창', category: '식비' },
+  { keyword: '닭갈비', category: '식비' },
+  { keyword: '떡볶이', category: '식비' },
+  { keyword: '돈까스', category: '식비' },
+  { keyword: '돈가스', category: '식비' },
+  { keyword: '파스타', category: '식비' },
+  { keyword: '초밥', category: '식비' },
+  { keyword: '스시', category: '식비' },
+  { keyword: '샤브샤브', category: '식비' },
+  { keyword: '마라샹궈', category: '식비' },
+  { keyword: '양꼬치', category: '식비' },
+  { keyword: '탕수육', category: '식비' },
+  { keyword: '짜장면', category: '식비' },
+  { keyword: '짬뽕', category: '식비' },
+  { keyword: '중국집', category: '식비' },
+  { keyword: '포차', category: '식비' },
+  { keyword: '술집', category: '식비' },
+  { keyword: '호프', category: '식비' },
+  { keyword: '치킨', category: '식비' },
+  { keyword: '피자', category: '식비' },
+
+  // =============================================
   // 편의점 - 편의점 브랜드
   // =============================================
   { keyword: 'GS25', category: '편의점' },
@@ -172,6 +211,19 @@ const FRANCHISE_PRESETS = [
   { keyword: '이케아', category: '생활/마트' },
   { keyword: 'IKEA', category: '생활/마트' },
   { keyword: '버터', category: '생활/마트' },
+  { keyword: '마트', category: '생활/마트' },
+  { keyword: '슈퍼', category: '생활/마트' },
+  { keyword: '슈퍼마켓', category: '생활/마트' },
+  { keyword: '상회', category: '생활/마트' },
+  { keyword: '유통', category: '생활/마트' },
+  { keyword: '청과', category: '생활/마트' },
+  { keyword: '정육', category: '생활/마트' },
+  { keyword: '수산', category: '생활/마트' },
+  { keyword: '시장', category: '생활/마트' },
+  { keyword: '상점', category: '생활/마트' },
+  { keyword: '철물', category: '생활/마트' },
+  { keyword: '가구', category: '생활/마트' },
+  { keyword: '잡화', category: '생활/마트' },
 
   // =============================================
   // 병원/약국 - 의원/약국/클리닉
@@ -198,6 +250,12 @@ const FRANCHISE_PRESETS = [
   { keyword: '정형외과', category: '병원/약국' },
   { keyword: '외과', category: '병원/약국' },
   { keyword: '팜클', category: '병원/약국' },
+  { keyword: '동물병원', category: '병원/약국' },
+  { keyword: '산후조리원', category: '병원/약국' },
+  { keyword: '조리원', category: '병원/약국' },
+  { keyword: '한약방', category: '병원/약국' },
+  { keyword: '도수치료', category: '병원/약국' },
+  { keyword: '안마원', category: '병원/약국' },
 
   // =============================================
   // 온라인쇼핑 - 온라인몰
@@ -266,6 +324,19 @@ const FRANCHISE_PRESETS = [
   { keyword: '에이블리', category: '패션/의류' },
   { keyword: '지그재그', category: '패션/의류' },
   { keyword: '브랜디', category: '패션/의류' },
+  { keyword: '패션', category: '패션/의류' },
+  { keyword: '의류', category: '패션/의류' },
+  { keyword: '옷가게', category: '패션/의류' },
+  { keyword: '보세', category: '패션/의류' },
+  { keyword: '아울렛', category: '패션/의류' },
+  { keyword: '쇼핑몰', category: '패션/의류' },
+  { keyword: '뷰티', category: '패션/의류' },
+  { keyword: '스포츠', category: '패션/의류' },
+  { keyword: '아웃도어', category: '패션/의류' },
+  { keyword: '슈즈', category: '패션/의류' },
+  { keyword: '신발', category: '패션/의류' },
+  { keyword: '안경', category: '패션/의류' },
+  { keyword: '콘택트', category: '패션/의류' },
 
   // =============================================
   // 교통
@@ -301,15 +372,36 @@ const FRANCHISE_PRESETS = [
   { keyword: '현대오일뱅크', category: '교통/주유' },
   { keyword: '알뜰주유소', category: '교통/주유' },
   { keyword: '주유소', category: '교통/주유' },
+  { keyword: '택시', category: '교통/주유' },
+  { keyword: '주차', category: '교통/주유' },
+  { keyword: '주차장', category: '교통/주유' },
+  { keyword: '대리', category: '교통/주유' },
+  { keyword: '대리운전', category: '교통/주유' },
+  { keyword: '터널', category: '교통/주유' },
+  { keyword: '통행료', category: '교통/주유' },
+  { keyword: '하이패스', category: '교통/주유' },
+  { keyword: '세차', category: '교통/주유' },
+  { keyword: '세차장', category: '교통/주유' },
+  { keyword: '카센타', category: '교통/주유' },
+  { keyword: '카센터', category: '교통/주유' },
+  { keyword: '정비소', category: '교통/주유' },
+  { keyword: '공업사', category: '교통/주유' },
+  { keyword: '렌트카', category: '교통/주유' },
+  { keyword: '렌터카', category: '교통/주유' },
+  { keyword: '철도', category: '교통/주유' },
+  { keyword: '지하철', category: '교통/주유' },
 
   // =============================================
-  // 주거/통신
+  // 통신비
   // =============================================
-  { keyword: 'SKT', category: '주거/통신' },
-  { keyword: 'KT', category: '주거/통신' },
-  { keyword: 'LGU+', category: '주거/통신' },
-  { keyword: 'LG유플러스', category: '주거/통신' },
-  { keyword: '알뜰폰', category: '주거/통신' },
+  { keyword: 'SKT', category: '통신비' },
+  { keyword: 'KT', category: '통신비' },
+  { keyword: 'LGU+', category: '통신비' },
+  { keyword: 'LG유플러스', category: '통신비' },
+  { keyword: '알뜰폰', category: '통신비' },
+  { keyword: '통신', category: '통신비' },
+  { keyword: '텔레콤', category: '통신비' },
+  { keyword: '대리점', category: '통신비' },
   { keyword: '넷플릭스', category: '구독' },
   { keyword: 'NETFLIX', category: '구독' },
   { keyword: '왓챠', category: '구독' },
@@ -374,10 +466,33 @@ const FRANCHISE_PRESETS = [
   { keyword: 'Dropbox', category: '구독' },
   { keyword: 'DROPBOX', category: '구독' },
   { keyword: '드롭박스', category: '구독' },
-  { keyword: '한국전력', category: '공과금' },
-  { keyword: '한전', category: '공과금' },
-  { keyword: '도시가스', category: '공과금' },
-  { keyword: '수도요금', category: '공과금' },
+  { keyword: '구독', category: '구독' },
+  { keyword: '멤버십', category: '구독' },
+  { keyword: '한국전력', category: '수도광열비' },
+  { keyword: '한전', category: '수도광열비' },
+  { keyword: '도시가스', category: '수도광열비' },
+  { keyword: '수도요금', category: '수도광열비' },
+  { keyword: '세금', category: '세금' },
+  { keyword: '지방세', category: '세금' },
+  { keyword: '국세', category: '세금' },
+  { keyword: '재산세', category: '세금' },
+  { keyword: '자동차세', category: '세금' },
+  { keyword: '과태료', category: '세금' },
+  { keyword: '벌금', category: '세금' },
+  { keyword: '위택스', category: '세금' },
+  { keyword: 'WETAX', category: '세금' },
+  { keyword: '인터넷지로', category: '세금' },
+  { keyword: '지로', category: '세금' },
+  { keyword: 'GIRO', category: '세금' },
+  { keyword: '경찰청', category: '세금' },
+  { keyword: '경찰서', category: '세금' },
+  { keyword: '시청', category: '세금' },
+  { keyword: '구청', category: '세금' },
+  { keyword: '도청', category: '세금' },
+  { keyword: '군청', category: '세금' },
+  { keyword: '공과금', category: '수도광열비' },
+  { keyword: '전기요금', category: '수도광열비' },
+  { keyword: '가스요금', category: '수도광열비' },
 
   // =============================================
   // 문화/여가
@@ -408,7 +523,25 @@ const FRANCHISE_PRESETS = [
   { keyword: '나이키런', category: '문화/여가' },
   { keyword: '헬스장', category: '문화/여가' },
   { keyword: '피트니스', category: '문화/여가' },
-  { keyword: '짐', category: '문화/여가' }, // GYM
+  { keyword: '짐', category: '문화/여가' },
+  { keyword: '영화', category: '문화/여가' },
+  { keyword: '영화관', category: '문화/여가' },
+  { keyword: '극장', category: '문화/여가' },
+  { keyword: '노래방', category: '문화/여가' },
+  { keyword: '오락실', category: '문화/여가' },
+  { keyword: 'PC방', category: '문화/여가' },
+  { keyword: '피시방', category: '문화/여가' },
+  { keyword: '골프', category: '문화/여가' },
+  { keyword: '스크린골프', category: '문화/여가' },
+  { keyword: '테니스', category: '문화/여가' },
+  { keyword: '볼링장', category: '문화/여가' },
+  { keyword: '당구장', category: '문화/여가' },
+  { keyword: '펜션', category: '문화/여가' },
+  { keyword: '호텔', category: '문화/여가' },
+  { keyword: '리조트', category: '문화/여가' },
+  { keyword: '민박', category: '문화/여가' },
+  { keyword: '서점', category: '문화/여가' },
+  { keyword: '문구', category: '문화/여가' }, // GYM
 
   // =============================================
   // 교육/학습
@@ -429,6 +562,12 @@ const FRANCHISE_PRESETS = [
   { keyword: '대성마이맥', category: '교육/학습' },
   { keyword: '공단기', category: '교육/학습' },
   { keyword: '사이버대', category: '교육/학습' },
+  { keyword: '학원', category: '교육/학습' },
+  { keyword: '독서실', category: '교육/학습' },
+  { keyword: '스터디카페', category: '교육/학습' },
+  { keyword: '스터디', category: '교육/학습' },
+  { keyword: '학교', category: '교육/학습' },
+  { keyword: '교육', category: '교육/학습' },
 
   // =============================================
   // 보험
@@ -475,6 +614,30 @@ const FRANCHISE_PRESETS = [
   { keyword: 'LG렌탈', category: '렌탈' },
   { keyword: '삼성전자 렌탈', category: '렌탈' },
   { keyword: '삼성렌탈', category: '렌탈' },
+  { keyword: '렌탈', category: '렌탈' },
+  { keyword: '렌트', category: '렌탈' },
+
+  // =============================================
+  // 수입 - 연금
+  // =============================================
+  { keyword: '국민연금', category: '연금' },
+  { keyword: '공무원연금', category: '연금' },
+  { keyword: '사학연금', category: '연금' },
+  { keyword: '군인연금', category: '연금' },
+  { keyword: '우체국연금', category: '연금' },
+  { keyword: '주택연금', category: '연금' },
+  { keyword: '연금', category: '연금' },
+
+  // =============================================
+  // 수입 - 지원금/환급금
+  // =============================================
+  { keyword: '환급', category: '지원금/환급금' },
+  { keyword: '환급금', category: '지원금/환급금' },
+  { keyword: '지원금', category: '지원금/환급금' },
+  { keyword: '실업급여', category: '지원금/환급금' },
+  { keyword: '수당', category: '지원금/환급금' },
+  { keyword: '장려금', category: '지원금/환급금' },
+  { keyword: '캐시백', category: '지원금/환급금' },
 ];
 
 module.exports = { FRANCHISE_PRESETS };

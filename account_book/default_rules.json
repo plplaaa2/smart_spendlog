@@ -55,15 +55,27 @@
             "type": "EXPENSE"
         },
         {
-            "name": "주거/통신",
+            "name": "주거",
             "color": "#fcc419",
             "icon": "home",
             "type": "EXPENSE"
         },
         {
-            "name": "공과금",
+            "name": "통신비",
+            "color": "#1c7ed6",
+            "icon": "phone",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "수도광열비",
             "color": "#e8590c",
             "icon": "receipt",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "세금",
+            "color": "#495057",
+            "icon": "landmark",
             "type": "EXPENSE"
         },
         {
@@ -190,6 +202,18 @@
             "name": "기타수입",
             "color": "#64748b",
             "icon": "plus-circle",
+            "type": "INCOME"
+        },
+        {
+            "name": "연금",
+            "color": "#fab005",
+            "icon": "piggy-bank",
+            "type": "INCOME"
+        },
+        {
+            "name": "지원금/환급금",
+            "color": "#be4bdb",
+            "icon": "gift",
             "type": "INCOME"
         }
     ],
