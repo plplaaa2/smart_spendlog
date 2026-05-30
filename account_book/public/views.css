@@ -650,3 +650,24 @@
   color: var(--primary-color) !important;
   transform: scale(1.1);
 }
+
+/* 7. Clickable Summary Row for Analytics */
+.summary-row-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.summary-row-clickable:hover {
+  background: var(--glass-hover) !important;
+}
+
+.summary-row-clickable.active {
+  background: rgba(99, 102, 241, 0.15) !important;
+  border-left: 4px solid var(--accent-color);
+}
+
+.summary-row-clickable.active td {
+  font-weight: 700;
+  color: var(--text-primary) !important;
+}
+
