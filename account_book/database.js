@@ -263,6 +263,23 @@ async function initUserDB(username) {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('렌탈', '#5c7cfa', 'key', 'EXPENSE')");
   } catch (e) {}
 
+  // 기본 패키지 결제수단 매핑 강제 주입
+  try {
+    const defaultPackageMappings = [
+      { package: 'viva.republica.toss', pay_method: '토스' },
+      { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
+      { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
+      { package: 'com.hanabank.oqf', pay_method: '하나은행' }
+    ];
+    for (const mapping of defaultPackageMappings) {
+      await dbInstance.run('INSERT OR IGNORE INTO pay_methods (name) VALUES (?)', [mapping.pay_method]);
+      await dbInstance.run(
+        'INSERT OR IGNORE INTO package_pay_methods (package, pay_method) VALUES (?, ?)',
+        [mapping.package, mapping.pay_method]
+      );
+    }
+  } catch (e) {}
+
   // 쇼핑 -> 온라인쇼핑 카테고리 명칭 변경 및 해외직구 추가 마이그레이션
   try {
     // 1. categories 테이블에서 '쇼핑'을 '온라인쇼핑'으로 변경
@@ -458,6 +475,21 @@ async function seedDefaultData(dbInstance, username = 'admin') {
           [preset.keyword, preset.category]
         );
       }
+    }
+
+    // 6. 패키지별 결제수단 자동 매핑 기본 프리셋 시딩
+    // 사용자가 제공한 4개 앱 패키지(토스, 하나카드, 국민은행, 하나은행)에 대한 기본 매핑 테이블 주입
+    const defaultPackageMappings = [
+      { package: 'viva.republica.toss', pay_method: '토스' },
+      { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
+      { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
+      { package: 'com.hanabank.oqf', pay_method: '하나은행' }
+    ];
+    for (const mapping of defaultPackageMappings) {
+      await dbInstance.run(
+        'INSERT OR IGNORE INTO package_pay_methods (package, pay_method) VALUES (?, ?)',
+        [mapping.package, mapping.pay_method]
+      );
     }
   } catch (err) {
     console.error('[DB Seed] 기본 데이터 시딩 실패:', err);
