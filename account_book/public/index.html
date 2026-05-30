@@ -603,45 +603,48 @@
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">고정지출 분석</button>
         </div>
 
+        <!-- Year Selector & Compare Mode Selector (Moved to top of Analytics Tab) -->
+        <div class="card glass control-bar"
+          style="margin-bottom: 1.5rem; justify-content: flex-start; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <label for="analytics-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">분석 대상
+              연도:</label>
+            <select id="analytics-year-select" class="select-filter" style="width: 110px; padding: 0.5rem;">
+              <!-- populated dynamically -->
+            </select>
+          </div>
+          <div id="analytics-compare-mode-container" style="display: flex; align-items: center; gap: 0.5rem;">
+            <label for="analytics-compare-mode" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">비교
+              기준:</label>
+            <select id="analytics-compare-mode" class="select-filter" style="width: 130px; padding: 0.5rem;">
+              <option value="yoy" selected>전년 대비 (연간)</option>
+              <option value="mom">전월 대비 (월간)</option>
+            </select>
+          </div>
+          <div id="analytics-month-select-container" style="display: none; align-items: center; gap: 0.5rem;">
+            <label for="analytics-month-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">대상
+              월:</label>
+            <select id="analytics-month-select" class="select-filter" style="width: 110px; padding: 0.5rem;">
+              <option value="all">올해 전체</option>
+              <option value="1">1월</option>
+              <option value="2">2월</option>
+              <option value="3">3월</option>
+              <option value="4">4월</option>
+              <option value="5">5월</option>
+              <option value="6">6월</option>
+              <option value="7">7월</option>
+              <option value="8">8월</option>
+              <option value="9">9월</option>
+              <option value="10">10월</option>
+              <option value="11">11월</option>
+              <option value="12">12월</option>
+            </select>
+          </div>
+        </div>
+
         <!-- 1) 소비 추이 서브 탭 -->
         <div id="analytics-subview-trend" class="analytics-subview-content active" style="width: 100%;">
-          <!-- Year Selector & Compare Mode Selector -->
-          <div class="card glass control-bar"
-            style="margin-bottom: 1.5rem; justify-content: flex-start; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <label for="analytics-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">분석 대상
-                연도:</label>
-              <select id="analytics-year-select" class="select-filter" style="width: 110px; padding: 0.5rem;">
-                <!-- populated dynamically -->
-              </select>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <label for="analytics-compare-mode" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">비교
-                기준:</label>
-              <select id="analytics-compare-mode" class="select-filter" style="width: 130px; padding: 0.5rem;">
-                <option value="yoy" selected>전년 대비 (연간)</option>
-                <option value="mom">전월 대비 (월간)</option>
-              </select>
-            </div>
-            <div id="analytics-month-select-container" style="display: none; align-items: center; gap: 0.5rem;">
-              <label for="analytics-month-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">대상
-                월:</label>
-              <select id="analytics-month-select" class="select-filter" style="width: 100px; padding: 0.5rem;">
-                <option value="1">1월</option>
-                <option value="2">2월</option>
-                <option value="3">3월</option>
-                <option value="4">4월</option>
-                <option value="5">5월</option>
-                <option value="6">6월</option>
-                <option value="7">7월</option>
-                <option value="8">8월</option>
-                <option value="9">9월</option>
-                <option value="10">10월</option>
-                <option value="11">11월</option>
-                <option value="12">12월</option>
-              </select>
-            </div>
-          </div>
+
   
           <!-- Yearly Flow Chart & Category Flow Chart -->
           <div class="charts-grid" style="margin-bottom: 2rem;">
@@ -698,7 +701,7 @@
           <div class="stats-grid" style="margin-bottom: 1.5rem;">
             <div class="card glass stat-card">
               <div class="stat-header">
-                <span class="stat-label">이번 달 일반지출</span>
+                <span class="stat-label" id="general-total-label">이번 달 일반지출</span>
                 <div class="stat-icon-wrapper expense"><i data-lucide="shopping-bag"></i></div>
               </div>
               <div class="stat-value" id="general-total-value">0원</div>
@@ -718,7 +721,7 @@
             </div>
             <div class="card glass stat-card">
               <div class="stat-header">
-                <span class="stat-label">일반지출 제외 지출액</span>
+                <span class="stat-label" id="non-general-total-label">일반지출 제외 지출액</span>
                 <div class="stat-icon-wrapper savings"><i data-lucide="shield-check"></i></div>
               </div>
               <div class="stat-value" id="non-general-total-value">0원</div>
@@ -731,7 +734,7 @@
           <!-- 차트 그리드 -->
           <div class="charts-grid" style="margin-bottom: 2rem;">
             <div class="card glass chart-card">
-              <h3>일반지출 월별 추이 (최근 6개월)</h3>
+              <h3 id="general-trend-title">일반지출 월별 추이 (최근 6개월)</h3>
               <div class="chart-container" style="height: 280px; position: relative;">
                 <canvas id="generalMonthlyTrendChart"></canvas>
               </div>
@@ -770,7 +773,7 @@
           <!-- 일반지출 상세 리스트 -->
           <div class="card glass table-card">
             <div class="card-header" style="padding-bottom: 1rem;">
-              <h3>이번 달 일반지출 거래 내역</h3>
+              <h3 id="general-subview-title">이번 달 일반지출 거래 내역</h3>
             </div>
             <div class="table-responsive">
               <table class="table">
@@ -790,7 +793,7 @@
               </table>
             </div>
             <div class="table-footer" id="general-transaction-table-footer">
-              <p class="empty-message">이번 달 일반지출 거래 내역이 없습니다.</p>
+              <p class="empty-message" id="general-transaction-table-empty-msg">이번 달 일반지출 거래 내역이 없습니다.</p>
             </div>
           </div>
         </div>
@@ -801,7 +804,7 @@
           <div class="stats-grid" style="margin-bottom: 1.5rem;">
             <div class="card glass stat-card">
               <div class="stat-header">
-                <span class="stat-label">이번 달 고정지출</span>
+                <span class="stat-label" id="fixed-total-label">이번 달 고정지출</span>
                 <div class="stat-icon-wrapper expense"><i data-lucide="receipt"></i></div>
               </div>
               <div class="stat-value" id="fixed-total-value">0원</div>
@@ -821,7 +824,7 @@
             </div>
             <div class="card glass stat-card">
               <div class="stat-header">
-                <span class="stat-label">고정비 제외 지출액</span>
+                <span class="stat-label" id="variable-total-label">고정비 제외 지출액</span>
                 <div class="stat-icon-wrapper savings"><i data-lucide="wallet"></i></div>
               </div>
               <div class="stat-value" id="variable-total-value">0원</div>
@@ -834,7 +837,7 @@
           <!-- 차트 그리드 -->
           <div class="charts-grid" style="margin-bottom: 2rem;">
             <div class="card glass chart-card">
-              <h3>고정지출 월별 추이 (최근 6개월)</h3>
+              <h3 id="fixed-trend-title">고정지출 월별 추이 (최근 6개월)</h3>
               <div class="chart-container" style="height: 280px; position: relative;">
                 <canvas id="fixedMonthlyTrendChart"></canvas>
               </div>
@@ -847,10 +850,33 @@
             </div>
           </div>
 
+          <!-- 카테고리별 고정소비 요약 테이블 (신설) -->
+          <div class="card glass table-card" style="margin-bottom: 2rem;">
+            <div class="card-header" style="padding-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+              <h3>카테고리별 고정소비 요약</h3>
+              <span class="text-secondary text-xs" style="font-weight: normal; cursor: pointer;" id="reset-fixed-category-filter-btn" title="필터 전체 해제">* 카테고리를 클릭하면 상세 내역이 필터링됩니다. (클릭 시 전체 표시)</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>카테고리</th>
+                    <th class="text-right">소비액</th>
+                    <th class="text-right">전체 지출 대비 비율</th>
+                    <th class="text-right">고정소비 대비 비율</th>
+                  </tr>
+                </thead>
+                <tbody id="fixed-category-summary-body">
+                  <!-- Dynamic rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <!-- 고정지출 상세 리스트 -->
           <div class="card glass table-card">
             <div class="card-header" style="padding-bottom: 1rem;">
-              <h3>이번 달 고정지출 거래 내역</h3>
+              <h3 id="fixed-subview-title">이번 달 고정지출 거래 내역</h3>
             </div>
             <div class="table-responsive">
               <table class="table">
@@ -870,7 +896,7 @@
               </table>
             </div>
             <div class="table-footer" id="fixed-transaction-table-footer">
-              <p class="empty-message">이번 달 고정지출 거래 내역이 없습니다.</p>
+              <p class="empty-message" id="fixed-transaction-table-empty-msg">이번 달 고정지출 거래 내역이 없습니다.</p>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@
 // ==========================================
 
 let selectedGeneralCategory = null; // 일반지출 카테고리 필터링 상태 전역 변수
+let selectedFixedCategory = null; // 고정지출 카테고리 필터링 상태 전역 변수
 
 if (window.Chart) {
   Chart.defaults.font.family = "'Outfit', 'Noto Sans KR', sans-serif";
@@ -13,6 +14,7 @@ async function loadAnalytics() {
   const compareModeSelect = document.getElementById('analytics-compare-mode');
   const monthSelect = document.getElementById('analytics-month-select');
   const monthContainer = document.getElementById('analytics-month-select-container');
+  const compareModeContainer = document.getElementById('analytics-compare-mode-container');
   if (!yearSelect) return;
 
   // 연도 선택 목록 초기화 (현재 연도 기준 최근 3개년)
@@ -59,6 +61,19 @@ async function loadAnalytics() {
   const selectedYear = yearSelect.value;
   const compareMode = compareModeSelect ? compareModeSelect.value : 'yoy';
   const selectedMonth = monthSelect ? monthSelect.value : '1';
+
+  // 서브 탭에 따라 control-bar 표시 제어
+  if (state.currentAnalyticsSubTab === 'general' || state.currentAnalyticsSubTab === 'fixed') {
+    if (compareModeContainer) compareModeContainer.style.display = 'none';
+    if (monthContainer) monthContainer.style.display = 'flex';
+  } else {
+    if (compareModeContainer) compareModeContainer.style.display = 'flex';
+    if (compareMode === 'mom') {
+      if (monthContainer) monthContainer.style.display = 'flex';
+    } else {
+      if (monthContainer) monthContainer.style.display = 'none';
+    }
+  }
 
   // 일반지출 서브 탭일 경우 전용 로더 호출
   if (state.currentAnalyticsSubTab === 'general') {
@@ -528,6 +543,26 @@ async function loadFixedAnalytics(year, month) {
   try {
     const res = await fetch(`api/analytics/fixed?year=${year}&month=${month}`).then(r => r.json());
     
+    const isYearly = (month === 'all');
+    const periodLabel = isYearly ? '올해' : '이번 달';
+    const periodDetailLabel = isYearly ? `${year}년 전체` : `${parseInt(month, 10)}월`;
+
+    // 다이나믹 라벨 및 타이틀 세팅
+    const totalLabelEl = document.getElementById('fixed-total-label');
+    if (totalLabelEl) totalLabelEl.textContent = `${periodLabel} 고정지출`;
+    const variableLabelEl = document.getElementById('variable-total-label');
+    if (variableLabelEl) variableLabelEl.textContent = `고정비 제외 지출액 (${periodLabel})`;
+
+    const subviewTitleEl = document.getElementById('fixed-subview-title');
+    if (subviewTitleEl) subviewTitleEl.textContent = `${periodDetailLabel} 고정지출 거래 내역`;
+    const emptyMsgEl = document.getElementById('fixed-transaction-table-empty-msg');
+    if (emptyMsgEl) emptyMsgEl.textContent = `${periodDetailLabel} 고정지출 거래 내역이 없습니다.`;
+
+    const trendTitleEl = document.getElementById('fixed-trend-title');
+    if (trendTitleEl) {
+      trendTitleEl.textContent = isYearly ? `고정지출 월별 추이 (${year}년)` : '고정지출 월별 추이 (최근 6개월)';
+    }
+
     // 1. 상단 요약 카드 데이터 반영
     const fixedTotal = res.fixedTotal || 0;
     const totalSpent = res.totalSpent || 0;
@@ -539,11 +574,17 @@ async function loadFixedAnalytics(year, month) {
     document.getElementById('fixed-ratio-value').textContent = `${fixedRatio}%`;
     document.getElementById('variable-total-value').textContent = formatCurrency(variableTotal);
 
+    // 필터 상태 초기화
+    selectedFixedCategory = null;
+
     // 2. 월별 고정지출 추이 차트 렌더링
     renderFixedMonthlyTrendChart(res.trend);
 
     // 3. 고정지출 카테고리별 비중 차트 렌더링
     renderFixedCategoryChart(res.categories);
+
+    // [NEW] 카테고리별 고정소비 요약 테이블 렌더링
+    renderFixedCategorySummaryTable(res.categories, totalSpent, fixedTotal, res.transactions);
 
     // 4. 고정지출 상세 거래 내역 테이블 렌더링
     renderFixedTransactionTable(res.transactions);
@@ -728,6 +769,26 @@ async function loadGeneralAnalytics(year, month) {
   try {
     const res = await fetch(`api/analytics/general?year=${year}&month=${month}`).then(r => r.json());
     
+    const isYearly = (month === 'all');
+    const periodLabel = isYearly ? '올해' : '이번 달';
+    const periodDetailLabel = isYearly ? `${year}년 전체` : `${parseInt(month, 10)}월`;
+
+    // 다이나믹 라벨 및 타이틀 세팅
+    const totalLabelEl = document.getElementById('general-total-label');
+    if (totalLabelEl) totalLabelEl.textContent = `${periodLabel} 일반지출`;
+    const nonGeneralLabelEl = document.getElementById('non-general-total-label');
+    if (nonGeneralLabelEl) nonGeneralLabelEl.textContent = `일반지출 제외 지출액 (${periodLabel})`;
+
+    const subviewTitleEl = document.getElementById('general-subview-title');
+    if (subviewTitleEl) subviewTitleEl.textContent = `${periodDetailLabel} 일반지출 거래 내역`;
+    const emptyMsgEl = document.getElementById('general-transaction-table-empty-msg');
+    if (emptyMsgEl) emptyMsgEl.textContent = `${periodDetailLabel} 일반지출 거래 내역이 없습니다.`;
+
+    const trendTitleEl = document.getElementById('general-trend-title');
+    if (trendTitleEl) {
+      trendTitleEl.textContent = isYearly ? `일반지출 월별 추이 (${year}년)` : '일반지출 월별 추이 (최근 6개월)';
+    }
+
     // 1. 상단 요약 카드 데이터 반영
     const generalTotal = res.generalTotal || 0;
     const totalSpent = res.totalSpent || 0;
@@ -788,7 +849,7 @@ function renderGeneralCategorySummaryTable(categories, totalSpent, generalTotal,
     newResetBtn.addEventListener('click', () => {
       if (selectedGeneralCategory !== null) {
         selectedGeneralCategory = null;
-        document.querySelectorAll('.summary-row-clickable').forEach(r => r.classList.remove('active'));
+        document.querySelectorAll('.general-summary-row-clickable').forEach(r => r.classList.remove('active'));
         renderGeneralTransactionTable(transactions);
         if (window.lucide) lucide.createIcons();
       }
@@ -797,7 +858,7 @@ function renderGeneralCategorySummaryTable(categories, totalSpent, generalTotal,
 
   filtered.forEach(c => {
     const tr = document.createElement('tr');
-    tr.className = 'summary-row-clickable';
+    tr.className = 'summary-row-clickable general-summary-row-clickable';
     if (selectedGeneralCategory === c.category) {
       tr.classList.add('active');
     }
@@ -826,10 +887,84 @@ function renderGeneralCategorySummaryTable(categories, totalSpent, generalTotal,
         renderGeneralTransactionTable(transactions);
       } else {
         selectedGeneralCategory = c.category;
-        document.querySelectorAll('.summary-row-clickable').forEach(r => r.classList.remove('active'));
+        document.querySelectorAll('.general-summary-row-clickable').forEach(r => r.classList.remove('active'));
         tr.classList.add('active');
         const filteredTx = transactions.filter(t => t.category === c.category);
         renderGeneralTransactionTable(filteredTx);
+      }
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+// [NEW] 카테고리별 고정소비 요약 테이블 렌더링
+function renderFixedCategorySummaryTable(categories, totalSpent, fixedTotal, transactions) {
+  const tbody = document.getElementById('fixed-category-summary-body');
+  const resetBtn = document.getElementById('reset-fixed-category-filter-btn');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  const filtered = categories.filter(c => c.total > 0);
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-message">카테고리별 요약 데이터가 없습니다.</td></tr>';
+    if (resetBtn) resetBtn.style.display = 'none';
+    return;
+  }
+
+  if (resetBtn) {
+    resetBtn.style.display = 'inline';
+    const newResetBtn = resetBtn.cloneNode(true);
+    resetBtn.parentNode.replaceChild(newResetBtn, resetBtn);
+    newResetBtn.addEventListener('click', () => {
+      if (selectedFixedCategory !== null) {
+        selectedFixedCategory = null;
+        document.querySelectorAll('.fixed-summary-row-clickable').forEach(r => r.classList.remove('active'));
+        renderFixedTransactionTable(transactions);
+        if (window.lucide) lucide.createIcons();
+      }
+    });
+  }
+
+  filtered.forEach(c => {
+    const tr = document.createElement('tr');
+    tr.className = 'summary-row-clickable fixed-summary-row-clickable';
+    if (selectedFixedCategory === c.category) {
+      tr.classList.add('active');
+    }
+
+    const catStyle = state.categoryMap[c.category] || { color: '#868e96', icon: 'help-circle' };
+    const ratioToTotal = totalSpent > 0 ? ((c.total / totalSpent) * 100).toFixed(1) : '0.0';
+    const ratioToFixed = fixedTotal > 0 ? ((c.total / fixedTotal) * 100).toFixed(1) : '0.0';
+
+    tr.innerHTML = `
+      <td data-label="카테고리">
+        <span class="category-badge" style="background-color: ${catStyle.color}15; color: ${catStyle.color}; border: 1px solid ${catStyle.color}30;">
+          <i data-lucide="${catStyle.icon}"></i>
+          ${c.category}
+        </span>
+      </td>
+      <td data-label="소비액" class="text-right text-bold font-mono text-expense">${formatCurrency(c.total)}</td>
+      <td data-label="전체 지출 대비 비율" class="text-right font-mono text-secondary">${ratioToTotal}%</td>
+      <td data-label="고정소비 대비 비율" class="text-right font-mono text-primary text-bold">${ratioToFixed}%</td>
+    `;
+
+    tr.addEventListener('click', () => {
+      if (selectedFixedCategory === c.category) {
+        selectedFixedCategory = null;
+        tr.classList.remove('active');
+        renderFixedTransactionTable(transactions);
+      } else {
+        selectedFixedCategory = c.category;
+        document.querySelectorAll('.fixed-summary-row-clickable').forEach(r => r.classList.remove('active'));
+        tr.classList.add('active');
+        const filteredTx = transactions.filter(t => t.category === c.category);
+        renderFixedTransactionTable(filteredTx);
       }
       if (window.lucide) {
         lucide.createIcons();

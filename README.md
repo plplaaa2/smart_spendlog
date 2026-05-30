@@ -40,7 +40,7 @@ Home Assistant Companion 앱의 알림(카드 승인 문자, 간편결제 푸시
 
 ### 5. Home Assistant 센서 연동
 - **5종 실시간 센서 생성**: `sensor.account_book_[username]_monthly_income`, `monthly_expense`, `remaining_budget`, `net_profit`, `savings` 등 총 5개 메트릭 센서를 HA Core API를 통해 실시간 업데이트합니다.
-- **고아 센서 정리**: 서버 기동 시 현재 활성화되지 않은 구사용자 가계부 센서를 찾아 HA 상에서 자동 제거합니다.
+- **고아 센서 정리**: 서버 기동 시 현재 활성화되지 않은 구사용자 Smart Spendlog 센서를 찾아 HA 상에서 자동 제거합니다.
 
 ---
 
@@ -101,10 +101,10 @@ SQLite 데이터베이스 파일에 생성되는 핵심 테이블 명세입니�
 
 | 테이블명 | 용도 | 주요 컬럼 |
 | :--- | :--- | :--- |
-| `categories` | 가계부 지출/수입 카테고리 마스터 | `id`, `name` (UNIQUE), `color`, `icon`, `type` |
+| `categories` | Smart Spendlog 지출/수입 카테고리 마스터 | `id`, `name` (UNIQUE), `color`, `icon`, `type` |
 | `pay_methods` | 결제수단(은행/카드사/페이 등) 마스터 | `id`, `name` (UNIQUE) |
 | `rules` | 정규식 기반 알림 자동 분류 규칙 | `id`, `name` (UNIQUE), `pattern`, `category`, `pay_method`, `merchant_template`, `type` |
-| `pass_rules` | 수신 시 가계부 기록을 스킵할 패스 필터 규칙 | `id`, `name` (UNIQUE), `pattern`, `created_at` |
+| `pass_rules` | 수신 시 Smart Spendlog 기록을 스킵할 패스 필터 규칙 | `id`, `name` (UNIQUE), `pattern`, `created_at` |
 | `transactions` | 입출금 거래 내역 데이터 | `id`, `type`, `amount`, `merchant`, `category`, `pay_method`, `datetime`, `memo`, `raw_text`, `used_point` |
 | `notification_logs` | 수신된 날것의 스마트폰 알림 히스토리 | `id`, `sender`, `raw_text`, `title`, `text`, `parsed_status`, `matched_rule_id`, `created_at` |
 | `package_pay_methods`| 발신 앱 패키지명 기준 결제수단 강제 매핑 | `id`, `package` (UNIQUE), `pay_method` |
@@ -117,7 +117,7 @@ SQLite 데이터베이스 파일에 생성되는 핵심 테이블 명세입니�
 ## 💖 후원 (Support)
 
 > [!NOTE]
-> **Smart Spendlog**는 광고 없는 완전한 오픈소스이며, 개인의 스마트홈 환경에 밀착된 자동화 지향 가계부 솔루션입니다.  
+> **Smart Spendlog**는 광고 없는 완전한 오픈소스이며, 개인의 스마트홈 환경에 밀착된 자동화 지향 스마트 가계부(Smart Spendlog) 솔루션입니다.  
 > 지속적인 패치 제공과 고도화된 기능 추가를 위해 개발자에게 따뜻한 커피 한 잔을 후원해 주세요! ☕
 
 <p align="center">

@@ -429,50 +429,69 @@ router.get('/analytics/fixed', async (req, res) => {
       return res.status(400).json({ error: '조회할 연도(year)와 월(month)을 지정해 주세요.' });
     }
 
-    const targetMonth = `${year}-${String(month).padStart(2, '0')}`;
+    const isYearly = (month === 'all');
+    const targetPattern = isYearly ? `${year}%` : `${year}-${String(month).padStart(2, '0')}%`;
     const fixedCategories = ['구독', '보험', '공과금', '주거/통신', '대출상환']; // 대출상환 고정비 분석 추가. 의존성: default_rules.json, database.js의 카테고리 설정과 일치해야 합니다.
     const placeholders = fixedCategories.map(() => '?').join(',');
 
-    // 1. 해당 월 총 지출액 (비율 계산용, 이체/송금 제외)
+    // 1. 해당 기간 총 지출액 (비율 계산용, 이체/송금 제외)
     const totalSpentRow = await db.get(
       "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
-      [`${targetMonth}%`]
+      [targetPattern]
     );
     const totalSpent = totalSpentRow.total || 0;
 
-    // 2. 해당 월 총 고정지출액 합계
+    // 2. 해당 기간 총 고정지출액 합계
     const fixedTotalRow = await db.get(
       `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders})`,
-      [`${targetMonth}%`, ...fixedCategories]
+      [targetPattern, ...fixedCategories]
     );
     const fixedTotal = fixedTotalRow.total || 0;
 
     // 3. 카테고리별 고정지출액 합계 (도넛 차트용)
     const categoryRows = await db.all(
       `SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders}) GROUP BY category ORDER BY total DESC`,
-      [`${targetMonth}%`, ...fixedCategories]
+      [targetPattern, ...fixedCategories]
     );
 
     // 4. 고정지출 상세 내역 목록 (테이블용, 최근순)
     const transactionRows = await db.all(
       `SELECT id, datetime, merchant, category, pay_method, amount, memo FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders}) ORDER BY datetime DESC`,
-      [`${targetMonth}%`, ...fixedCategories]
+      [targetPattern, ...fixedCategories]
     );
 
-    // 5. 최근 6개월간 월별 고정지출 추이 (바/라인 차트용)
+    // 5. 월별 고정지출 추이 (바/라인 차트용)
     const monthlyTrend = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
-      d.setMonth(d.getMonth() - i);
-      const targetM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const trendRow = await db.get(
-        `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders})`,
-        [`${targetM}%`, ...fixedCategories]
+    if (isYearly) {
+      const trendRows = await db.all(
+        `SELECT strftime('%Y-%m', datetime) as month, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders}) GROUP BY month ORDER BY month ASC`,
+        [targetPattern, ...fixedCategories]
       );
-      monthlyTrend.push({
-        month: targetM,
-        total: trendRow.total || 0
+      const trendMap = {};
+      trendRows.forEach(r => {
+        trendMap[r.month] = r.total;
       });
+      for (let m = 1; m <= 12; m++) {
+        const monthKey = `${year}-${String(m).padStart(2, '0')}`;
+        monthlyTrend.push({
+          month: monthKey,
+          total: trendMap[monthKey] || 0
+        });
+      }
+    } else {
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+        d.setMonth(d.getMonth() - i);
+        const targetM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const trendRow = await db.get(
+          `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders})`,
+          [`${targetM}%`, ...fixedCategories]
+        );
+        monthlyTrend.push({
+          month: targetM,
+          total: trendRow.total || 0
+        });
+      }
     }
 
     res.json({
@@ -489,7 +508,7 @@ router.get('/analytics/fixed', async (req, res) => {
 
 // 월별 일반지출 분석 API (구독, 보험, 공과금, 주거/통신, 대출상환 제외한 나머지 지출)
 // 요약: 선택한 연도/월 기준 고정지출 카테고리를 제외한 일반 지출을 분석하고 최근 6개월 월별 추이 및 거래내역 목록을 반환합니다.
-// 의존성: database.js (getDB)와 연동되며 public/analytics.js의 loadGeneralAnalytics와 연계됩니다.
+// 의존성: database.js (getDB)와 연동되며 public/analytics.js of loadGeneralAnalytics와 연계됩니다.
 router.get('/analytics/general', async (req, res) => {
   try {
     const db = await getDB(req.username);
@@ -498,50 +517,69 @@ router.get('/analytics/general', async (req, res) => {
       return res.status(400).json({ error: '조회할 연도(year)와 월(month)을 지정해 주세요.' });
     }
 
-    const targetMonth = `${year}-${String(month).padStart(2, '0')}`;
+    const isYearly = (month === 'all');
+    const targetPattern = isYearly ? `${year}%` : `${year}-${String(month).padStart(2, '0')}%`;
     const fixedCategories = ['구독', '보험', '공과금', '주거/통신', '대출상환'];
     const placeholders = fixedCategories.map(() => '?').join(',');
 
-    // 1. 해당 월 총 지출액 (비율 계산용, 이체/송금 제외)
+    // 1. 해당 기간 총 지출액 (비율 계산용, 이체/송금 제외)
     const totalSpentRow = await db.get(
       "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
-      [`${targetMonth}%`]
+      [targetPattern]
     );
     const totalSpent = totalSpentRow.total || 0;
 
-    // 2. 해당 월 총 일반지출액 합계 (고정지출 제외, 이체/송금 제외)
+    // 2. 해당 기간 총 일반지출액 합계 (고정지출 제외, 이체/송금 제외)
     const generalTotalRow = await db.get(
       `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders})`,
-      [`${targetMonth}%`, ...fixedCategories]
+      [targetPattern, ...fixedCategories]
     );
     const generalTotal = generalTotalRow.total || 0;
 
     // 3. 카테고리별 일반지출액 합계 (도넛 차트용)
     const categoryRows = await db.all(
       `SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders}) GROUP BY category ORDER BY total DESC`,
-      [`${targetMonth}%`, ...fixedCategories]
+      [targetPattern, ...fixedCategories]
     );
 
     // 4. 일반지출 상세 내역 목록 (테이블용, 최근순)
     const transactionRows = await db.all(
       `SELECT id, datetime, merchant, category, pay_method, amount, memo FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders}) ORDER BY datetime DESC`,
-      [`${targetMonth}%`, ...fixedCategories]
+      [targetPattern, ...fixedCategories]
     );
 
-    // 5. 최근 6개월간 월별 일반지출 추이 (바/라인 차트용)
+    // 5. 월별 일반지출 추이 (바/라인 차트용)
     const monthlyTrend = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
-      d.setMonth(d.getMonth() - i);
-      const targetM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const trendRow = await db.get(
-        `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders})`,
-        [`${targetM}%`, ...fixedCategories]
+    if (isYearly) {
+      const trendRows = await db.all(
+        `SELECT strftime('%Y-%m', datetime) as month, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders}) GROUP BY month ORDER BY month ASC`,
+        [targetPattern, ...fixedCategories]
       );
-      monthlyTrend.push({
-        month: targetM,
-        total: trendRow.total || 0
+      const trendMap = {};
+      trendRows.forEach(r => {
+        trendMap[r.month] = r.total;
       });
+      for (let m = 1; m <= 12; m++) {
+        const monthKey = `${year}-${String(m).padStart(2, '0')}`;
+        monthlyTrend.push({
+          month: monthKey,
+          total: trendMap[monthKey] || 0
+        });
+      }
+    } else {
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+        d.setMonth(d.getMonth() - i);
+        const targetM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const trendRow = await db.get(
+          `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders})`,
+          [`${targetM}%`, ...fixedCategories]
+        );
+        monthlyTrend.push({
+          month: targetM,
+          total: trendRow.total || 0
+        });
+      }
     }
 
     res.json({
