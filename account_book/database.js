@@ -269,7 +269,19 @@ async function initUserDB(username) {
       { package: 'viva.republica.toss', pay_method: '토스' },
       { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
       { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
-      { package: 'com.hanabank.oqf', pay_method: '하나은행' }
+      { package: 'com.hanabank.oqf', pay_method: '하나은행' },
+      { package: 'com.shcard.smartpay', pay_method: '신한카드' },
+      { package: 'com.wooricard.smartapp', pay_method: '우리카드' },
+      { package: 'com.hyundaicard.appcard', pay_method: '현대카드' },
+      { package: 'kr.co.samsungcard.mpocket', pay_method: '삼성카드' },
+      { package: 'com.lcacApp', pay_method: '롯데카드' },
+      { package: 'com.nhcard.smartpay', pay_method: 'NH농협카드' },
+      { package: 'com.kbcard.cxh.appcard', pay_method: 'KB국민카드' },
+      { package: 'com.shinhan.sbanking', pay_method: '신한은행' },
+      { package: 'com.wooribank.pib.smart', pay_method: '우리은행' },
+      { package: 'com.nonghyup.smnhb', pay_method: '농협은행' },
+      { package: 'com.ibk.neobanking', pay_method: '기업은행' },
+      { package: 'com.kakaobank.channel', pay_method: '카카오뱅크' }
     ];
     for (const mapping of defaultPackageMappings) {
       await dbInstance.run('INSERT OR IGNORE INTO pay_methods (name) VALUES (?)', [mapping.pay_method]);
@@ -478,12 +490,24 @@ async function seedDefaultData(dbInstance, username = 'admin') {
     }
 
     // 6. 패키지별 결제수단 자동 매핑 기본 프리셋 시딩
-    // 사용자가 제공한 4개 앱 패키지(토스, 하나카드, 국민은행, 하나은행)에 대한 기본 매핑 테이블 주입
+    // 주요 은행/카드사 앱 패키지에 대한 기본 매핑 테이블 주입
     const defaultPackageMappings = [
       { package: 'viva.republica.toss', pay_method: '토스' },
       { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
       { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
-      { package: 'com.hanabank.oqf', pay_method: '하나은행' }
+      { package: 'com.hanabank.oqf', pay_method: '하나은행' },
+      { package: 'com.shcard.smartpay', pay_method: '신한카드' },
+      { package: 'com.wooricard.smartapp', pay_method: '우리카드' },
+      { package: 'com.hyundaicard.appcard', pay_method: '현대카드' },
+      { package: 'kr.co.samsungcard.mpocket', pay_method: '삼성카드' },
+      { package: 'com.lcacApp', pay_method: '롯데카드' },
+      { package: 'com.nhcard.smartpay', pay_method: 'NH농협카드' },
+      { package: 'com.kbcard.cxh.appcard', pay_method: 'KB국민카드' },
+      { package: 'com.shinhan.sbanking', pay_method: '신한은행' },
+      { package: 'com.wooribank.pib.smart', pay_method: '우리은행' },
+      { package: 'com.nonghyup.smnhb', pay_method: '농협은행' },
+      { package: 'com.ibk.neobanking', pay_method: '기업은행' },
+      { package: 'com.kakaobank.channel', pay_method: '카카오뱅크' }
     ];
     for (const mapping of defaultPackageMappings) {
       await dbInstance.run(
