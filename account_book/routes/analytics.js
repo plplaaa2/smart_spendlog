@@ -592,6 +592,8 @@ router.get('/analytics/general', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
 // 월별/연간 소득 분석 API (이체/입금 제외한 수입 및 저축비율 계산용 지출액)
 // 요약: 선택한 연도/월 기준 수입(INCOME)을 분석하고 최근 6개월 월별 추이 및 거래내역 목록을 반환합니다.
 // 의존성: database.js (getDB)와 연동되며 public/analytics.js의 loadIncomeAnalytics와 연계됩니다.
