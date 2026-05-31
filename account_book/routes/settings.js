@@ -10,7 +10,7 @@
 const express = require('express');
 const http = require('http');
 const router = express.Router();
-const { getDB, resetAllData, updateHASensors } = require('../database');
+const { getDB, resetAllData, updateHASensors, migrateCategoriesAndData } = require('../database');
 
 // HA의 last_notification 엔티티 목록 조회
 router.get('/settings/ha_notification_sensors', async (req, res) => {
@@ -322,6 +322,9 @@ async function executeRestore(username, backupObj) {
       }
       await stmt.finalize();
     }
+
+    // 복원 완료 시 최신 카테고리 병합/분리 및 스키마 변경 사항 소급 정합 적용
+    await migrateCategoriesAndData(db, username);
 
     await db.run('COMMIT');
     if (runAdminTx) {

@@ -203,6 +203,17 @@ async function initUserDB(username) {
     );
   `);
 
+  await migrateCategoriesAndData(dbInstance, username);
+
+  console.log(`[DB] 사용자 '${username}'의 데이터베이스가 성공적으로 초기화되었습니다.`);
+  return dbInstance;
+}
+
+/**
+ * DB의 스키마 변경 및 카테고리 병합/분리에 따른 정합성 마이그레이션을 수행합니다.
+ * (initUserDB 및 백업 복원 완료 시점에 실행하여 구버전 데이터 정합성을 보장합니다.)
+ */
+async function migrateCategoriesAndData(dbInstance, username) {
   // 마이그레이션: 기존 DB에 컬럼이 없는 경우 동적 추가
   try {
     await dbInstance.exec("ALTER TABLE transactions ADD COLUMN type TEXT DEFAULT 'EXPENSE'");
@@ -326,7 +337,6 @@ async function initUserDB(username) {
   }
 
   // 대출상환 카테고리 강제 마이그레이션 주입
-  // 의존성: default_rules.json의 카테고리 구성 정의 및 routes/analytics.js의 fixedCategories 와 연결됩니다.
   try {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('대출상환', '#e03131', 'landmark', 'EXPENSE')");
   } catch (e) {}
@@ -334,7 +344,7 @@ async function initUserDB(username) {
   // 세금 카테고리 강제 마이그레이션 주입 및 기존 데이터 분류 재지정
   try {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('세금', '#495057', 'landmark', 'EXPENSE')");
-    const taxKeywords = ['세금', '지방세', '국세', '재산세', '자동차세', '과태료', '벌금', '위택스', 'WETAX', '인터넷지로', '지로', 'GIRO', '경찰청', '경찰서', '시청', '구청', '도청', '군청'];
+    const taxKeywords = ['세금', '지방세', '국세', '재산세', '자동차세', '과태료', '벌금', '위택스', 'WETAX', '인터넷지로', '지로', 'GIRO', '경찰청', '경찰서', '시청', '구청', '도청', '구청'];
     for (const kw of taxKeywords) {
       await dbInstance.run(
         "UPDATE merchant_categories SET category = '세금' WHERE merchant = ? AND category IN ('공과금', '수도광열비')",
@@ -393,8 +403,7 @@ async function initUserDB(username) {
     console.error('[DB 마이그레이션] 주거 및 통신비 분리 마이그레이션 실패:', e);
   }
 
-  // 기존 카테고리 중 수입(INCOME) 카테고리의 type 값을 올바르게 강제 보정 (수입 수정 시 카테고리 누락 방지)
-  // 의존성: default_rules.json의 카테고리 구성 정의 및 public/app.js의 updateCategorySelect와 연결됩니다.
+  // 기존 카테고리 중 수입(INCOME) 카테고리의 type 값을 올바르게 강제 보정
   try {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('연금', '#fab005', 'piggy-bank', 'INCOME')");
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('지원금/환급금', '#be4bdb', 'gift', 'INCOME')");
@@ -402,18 +411,14 @@ async function initUserDB(username) {
   } catch (e) {}
 
   // 편의점 및 생활/마트 -> 마트/편의점 및 생활/잡화 마이그레이션
-  // 의존성: default_rules.json의 카테고리 구성 정의 및 franchise_presets.js와 연결됩니다.
   try {
-    // 1. 신규 카테고리 생성
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('마트/편의점', '#38bdf8', 'store', 'EXPENSE')");
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('생활/잡화', '#cc5de8', 'shopping-cart', 'EXPENSE')");
 
-    // 2. 기존 '편의점' 및 '생활/마트' 데이터를 '마트/편의점'으로 일괄 이관
     await dbInstance.run("UPDATE transactions SET category = '마트/편의점' WHERE category IN ('편의점', '생활/마트')");
     await dbInstance.run("UPDATE rules SET category = '마트/편의점' WHERE category IN ('편의점', '생활/마트')");
     await dbInstance.run("UPDATE merchant_categories SET category = '마트/편의점' WHERE category IN ('편의점', '생활/마트')");
 
-    // 3. '생활/잡화' 프리셋 키워드를 갖는 항목들을 '생활/잡화'로 소급 업데이트
     const lifeKeywords = ['다이소', 'DAISO', '이케아', 'IKEA', '버터', '상점', '철물', '가구', '잡화'];
     for (const kw of lifeKeywords) {
       await dbInstance.run(
@@ -429,18 +434,12 @@ async function initUserDB(username) {
         [`%${kw}%`]
       );
     }
-
-    // 4. 구버전 카테고리 삭제
     await dbInstance.run("DELETE FROM categories WHERE name IN ('편의점', '생활/마트')");
   } catch (e) {
     console.error('[DB 마이그레이션] 마트/편의점 및 생활/잡화 마이그레이션 실패:', e);
   }
 
-
   await seedDefaultData(dbInstance, username);
-
-  console.log(`[DB] 사용자 '${username}'의 데이터베이스가 성공적으로 초기화되었습니다.`);
-  return dbInstance;
 }
 
 /**
@@ -1335,5 +1334,6 @@ module.exports = {
   createInAppNotification,
   backupUserDB,
   runAutoBackups,
-  startBackupScheduler
+  startBackupScheduler,
+  migrateCategoriesAndData
 };
