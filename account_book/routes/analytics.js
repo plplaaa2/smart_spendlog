@@ -592,6 +592,90 @@ router.get('/analytics/general', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+// 월별/연간 소득 분석 API (이체/입금 제외한 수입 및 저축비율 계산용 지출액)
+// 요약: 선택한 연도/월 기준 수입(INCOME)을 분석하고 최근 6개월 월별 추이 및 거래내역 목록을 반환합니다.
+// 의존성: database.js (getDB)와 연동되며 public/analytics.js의 loadIncomeAnalytics와 연계됩니다.
+router.get('/analytics/income', async (req, res) => {
+  try {
+    const db = await getDB(req.username);
+    const { year, month } = req.query;
+    if (!year || !month) {
+      return res.status(400).json({ error: '조회할 연도(year)와 월(month)을 지정해 주세요.' });
+    }
+
+    const isYearly = (month === 'all');
+    const targetPattern = isYearly ? `${year}%` : `${year}-${String(month).padStart(2, '0')}%`;
+
+    // 1. 해당 기간 총 수입액 합계 (이체/입금 제외)
+    const incomeTotalRow = await db.get(
+      "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'INCOME' AND category != '이체/입금'",
+      [targetPattern]
+    );
+    const incomeTotal = incomeTotalRow.total || 0;
+
+    // 2. 해당 기간 총 지출액 합계 (저축 비율 계산용, 이체/송금 제외)
+    const totalSpentRow = await db.get(
+      "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
+      [targetPattern]
+    );
+    const totalSpent = totalSpentRow.total || 0;
+
+    // 3. 카테고리별 수입액 합계 (도넛 차트용)
+    const categoryRows = await db.all(
+      "SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'INCOME' AND category != '이체/입금' GROUP BY category ORDER BY total DESC",
+      [targetPattern]
+    );
+
+    // 4. 수입 상세 내역 목록 (테이블용, 최근순)
+    const transactionRows = await db.all(
+      "SELECT id, datetime, merchant, category, pay_method, amount, memo FROM transactions WHERE datetime LIKE ? AND type = 'INCOME' AND category != '이체/입금' ORDER BY datetime DESC",
+      [targetPattern]
+    );
+
+    // 5. 월별 수입 추이 (바/라인 차트용)
+    const monthlyTrend = [];
+    if (isYearly) {
+      const trendRows = await db.all(
+        "SELECT strftime('%Y-%m', datetime) as month, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'INCOME' AND category != '이체/입금' GROUP BY month ORDER BY month ASC",
+        [targetPattern]
+      );
+      const trendMap = {};
+      trendRows.forEach(r => {
+        trendMap[r.month] = r.total;
+      });
+      for (let m = 1; m <= 12; m++) {
+        const monthKey = `${year}-${String(m).padStart(2, '0')}`;
+        monthlyTrend.push({
+          month: monthKey,
+          total: trendMap[monthKey] || 0
+        });
+      }
+    } else {
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+        d.setMonth(d.getMonth() - i);
+        const targetM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const trendRow = await db.get(
+          "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'INCOME' AND category != '이체/입금'",
+          [`${targetM}%`]
+        );
+        monthlyTrend.push({
+          month: targetM,
+          total: trendRow.total || 0
+        });
+      }
+    }
+
+    res.json({
+      incomeTotal,
+      totalSpent,
+      categories: categoryRows,
+      transactions: transactionRows,
+      trend: monthlyTrend
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

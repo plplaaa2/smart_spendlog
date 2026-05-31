@@ -66,6 +66,8 @@ let fixedMonthlyTrendChartInstance = null;
 let fixedCategoryChartInstance = null;
 let generalMonthlyTrendChartInstance = null;
 let generalCategoryChartInstance = null;
+let incomeMonthlyTrendChartInstance = null;
+let incomeCategoryChartInstance = null;
 
 // 초기화
 document.addEventListener('DOMContentLoaded', async () => {
