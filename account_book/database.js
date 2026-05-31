@@ -304,12 +304,17 @@ async function migrateCategoriesAndData(dbInstance, username) {
   } catch (e) {}
 
   // 쇼핑 -> 온라인쇼핑 카테고리 명칭 변경 및 해외직구 추가 마이그레이션
+  // 요약: '쇼핑' 카테고리를 '온라인쇼핑'으로 안전하게 통합/변경하고 '해외직구' 카테고리를 추가합니다.
+  // 의존성: default_rules.json, franchise_presets.js의 카테고리 설정과 일치해야 합니다.
   try {
-    // 1. categories 테이블에서 '쇼핑'을 '온라인쇼핑'으로 변경
-    await dbInstance.run("UPDATE categories SET name = '온라인쇼핑' WHERE name = '쇼핑'");
-    // 2. categories 테이블에 '해외직구' 주입
+    const hasOnlineShopping = await dbInstance.get("SELECT 1 FROM categories WHERE name = '온라인쇼핑'");
+    if (hasOnlineShopping) {
+      await dbInstance.run("DELETE FROM categories WHERE name = '쇼핑'");
+    } else {
+      await dbInstance.run("UPDATE categories SET name = '온라인쇼핑', color = '#4dadf7', icon = 'shopping-bag' WHERE name = '쇼핑'");
+    }
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('온라인쇼핑', '#4dadf7', 'shopping-bag', 'EXPENSE')");
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('해외직구', '#15aabf', 'globe', 'EXPENSE')");
-    // 3. 기존 테이블들의 '쇼핑' 카테고리를 '온라인쇼핑'으로 일괄 전환
     await dbInstance.run("UPDATE transactions SET category = '온라인쇼핑' WHERE category = '쇼핑'");
     await dbInstance.run("UPDATE rules SET category = '온라인쇼핑' WHERE category = '쇼핑'");
     await dbInstance.run("UPDATE merchant_categories SET category = '온라인쇼핑' WHERE category = '쇼핑'");
@@ -364,8 +369,15 @@ async function migrateCategoriesAndData(dbInstance, username) {
   }
 
   // 공과금 -> 수도광열비 카테고리 명칭 변경 및 기존 데이터 이관 마이그레이션
+  // 요약: '공과금' 카테고리를 '수도광열비'로 안전하게 통합/변경합니다.
+  // 의존성: default_rules.json, franchise_presets.js의 카테고리 설정과 일치해야 합니다.
   try {
-    await dbInstance.run("UPDATE categories SET name = '수도광열비' WHERE name = '공과금'");
+    const hasWaterExpense = await dbInstance.get("SELECT 1 FROM categories WHERE name = '수도광열비'");
+    if (hasWaterExpense) {
+      await dbInstance.run("DELETE FROM categories WHERE name = '공과금'");
+    } else {
+      await dbInstance.run("UPDATE categories SET name = '수도광열비', color = '#e8590c', icon = 'receipt' WHERE name = '공과금'");
+    }
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('수도광열비', '#e8590c', 'receipt', 'EXPENSE')");
     await dbInstance.run("UPDATE transactions SET category = '수도광열비' WHERE category = '공과금'");
     await dbInstance.run("UPDATE rules SET category = '수도광열비' WHERE category = '공과금'");
@@ -376,8 +388,15 @@ async function migrateCategoriesAndData(dbInstance, username) {
   }
 
   // 주거/통신 -> 주거 명칭 변경 및 통신비 분리 마이그레이션
+  // 요약: '주거/통신' 카테고리를 '주거'로 통합/변경하고 '통신비' 카테고리를 분리하여 데이터를 매핑합니다.
+  // 의존성: default_rules.json, franchise_presets.js의 카테고리 설정과 일치해야 합니다.
   try {
-    await dbInstance.run("UPDATE categories SET name = '주거' WHERE name = '주거/통신'");
+    const hasHousing = await dbInstance.get("SELECT 1 FROM categories WHERE name = '주거'");
+    if (hasHousing) {
+      await dbInstance.run("DELETE FROM categories WHERE name = '주거/통신'");
+    } else {
+      await dbInstance.run("UPDATE categories SET name = '주거', color = '#fcc419', icon = 'home' WHERE name = '주거/통신'");
+    }
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('주거', '#fcc419', 'home', 'EXPENSE')");
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('통신비', '#1c7ed6', 'phone', 'EXPENSE')");
     const telecomKeywords = ['SKT', 'KT', 'LGU+', 'LG유플러스', '알뜰폰', '통신', '텔레콤', '대리점'];
@@ -1317,6 +1336,144 @@ function startBackupScheduler() {
   }, 60000); // 1분
 }
 
+/**
+ * 특정 사용자의 로컬 백업 파일 목록을 가져옵니다.
+ * 의존성: routes/settings.js의 GET /api/settings/backups API와 연결됩니다.
+ */
+async function getUserBackups(username) {
+  try {
+    const isWin = process.platform === 'win32';
+    const dbDir = isWin ? path.join(__dirname, 'data') : '/data';
+    const backupDir = path.join(dbDir, 'backups');
+
+    if (!fs.existsSync(backupDir)) {
+      return [];
+    }
+
+    const slug = getUserDbSlug(username);
+    const prefix = `account_book_${slug}_`;
+    const files = fs.readdirSync(backupDir);
+    const backupList = [];
+
+    for (const file of files) {
+      if (file.startsWith(prefix) && file.endsWith('.db')) {
+        const filePath = path.join(backupDir, file);
+        try {
+          const stats = fs.statSync(filePath);
+          // 파일명에서 타임스탬프 추출 (예: account_book_admin_20260531_201654.db)
+          const parts = file.replace(prefix, '').replace('.db', '').split('_');
+          let displayDate = stats.mtime;
+          if (parts.length >= 2) {
+            const ymd = parts[0];
+            const hms = parts[1];
+            if (ymd.length === 8 && hms.length === 6) {
+              displayDate = `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)} ${hms.slice(0, 2)}:${hms.slice(2, 4)}:${hms.slice(4, 6)}`;
+            }
+          }
+          backupList.push({
+            filename: file,
+            size: stats.size,
+            mtime: stats.mtimeMs,
+            displayDate: displayDate
+          });
+        } catch (e) {
+          console.error(`[백업조회] 파일 정보 획득 실패 (${file}):`, e.message);
+        }
+      }
+    }
+
+    // 최신 순 정렬
+    backupList.sort((a, b) => b.mtime - a.mtime);
+    return backupList;
+  } catch (err) {
+    console.error(`[백업조회] 사용자 '${username}'의 백업 목록 조회 에러:`, err);
+    return [];
+  }
+}
+
+/**
+ * 특정 로컬 백업 파일로 사용자의 데이터베이스를 복원합니다.
+ * 의존성: routes/settings.js의 POST /api/settings/backups/restore API와 연결됩니다.
+ */
+async function restoreUserDBBackup(username, backupFileName) {
+  try {
+    const isWin = process.platform === 'win32';
+    const dbDir = isWin ? path.join(__dirname, 'data') : '/data';
+    const backupDir = path.join(dbDir, 'backups');
+    const backupPath = path.join(backupDir, backupFileName);
+
+    if (!fs.existsSync(backupPath)) {
+      throw new Error('백업 파일이 존재하지 않습니다.');
+    }
+
+    const slug = getUserDbSlug(username);
+    // 보안 검증: 요청된 백업 파일명이 본인의 백업본이 맞는지 확인
+    if (!backupFileName.startsWith(`account_book_${slug}_`) || !backupFileName.endsWith('.db')) {
+      throw new Error('권한이 없거나 잘못된 백업 파일명입니다.');
+    }
+
+    const dbPath = getUserDbPath(dbDir, username);
+
+    // 1. 기존 DB 커넥션 종료
+    if (dbs[username]) {
+      console.log(`[복원] 사용자 '${username}'의 DB 커넥션을 임시 종료합니다.`);
+      await dbs[username].close();
+      delete dbs[username];
+    }
+
+    // 2. 백업 파일 복사 (덮어쓰기)
+    fs.copyFileSync(backupPath, dbPath);
+    console.log(`[복원] 사용자 '${username}'의 DB 파일 복사 완료 (백업본: ${backupFileName})`);
+
+    // 3. DB 커넥션 재초기화
+    const newDb = await initUserDB(username);
+    dbs[username] = newDb;
+
+    // 4. HA 센서 동기화
+    await updateHASensors(username);
+
+    return { success: true, message: '백업본으로부터 데이터베이스 복원이 완료되었습니다.' };
+  } catch (err) {
+    console.error(`[복원] 사용자 '${username}'의 DB 복원 중 에러 발생:`, err);
+    try {
+      if (!dbs[username]) {
+        dbs[username] = await initUserDB(username);
+      }
+    } catch (e) {}
+    throw err;
+  }
+}
+
+/**
+ * 특정 백업 파일을 삭제합니다.
+ * 의존성: routes/settings.js의 DELETE /api/settings/backups/:filename API와 연결됩니다.
+ */
+async function deleteUserBackup(username, backupFileName) {
+  try {
+    const isWin = process.platform === 'win32';
+    const dbDir = isWin ? path.join(__dirname, 'data') : '/data';
+    const backupDir = path.join(dbDir, 'backups');
+    const backupPath = path.join(backupDir, backupFileName);
+
+    if (!fs.existsSync(backupPath)) {
+      throw new Error('백업 파일이 존재하지 않습니다.');
+    }
+
+    const slug = getUserDbSlug(username);
+    // 보안 검증
+    if (!backupFileName.startsWith(`account_book_${slug}_`) || !backupFileName.endsWith('.db')) {
+      throw new Error('권한이 없거나 잘못된 백업 파일명입니다.');
+    }
+
+    fs.unlinkSync(backupPath);
+    console.log(`[백업삭제] 사용자 '${username}'의 백업 파일 삭제 완료: ${backupFileName}`);
+    return { success: true };
+  } catch (err) {
+    console.error(`[백업삭제] 사용자 '${username}'의 백업 파일 삭제 실패:`, err);
+    throw err;
+  }
+}
+
 module.exports = {
   initDB,
   resetAllData,
@@ -1335,5 +1492,8 @@ module.exports = {
   backupUserDB,
   runAutoBackups,
   startBackupScheduler,
-  migrateCategoriesAndData
+  migrateCategoriesAndData,
+  getUserBackups,
+  restoreUserDBBackup,
+  deleteUserBackup
 };

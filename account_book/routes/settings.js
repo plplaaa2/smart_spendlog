@@ -9,8 +9,10 @@
 
 const express = require('express');
 const http = require('http');
+const path = require('path');
+const fs = require('fs');
 const router = express.Router();
-const { getDB, resetAllData, updateHASensors, migrateCategoriesAndData } = require('../database');
+const { getDB, resetAllData, updateHASensors, migrateCategoriesAndData, getUserBackups, restoreUserDBBackup, deleteUserBackup } = require('../database');
 
 // HA의 last_notification 엔티티 목록 조회
 router.get('/settings/ha_notification_sensors', async (req, res) => {
@@ -349,6 +351,74 @@ router.post('/settings/restore', async (req, res) => {
   try {
     const backupObj = req.body;
     const result = await executeRestore(req.username, backupObj);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 로컬 자동 백업 목록 조회 API
+// 의존성: public/settings.js 및 public/app.js의 백업 목록 렌더링 함수와 연결됩니다.
+router.get('/settings/backups', async (req, res) => {
+  try {
+    const list = await getUserBackups(req.username);
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 로컬 자동 백업 파일로 DB 복원 API
+// 의존성: public/settings.js의 백업 복원 동작과 연결됩니다.
+router.post('/settings/backups/restore', async (req, res) => {
+  try {
+    const { filename } = req.body;
+    if (!filename) {
+      return res.status(400).json({ error: 'filename이 필요합니다.' });
+    }
+    const result = await restoreUserDBBackup(req.username, filename);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 로컬 자동 백업 파일 직접 다운로드 API
+// 의존성: public/settings.js의 다운로드 링크 호출과 연결됩니다.
+router.get('/settings/backups/download/:filename', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const isWin = process.platform === 'win32';
+    const dbDir = isWin ? path.join(__dirname, '../data') : '/data';
+    const filePath = path.join(dbDir, 'backups', filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: '백업 파일을 찾을 수 없습니다.' });
+    }
+
+    // 본인 소유의 백업 파일만 다운로드할 수 있도록 슬러그 검증
+    const crypto = require('crypto');
+    function getSlug(uname) {
+      if (!uname || uname === 'admin') return 'admin';
+      return /^[a-zA-Z0-9_]+$/.test(uname) ? uname.toLowerCase() : `u_${crypto.createHash('sha1').update(String(uname), 'utf8').digest('hex').slice(0, 12)}`;
+    }
+    const slug = getSlug(req.username);
+    if (!filename.startsWith(`account_book_${slug}_`) || !filename.endsWith('.db')) {
+      return res.status(403).json({ error: '권한이 없거나 잘못된 파일 요청입니다.' });
+    }
+
+    res.download(filePath, filename);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 로컬 자동 백업 파일 삭제 API
+// 의존성: public/settings.js의 삭제 동작과 연결됩니다.
+router.delete('/settings/backups/:filename', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const result = await deleteUserBackup(req.username, filename);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

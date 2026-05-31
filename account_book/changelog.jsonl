@@ -100,4 +100,4 @@
 {"version":"dev-1.9.48","date":"2026-05-31","description":"'편의점' 및 '생활/마트' 카테고리를 '마트/편의점' 및 '생활/잡화'로 병합/분리 마이그레이션 적용 (default_rules.json, database.js, franchise_presets.js 업데이트 및 기존 데이터 소급 재분류 적용, config.json 버전 1.9.48로 범프)"}
 {"version":"dev-1.9.49","date":"2026-05-31","description":"소득 분석(Income Analytics) 대시보드 추가 (수입 분석용 GET API 엔드포인트 신설, 연간/월간 수입 통계 카드 3종 및 수입 추이 바 차트, 카테고리별 비중 도넛 차트, 요약 테이블 및 클릭 시 상세 내역 필터링 인터랙션 구현)"}
 {"version":"dev-1.9.50","date":"2026-05-31","description":"routes/analytics.js 내 일반지출 분석 API(/analytics/general) 라우터의 닫는 괄호(});) 누락으로 인한 Unexpected end of input SyntaxError 구문 오류 해결"}
-
+{"version":"dev-1.9.54","date":"2026-05-31","description":"로컬 데이터베이스 자동 백업 관리 및 즉시 복원 시스템 구현 (최근 7일 백업 목록 조회, 개별 복원, 다운로드, 삭제 API 및 UI 구축)"}

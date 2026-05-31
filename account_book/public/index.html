@@ -1188,6 +1188,32 @@
                 </div>
               </div>
 
+              <!-- 로컬 자동 백업 관리 카드 (신설) -->
+              <div class="card glass settings-form-card" id="local-backups-card">
+                <h3>로컬 자동 백업 목록 (최근 7일)</h3>
+                <div class="info-box" style="margin-bottom: 1rem;">
+                  <p>매일 밤 12시에 생성되는 데이터베이스 파일(.db) 백업본들입니다. 원하는 시점의 백업본으로 즉시 복원하거나 파일을 직접 다운로드할 수 있습니다.</p>
+                </div>
+                
+                <div class="table-responsive" style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
+                  <table class="table" style="margin-bottom: 0; font-size: 0.9rem;">
+                    <thead>
+                      <tr>
+                        <th>백업 일시</th>
+                        <th>파일명</th>
+                        <th>크기</th>
+                        <th style="text-align: right; width: 180px;">작업</th>
+                      </tr>
+                    </thead>
+                    <tbody id="local-backups-list-body">
+                      <tr>
+                        <td colspan="4" class="text-secondary text-center" style="padding: 1.5rem;">백업 목록을 불러오는 중...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
 
 
               <!-- Danger Zone (Data Reset) Card -->

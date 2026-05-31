@@ -604,6 +604,7 @@ async function loadDataSettings() {
 
           if (res.success) {
             alert('자동 백업 설정이 변경되었습니다.');
+            loadLocalBackups();
           } else {
             alert('설정 저장 실패: ' + (res.error || '오류 발생'));
           }
@@ -613,8 +614,143 @@ async function loadDataSettings() {
         }
       };
     }
+
+    // 로컬 자동 백업 목록 로드
+    loadLocalBackups();
   } catch (err) {
     console.error('데이터 설정 로드 실패:', err);
+  }
+}
+
+/**
+ * 서버에 저장된 로컬 자동 백업본 목록을 불러와 렌더링하고 동작을 연결합니다.
+ * 의존성: index.html의 #local-backups-list-body 요소와 연결됩니다.
+ */
+async function loadLocalBackups() {
+  const tbody = document.getElementById('local-backups-list-body');
+  if (!tbody) return;
+
+  try {
+    const token = localStorage.getItem('token') || '';
+    const list = await fetch('api/settings/backups', {
+      headers: {
+        'Authorization': token
+      }
+    }).then(r => r.json());
+
+    if (!Array.isArray(list) || list.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="text-secondary text-center" style="padding: 1.5rem;">
+            저장된 로컬 자동 백업본이 없습니다. (자동 백업 옵션을 켜두시면 매일 밤 생성됩니다)
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = '';
+    list.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+      
+      const sizeKB = (item.size / 1024).toFixed(1);
+
+      tr.innerHTML = `
+        <td data-label="백업 일시" style="padding: 10px 12px; font-weight: 500; color: var(--text-color);">${item.displayDate}</td>
+        <td data-label="파일명" style="padding: 10px 12px; font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">${item.filename}</td>
+        <td data-label="크기" style="padding: 10px 12px; color: var(--text-secondary);">${sizeKB} KB</td>
+        <td data-label="작업" style="padding: 10px 12px; text-align: right; display: flex; justify-content: flex-end; gap: 6px;">
+          <button class="btn btn-restore-backup" data-filename="${item.filename}" 
+                  style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: 500; transition: all 0.2s;">
+            <i data-lucide="rotate-ccw" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> 복원
+          </button>
+          <button class="btn btn-download-backup" data-filename="${item.filename}" 
+                  style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: 500; transition: all 0.2s;">
+            <i data-lucide="download" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> 다운로드
+          </button>
+          <button class="btn btn-delete-backup" data-filename="${item.filename}" 
+                  style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger-color); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: 500; transition: all 0.2s;">
+            <i data-lucide="trash-2" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i> 삭제
+          </button>
+        </td>
+      `;
+
+      // 1. 복원 버튼 동작 바인딩
+      tr.querySelector('.btn-restore-backup').onclick = async () => {
+        if (confirm(`⚠️ 경고: [${item.displayDate}] 백업본으로 가계부 데이터를 복원하시겠습니까?\n\n이 작업은 현재 등록된 모든 거래 내역과 설정을 백업 시점으로 완전히 대체하며 되돌릴 수 없습니다.`)) {
+          const loader = document.getElementById('restore-loading-indicator');
+          if (loader) loader.style.display = 'inline-flex';
+          
+          try {
+            const res = await fetch('api/settings/backups/restore', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+              },
+              body: JSON.stringify({ filename: item.filename })
+            }).then(r => r.json());
+
+            if (res.success) {
+              alert('데이터베이스 복원이 성공적으로 완료되었습니다. 페이지를 새로고침합니다.');
+              window.location.reload();
+            } else {
+              alert('복원 실패: ' + (res.error || '오류 발생'));
+            }
+          } catch (e) {
+            console.error('복원 중 에러:', e);
+            alert('복원 처리 중 오류가 발생했습니다.');
+          } finally {
+            if (loader) loader.style.display = 'none';
+          }
+        }
+      };
+
+      // 2. 다운로드 버튼 동작 바인딩
+      tr.querySelector('.btn-download-backup').onclick = () => {
+        const url = `api/settings/backups/download/${encodeURIComponent(item.filename)}?token=${encodeURIComponent(token)}`;
+        window.location.href = url;
+      };
+
+      // 3. 삭제 버튼 동작 바인딩
+      tr.querySelector('.btn-delete-backup').onclick = async () => {
+        if (confirm(`정말 이 백업 파일(${item.filename})을 영구 삭제하시겠습니까?`)) {
+          try {
+            const res = await fetch(`api/settings/backups/${encodeURIComponent(item.filename)}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': token
+              }
+            }).then(r => r.json());
+
+            if (res.success) {
+              alert('백업 파일이 삭제되었습니다.');
+              loadLocalBackups();
+            } else {
+              alert('삭제 실패: ' + (res.error || '오류 발생'));
+            }
+          } catch (e) {
+            console.error('삭제 중 에러:', e);
+            alert('삭제 처리 중 오류가 발생했습니다.');
+          }
+        }
+      };
+
+      tbody.appendChild(tr);
+    });
+
+    lucide.createIcons();
+
+  } catch (err) {
+    console.error('로컬 백업 목록 불러오기 실패:', err);
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="text-secondary text-center" style="padding: 1.5rem; color: var(--danger-color);">
+          백업 목록을 불러오는 중 오류가 발생했습니다.
+        </td>
+      </tr>
+    `;
   }
 }
 
