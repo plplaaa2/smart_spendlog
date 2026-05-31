@@ -63,7 +63,7 @@ async function loadAnalytics() {
   const selectedMonth = monthSelect ? monthSelect.value : '1';
 
   // 서브 탭에 따라 control-bar 표시 제어
-  if (state.currentAnalyticsSubTab === 'general' || state.currentAnalyticsSubTab === 'fixed' || state.currentAnalyticsSubTab === 'income') {
+  if (state.currentAnalyticsSubTab === 'general' || state.currentAnalyticsSubTab === 'fixed') {
     if (compareModeContainer) compareModeContainer.style.display = 'none';
     if (monthContainer) monthContainer.style.display = 'flex';
   } else {
@@ -84,12 +84,6 @@ async function loadAnalytics() {
   // 고정지출 서브 탭일 경우 전용 로더 호출
   if (state.currentAnalyticsSubTab === 'fixed') {
     loadFixedAnalytics(selectedYear, selectedMonth);
-    return;
-  }
-
-  // 소득 분석 서브 탭일 경우 전용 로더 호출
-  if (state.currentAnalyticsSubTab === 'income') {
-    loadIncomeAnalytics(selectedYear, selectedMonth);
     return;
   }
 
@@ -1155,12 +1149,30 @@ let selectedIncomeCategory = null;
 
 // 소득 데이터 로드 및 렌더링 총괄 함수
 async function loadIncomeAnalytics(year, month) {
+  const yearSelect = document.getElementById('income-year-select');
+  const monthSelect = document.getElementById('income-month-select');
+
+  // 연도 선택 목록 초기화 (현재 연도 기준 최근 3개년)
+  if (yearSelect && yearSelect.options.length === 0) {
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear; y >= currentYear - 2; y--) {
+      const opt = document.createElement('option');
+      opt.value = String(y);
+      opt.textContent = `${y}년`;
+      yearSelect.appendChild(opt);
+    }
+    yearSelect.value = String(currentYear);
+  }
+
+  const targetYear = year || (yearSelect ? yearSelect.value : new Date().getFullYear());
+  const targetMonth = month || (monthSelect ? monthSelect.value : 'all');
+
   try {
-    const res = await fetch(`api/analytics/income?year=${year}&month=${month}`).then(r => r.json());
+    const res = await fetch(`api/analytics/income?year=${targetYear}&month=${targetMonth}`).then(r => r.json());
     
-    const isYearly = (month === 'all');
+    const isYearly = (targetMonth === 'all');
     const periodLabel = isYearly ? '올해' : '이번 달';
-    const periodDetailLabel = isYearly ? `${year}년 전체` : `${parseInt(month, 10)}월`;
+    const periodDetailLabel = isYearly ? `${targetYear}년 전체` : `${parseInt(targetMonth, 10)}월`;
 
     // 다이나믹 라벨 및 타이틀 세팅
     const totalLabelEl = document.getElementById('income-total-label');

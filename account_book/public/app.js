@@ -424,6 +424,7 @@ function switchTab(tabId) {
     transactions: ['거래 내역', '상세 가계부 내역 조회 및 편집'],
     rules: ['자동 분류 규칙', '알림에서 금액/사용처를 추출하기 위한 정규식 설정'],
     analytics: ['소비 분석', '월별/연도별 자산 흐름 및 전년 대비 소비 비교'],
+    income: ['소득 분석', '월별/연도별 수입 추이 및 카테고리별 비중 분석'],
     logs: ['알림 수신 로그', 'Home Assistant에서 수신된 스마트폰 알림 원본 이력'],
     settings: ['설정', '시스템 연동 정보 및 마스터 데이터 관리']
   };
@@ -508,6 +509,9 @@ function refreshCurrentTabData() {
       break;
     case 'analytics':
       loadAnalytics();
+      break;
+    case 'income':
+      if (typeof loadIncomeAnalytics === 'function') loadIncomeAnalytics();
       break;
     case 'logs':
       initLogsSubTabs();
@@ -614,6 +618,20 @@ function initEventListeners() {
       refreshCurrentTabData();
     }
   });
+
+  // 소득 분석 탭 내 연도 및 월 선택기 리스너
+  const incomeYearSelect = document.getElementById('income-year-select');
+  if (incomeYearSelect) {
+    incomeYearSelect.addEventListener('change', () => {
+      if (typeof loadIncomeAnalytics === 'function') loadIncomeAnalytics();
+    });
+  }
+  const incomeMonthSelect = document.getElementById('income-month-select');
+  if (incomeMonthSelect) {
+    incomeMonthSelect.addEventListener('change', () => {
+      if (typeof loadIncomeAnalytics === 'function') loadIncomeAnalytics();
+    });
+  }
 
   // 거래내역 검색 및 필터 변경
   document.getElementById('transaction-search').addEventListener('input', debounce(loadTransactions, 300));
