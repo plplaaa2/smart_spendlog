@@ -501,6 +501,7 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       await dbInstance.run("INSERT INTO settings (key, value) VALUES ('ws_sensor_entity', '')");
       await dbInstance.run("INSERT INTO settings (key, value) VALUES ('monthly_budget', '500000')");
       await dbInstance.run("INSERT INTO settings (key, value) VALUES ('initial_balance', '0')");
+      await dbInstance.run("INSERT INTO settings (key, value) VALUES ('auto_backup', 'false')");
     } else {
       const hasBalance = await dbInstance.get("SELECT 1 FROM settings WHERE key='initial_balance'");
       if (!hasBalance) {
@@ -509,6 +510,10 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       const hasBudget = await dbInstance.get("SELECT 1 FROM settings WHERE key='monthly_budget'");
       if (!hasBudget) {
         await dbInstance.run("INSERT INTO settings (key, value) VALUES ('monthly_budget', '500000')");
+      }
+      const hasAutoBackup = await dbInstance.get("SELECT 1 FROM settings WHERE key='auto_backup'");
+      if (!hasAutoBackup) {
+        await dbInstance.run("INSERT INTO settings (key, value) VALUES ('auto_backup', 'false')");
       }
     }
 
@@ -1201,6 +1206,118 @@ async function createInAppNotification(username, type, title, message) {
   }
 }
 
+/**
+ * 특정 사용자의 데이터베이스 백업 파일을 생성하고, 7일이 지난 백업을 롤링 삭제합니다.
+ */
+async function backupUserDB(username) {
+  try {
+    const isWin = process.platform === 'win32';
+    const dbDir = isWin ? path.join(__dirname, 'data') : '/data';
+    const backupDir = path.join(dbDir, 'backups');
+
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
+
+    const dbPath = getUserDbPath(dbDir, username);
+    if (!fs.existsSync(dbPath)) {
+      console.warn(`[백업] 사용자 '${username}'의 DB 파일이 존재하지 않아 백업을 건너뜁니다.`);
+      return;
+    }
+
+    const slug = getUserDbSlug(username);
+    const now = new Date();
+    const timestamp = now.getFullYear() +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0') + '_' +
+      String(now.getHours()).padStart(2, '0') +
+      String(now.getMinutes()).padStart(2, '0') +
+      String(now.getSeconds()).padStart(2, '0');
+    
+    const backupFileName = `account_book_${slug}_${timestamp}.db`;
+    const backupPath = path.join(backupDir, backupFileName);
+
+    // 1. DB 백업 파일 복사
+    fs.copyFileSync(dbPath, backupPath);
+    console.log(`[백업] 사용자 '${username}'의 DB 백업 완료: ${backupFileName}`);
+
+    // 2. 7일이 지난 백업 롤링 삭제 (일주일 유지)
+    const files = fs.readdirSync(backupDir);
+    const prefix = `account_book_${slug}_`;
+    const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+
+    for (const file of files) {
+      if (file.startsWith(prefix) && file.endsWith('.db')) {
+        const filePath = path.join(backupDir, file);
+        try {
+          const stats = fs.statSync(filePath);
+          if (stats.mtimeMs < oneWeekAgo) {
+            fs.unlinkSync(filePath);
+            console.log(`[백업] 7일이 경과한 오래된 백업 파일 삭제 완료: ${file}`);
+          }
+        } catch (e) {
+          console.error(`[백업] 백업 파일 정보 조회/삭제 중 에러 (${file}):`, e.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`[백업] 사용자 '${username}'의 DB 백업 진행 중 에러 발생:`, err);
+  }
+}
+
+/**
+ * 모든 사용자의 백업 활성화 여부를 조회하여 백업을 순차적으로 수행합니다.
+ */
+async function runAutoBackups() {
+  const users = getActiveUsers();
+  console.log(`[백업] 자동 백업 실행 시작 (활성 사용자 수: ${users.length})`);
+  for (const username of users) {
+    try {
+      const db = await getDB(username);
+      const row = await db.get("SELECT value FROM settings WHERE key = 'auto_backup'");
+      const isAutoBackupEnabled = row && row.value === 'true';
+      if (isAutoBackupEnabled) {
+        await backupUserDB(username);
+      } else {
+        console.log(`[백업] 사용자 '${username}'의 자동 백업 옵션이 비활성화(false) 상태입니다.`);
+      }
+    } catch (err) {
+      console.error(`[백업] 사용자 '${username}'의 자동 백업 확인 실패:`, err.message);
+    }
+  }
+}
+
+let lastBackupDate = '';
+
+/**
+ * 자정(00:00 KST)에 모든 활성 사용자의 자동 백업을 트리거하는 백그라운드 스케줄러를 가동합니다.
+ */
+function startBackupScheduler() {
+  console.log('[백업] 자정 자동 백업 스케줄러가 활성화되었습니다.');
+  
+  // 1분마다 자정 여부 체크
+  setInterval(async () => {
+    const kstOffset = 9 * 60; // KST = UTC+9
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const kstDate = new Date(utc + (kstOffset * 60000));
+
+    const hours = kstDate.getHours();
+    const minutes = kstDate.getMinutes();
+    const dateStr = kstDate.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+
+    // 자정(00:00)이고 오늘 백업이 실행되지 않은 경우
+    if (hours === 0 && minutes === 0 && lastBackupDate !== dateStr) {
+      lastBackupDate = dateStr;
+      try {
+        await runAutoBackups();
+      } catch (err) {
+        console.error('[백업] 자정 자동 백업 수행 실패:', err);
+      }
+    }
+  }, 60000); // 1분
+}
+
 module.exports = {
   initDB,
   resetAllData,
@@ -1215,5 +1332,8 @@ module.exports = {
   updateHASensors,
   cleanupOrphanedHASensors,
   sendHANotification,
-  createInAppNotification
+  createInAppNotification,
+  backupUserDB,
+  runAutoBackups,
+  startBackupScheduler
 };

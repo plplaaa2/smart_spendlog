@@ -90,7 +90,7 @@ router.get('/settings', async (req, res) => {
 router.post('/settings', async (req, res) => {
   try {
     const db = await getDB(req.username);
-    const { ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, card_performance_goals, card_performance_days, user_real_name, auto_rule_generation, pay_methods_order } = req.body;
+    const { ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, card_performance_goals, card_performance_days, user_real_name, auto_rule_generation, pay_methods_order, auto_backup } = req.body;
 
     if (ws_sensor_entity !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ws_sensor_entity', ?)", [ws_sensor_entity]);
@@ -121,6 +121,9 @@ router.post('/settings', async (req, res) => {
     }
     if (pay_methods_order !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('pay_methods_order', ?)", [pay_methods_order]);
+    }
+    if (auto_backup !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_backup', ?)", [String(auto_backup)]);
     }
 
     res.json({ success: true });

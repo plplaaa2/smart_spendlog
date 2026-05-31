@@ -51,6 +51,7 @@ function switchSettingsSubTab(subtab) {
   } else if (subtab === 'balance') {
     loadBalanceSettings();
   } else if (subtab === 'data') {
+    loadDataSettings();
     lucide.createIcons();
   }
 }
@@ -577,6 +578,43 @@ async function loadPackagePayMethods() {
     }
   } catch (err) {
     console.error('패키지별 결제수단 목록 로드 실패:', err);
+  }
+}
+
+async function loadDataSettings() {
+  try {
+    const settings = await fetch('api/settings').then(r => r.json());
+    const autoBackupEl = document.getElementById('settings-auto-backup');
+    if (autoBackupEl) {
+      autoBackupEl.checked = settings.auto_backup === 'true';
+
+      // 토글 변경 시 즉시 저장
+      autoBackupEl.onchange = async () => {
+        try {
+          const res = await fetch('api/settings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': localStorage.getItem('token') || ''
+            },
+            body: JSON.stringify({
+              auto_backup: autoBackupEl.checked
+            })
+          }).then(r => r.json());
+
+          if (res.success) {
+            alert('자동 백업 설정이 변경되었습니다.');
+          } else {
+            alert('설정 저장 실패: ' + (res.error || '오류 발생'));
+          }
+        } catch (e) {
+          console.error('자동 백업 설정 저장 중 에러:', e);
+          alert('자동 백업 설정 저장 중 오류가 발생했습니다.');
+        }
+      };
+    }
+  } catch (err) {
+    console.error('데이터 설정 로드 실패:', err);
   }
 }
 

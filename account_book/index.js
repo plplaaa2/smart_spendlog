@@ -12,7 +12,7 @@ const path = require('path');
 const WebSocket = require('ws');
 const fs = require('fs');
 const crypto = require('crypto');
-const { initDB, getDB, getActiveUsers, updateHASensors, cleanupOrphanedHASensors, createInAppNotification } = require('./database');
+const { initDB, getDB, getActiveUsers, updateHASensors, cleanupOrphanedHASensors, createInAppNotification, startBackupScheduler } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 8124;
@@ -218,6 +218,7 @@ async function startServer() {
   });
 
   connectHA();
+  startBackupScheduler();
 
   // 초기 1회 센서 상태 동기화 및 고아 센서 제거 (3초 지연)
   setTimeout(async () => {
