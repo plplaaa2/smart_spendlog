@@ -20,6 +20,8 @@ function initLogsSubTabs() {
 }
 
 function switchLogsSubTab(subtab) {
+  state.currentLogsSubTab = subtab;
+
   // 버튼 액티브 클래스 조정
   document.querySelectorAll('.logs-tab-btn').forEach(btn => {
     if (btn.dataset.subtab === subtab) {
@@ -37,6 +39,11 @@ function switchLogsSubTab(subtab) {
       content.classList.remove('active');
     }
   });
+
+  // 헤더 업데이트
+  if (typeof updateHeaderTitle === 'function') {
+    updateHeaderTitle('logs', subtab);
+  }
 
   // 서브 탭별 데이터 로드
   if (subtab === 'logs-list') {

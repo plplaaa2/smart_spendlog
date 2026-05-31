@@ -48,6 +48,8 @@ let state = {
   currentTab: 'dashboard',
   currentSubTab: 'all', // transactions 탭 내 서브 탭 ('all', 'cards', 'banks')
   currentAnalyticsSubTab: 'trend', // analytics 탭 내 서브 탭 ('trend', 'fixed')
+  currentLogsSubTab: 'logs-list', // logs 탭 내 서브 탭 ('logs-list', 'rules', 'pass-rules', 'merchant')
+  currentSettingsSubTab: 'default', // settings 탭 내 서브 탭 ('default', 'balance', 'data')
   currentMonth: '', // YYYY-MM 포맷
   categories: [],
   payMethods: [],
@@ -388,6 +390,61 @@ function formatShortDate(dateStr, isUtc = false) {
 // ==========================================
 // 탭 이동 및 데이터 새로고침
 // ==========================================
+const subTabTitles = {
+  transactions: {
+    all: ['거래 내역 - 전체 내역', '전체 수입 및 지출 상세 내역 조회 및 편집'],
+    cards: ['거래 내역 - 카드 지출', '카드사별 이번 달 누적 결제 및 사용 분석'],
+    banks: ['거래 내역 - 은행별 입출금', '각 은행 및 계좌별 실시간 잔액 및 입출금 분석']
+  },
+  analytics: {
+    trend: ['소비 분석 - 소비 추이', '월별/연도별 자산 흐름 및 전년 대비 소비 비교'],
+    general: ['소비 분석 - 일반지출 분석', '고정지출을 제외한 변동성 소비 패턴 분석'],
+    fixed: ['소비 분석 - 고정지출 분석', '공과금/구독/보험/통신 등 매달 나가는 고정 비용 분석']
+  },
+  logs: {
+    'logs-list': ['알림 로그 - 수신 로그', 'Home Assistant에서 수신된 스마트폰 알림 원본 이력'],
+    rules: ['알림 로그 - 자동 분류규칙', '알림에서 금액/사용처를 추출하기 위한 정규식 설정'],
+    'pass-rules': ['알림 로그 - 자동 패스규칙', '가계부 등록을 생략하고 패스할 알림 패턴 설정'],
+    merchant: ['알림 로그 - 사용처 설정', '사용처(가맹점)별 자동 분류 카테고리 매핑 설정']
+  },
+  settings: {
+    default: ['설정 - 사용자 설정', '사용자 이름, 연동 센서 ID 및 기본 예산 설정'],
+    balance: ['설정 - 잔액 설정', '각 자산별 초기 보유 잔액 및 포인트, 카드 실적 설정'],
+    data: ['설정 - 데이터 관리', '가계부 데이터 백업, 복원 및 전체 초기화 관리']
+  }
+};
+
+function getSubTabIdForTab(tabId) {
+  if (tabId === 'transactions') return state.currentSubTab;
+  if (tabId === 'analytics') return state.currentAnalyticsSubTab;
+  if (tabId === 'logs') return state.currentLogsSubTab;
+  if (tabId === 'settings') return state.currentSettingsSubTab;
+  return null;
+}
+
+function updateHeaderTitle(mainTabId, subTabId) {
+  const mainTitles = {
+    dashboard: ['대시보드', '이번 달 소비 패턴 분석 및 통계'],
+    transactions: ['거래 내역', '상세 가계부 내역 조회 및 편집'],
+    analytics: ['소비 분석', '월별/연도별 자산 흐름 및 전년 대비 소비 비교'],
+    income: ['소득 분석', '월별/연도별 수입 추이 및 카테고리별 비중 분석'],
+    logs: ['알림 로그', 'Home Assistant에서 수신된 스마트폰 알림 원본 이력'],
+    settings: ['설정', '시스템 연동 정보 및 마스터 데이터 관리']
+  };
+
+  const titleEl = document.getElementById('page-title');
+  const subtitleEl = document.getElementById('page-subtitle');
+  if (!titleEl || !subtitleEl) return;
+
+  if (subTabId && subTabTitles[mainTabId] && subTabTitles[mainTabId][subTabId]) {
+    titleEl.textContent = subTabTitles[mainTabId][subTabId][0];
+    subtitleEl.textContent = subTabTitles[mainTabId][subTabId][1];
+  } else if (mainTitles[mainTabId]) {
+    titleEl.textContent = mainTitles[mainTabId][0];
+    subtitleEl.textContent = mainTitles[mainTabId][1];
+  }
+}
+
 function switchTab(tabId) {
   state.currentTab = tabId;
 
@@ -419,20 +476,7 @@ function switchTab(tabId) {
   });
 
   // 타이틀 변경
-  const titles = {
-    dashboard: ['대시보드', '이번 달 소비 패턴 분석 및 통계'],
-    transactions: ['거래 내역', '상세 가계부 내역 조회 및 편집'],
-    rules: ['자동 분류 규칙', '알림에서 금액/사용처를 추출하기 위한 정규식 설정'],
-    analytics: ['소비 분석', '월별/연도별 자산 흐름 및 전년 대비 소비 비교'],
-    income: ['소득 분석', '월별/연도별 수입 추이 및 카테고리별 비중 분석'],
-    logs: ['알림 수신 로그', 'Home Assistant에서 수신된 스마트폰 알림 원본 이력'],
-    settings: ['설정', '시스템 연동 정보 및 마스터 데이터 관리']
-  };
-
-  if (titles[tabId]) {
-    document.getElementById('page-title').textContent = titles[tabId][0];
-    document.getElementById('page-subtitle').textContent = titles[tabId][1];
-  }
+  updateHeaderTitle(tabId, getSubTabIdForTab(tabId));
 
   refreshCurrentTabData();
 }
@@ -457,6 +501,9 @@ function switchTransactionSubTab(subtab) {
       view.style.display = 'none';
     }
   });
+
+  // 헤더 업데이트
+  updateHeaderTitle('transactions', subtab);
 }
 
 function navigateToAsset(name, isCard) {
@@ -595,6 +642,9 @@ function initEventListeners() {
           view.classList.remove('active');
         }
       });
+
+      // 헤더 업데이트
+      updateHeaderTitle('analytics', subtab);
 
       // 데이터 새로고침
       refreshCurrentTabData();

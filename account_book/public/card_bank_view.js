@@ -57,10 +57,10 @@ async function loadCardExpenses() {
     if (cardAssets.length === 0) {
       const opt = document.createElement('option');
       opt.value = '';
-      opt.textContent = '등록된 카드/페이 없음';
+      opt.textContent = '등록된 카드 없음';
       cardSelect.appendChild(opt);
       
-      document.getElementById('card-summary-box').innerHTML = '<p class="empty-message">설정 탭에서 결제 수단으로 카드 및 페이를 등록해 보세요.</p>';
+      document.getElementById('card-summary-box').innerHTML = '<p class="empty-message">설정 탭에서 결제 수단으로 카드를 등록해 보세요.</p>';
       document.getElementById('card-transaction-table-body').innerHTML = '';
       document.getElementById('card-transaction-table-footer').style.display = 'block';
       return;
@@ -84,7 +84,7 @@ async function loadCardExpenses() {
     const selectedCardName = cardSelect.value;
     const selectedCard = cardAssets.find(c => c.name === selectedCardName);
 
-    // 2. 카드/페이 요약 정보 바인딩
+    // 2. 카드 요약 정보 바인딩
     const summaryBox = document.getElementById('card-summary-box');
     if (summaryBox && selectedCard) {
       const hasPoint = selectedCard.initialPoint && selectedCard.initialPoint > 0;
@@ -109,7 +109,7 @@ async function loadCardExpenses() {
       const iconName = isPayOrMoney ? 'wallet' : 'credit-card';
       const iconBg = isPayOrMoney ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.15)';
       const iconColor = isPayOrMoney ? '#10b981' : '#6366f1';
-      const assetTypeLabel = isPayOrMoney ? '페이' : '카드';
+      const assetTypeLabel = '카드';
 
       const isFav = favorites.includes(selectedCard.name);
       const starFill = isFav ? '#f59e0b' : 'none';

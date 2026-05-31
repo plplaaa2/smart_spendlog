@@ -20,6 +20,8 @@ function initSettingsSubTabs() {
 }
 
 function switchSettingsSubTab(subtab) {
+  state.currentSettingsSubTab = subtab;
+
   // 버튼 액티브 클래스 조정
   document.querySelectorAll('.settings-tab-btn').forEach(btn => {
     if (btn.dataset.subtab === subtab) {
@@ -37,6 +39,11 @@ function switchSettingsSubTab(subtab) {
       content.classList.remove('active');
     }
   });
+
+  // 헤더 업데이트
+  if (typeof updateHeaderTitle === 'function') {
+    updateHeaderTitle('settings', subtab);
+  }
 
   // 서브 탭별 데이터 로드
   if (subtab === 'default') {
