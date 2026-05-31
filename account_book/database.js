@@ -401,6 +401,41 @@ async function initUserDB(username) {
     await dbInstance.run("UPDATE categories SET type = 'INCOME' WHERE name IN ('월급', '부수입', '용돈(수입)', '이체/입금', 'ATM/입금', '기타수입', '연금', '지원금/환급금')");
   } catch (e) {}
 
+  // 편의점 및 생활/마트 -> 마트/편의점 및 생활/잡화 마이그레이션
+  // 의존성: default_rules.json의 카테고리 구성 정의 및 franchise_presets.js와 연결됩니다.
+  try {
+    // 1. 신규 카테고리 생성
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('마트/편의점', '#38bdf8', 'store', 'EXPENSE')");
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('생활/잡화', '#cc5de8', 'shopping-cart', 'EXPENSE')");
+
+    // 2. 기존 '편의점' 및 '생활/마트' 데이터를 '마트/편의점'으로 일괄 이관
+    await dbInstance.run("UPDATE transactions SET category = '마트/편의점' WHERE category IN ('편의점', '생활/마트')");
+    await dbInstance.run("UPDATE rules SET category = '마트/편의점' WHERE category IN ('편의점', '생활/마트')");
+    await dbInstance.run("UPDATE merchant_categories SET category = '마트/편의점' WHERE category IN ('편의점', '생활/마트')");
+
+    // 3. '생활/잡화' 프리셋 키워드를 갖는 항목들을 '생활/잡화'로 소급 업데이트
+    const lifeKeywords = ['다이소', 'DAISO', '이케아', 'IKEA', '버터', '상점', '철물', '가구', '잡화'];
+    for (const kw of lifeKeywords) {
+      await dbInstance.run(
+        "UPDATE merchant_categories SET category = '생활/잡화' WHERE merchant = ? AND category = '마트/편의점'",
+        [kw]
+      );
+      await dbInstance.run(
+        "UPDATE transactions SET category = '생활/잡화' WHERE category = '마트/편의점' AND merchant LIKE ?",
+        [`%${kw}%`]
+      );
+      await dbInstance.run(
+        "UPDATE rules SET category = '생활/잡화' WHERE category = '마트/편의점' AND pattern LIKE ?",
+        [`%${kw}%`]
+      );
+    }
+
+    // 4. 구버전 카테고리 삭제
+    await dbInstance.run("DELETE FROM categories WHERE name IN ('편의점', '생활/마트')");
+  } catch (e) {
+    console.error('[DB 마이그레이션] 마트/편의점 및 생활/잡화 마이그레이션 실패:', e);
+  }
+
 
   await seedDefaultData(dbInstance, username);
 

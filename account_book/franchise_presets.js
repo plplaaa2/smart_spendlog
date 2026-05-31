@@ -178,52 +178,52 @@ const FRANCHISE_PRESETS = [
   { keyword: '피자', category: '식비' },
 
   // =============================================
-  // 편의점 - 편의점 브랜드
+  // 마트/편의점 - 편의점 브랜드
   // =============================================
-  { keyword: 'GS25', category: '편의점' },
-  { keyword: 'CU편의점', category: '편의점' },
-  { keyword: '세븐일레븐', category: '편의점' },
-  { keyword: '7-ELEVEN', category: '편의점' },
-  { keyword: '7ELEVEN', category: '편의점' },
-  { keyword: '이마트24', category: '편의점' },
-  { keyword: 'MINISTOP', category: '편의점' },
-  { keyword: '미니스톱', category: '편의점' },
+  { keyword: 'GS25', category: '마트/편의점' },
+  { keyword: 'CU편의점', category: '마트/편의점' },
+  { keyword: '세븐일레븐', category: '마트/편의점' },
+  { keyword: '7-ELEVEN', category: '마트/편의점' },
+  { keyword: '7ELEVEN', category: '마트/편의점' },
+  { keyword: '이마트24', category: '마트/편의점' },
+  { keyword: 'MINISTOP', category: '마트/편의점' },
+  { keyword: '미니스톱', category: '마트/편의점' },
 
   // =============================================
-  // 생활/마트 - 대형마트
+  // 마트/편의점 - 대형마트
   // =============================================
-  { keyword: '이마트', category: '생활/마트' },
-  { keyword: 'E-MART', category: '생활/마트' },
-  { keyword: '홈플러스', category: '생활/마트' },
-  { keyword: 'HOMEPLUS', category: '생활/마트' },
-  { keyword: '롯데마트', category: '생활/마트' },
-  { keyword: '코스트코', category: '생활/마트' },
-  { keyword: 'COSTCO', category: '생활/마트' },
-  { keyword: '트레이더스', category: '생활/마트' },
-  { keyword: 'TRADERS', category: '생활/마트' },
-  { keyword: '하나로마트', category: '생활/마트' },
+  { keyword: '이마트', category: '마트/편의점' },
+  { keyword: 'E-MART', category: '마트/편의점' },
+  { keyword: '홈플러스', category: '마트/편의점' },
+  { keyword: 'HOMEPLUS', category: '마트/편의점' },
+  { keyword: '롯데마트', category: '마트/편의점' },
+  { keyword: '코스트코', category: '마트/편의점' },
+  { keyword: 'COSTCO', category: '마트/편의점' },
+  { keyword: '트레이더스', category: '마트/편의점' },
+  { keyword: 'TRADERS', category: '마트/편의점' },
+  { keyword: '하나로마트', category: '마트/편의점' },
 
   // =============================================
-  // 생활/마트 - 생활용품
+  // 생활/잡화 - 생활용품
   // =============================================
-  { keyword: '다이소', category: '생활/마트' },
-  { keyword: 'DAISO', category: '생활/마트' },
-  { keyword: '이케아', category: '생활/마트' },
-  { keyword: 'IKEA', category: '생활/마트' },
-  { keyword: '버터', category: '생활/마트' },
-  { keyword: '마트', category: '생활/마트' },
-  { keyword: '슈퍼', category: '생활/마트' },
-  { keyword: '슈퍼마켓', category: '생활/마트' },
-  { keyword: '상회', category: '생활/마트' },
-  { keyword: '유통', category: '생활/마트' },
-  { keyword: '청과', category: '생활/마트' },
-  { keyword: '정육', category: '생활/마트' },
-  { keyword: '수산', category: '생활/마트' },
-  { keyword: '시장', category: '생활/마트' },
-  { keyword: '상점', category: '생활/마트' },
-  { keyword: '철물', category: '생활/마트' },
-  { keyword: '가구', category: '생활/마트' },
-  { keyword: '잡화', category: '생활/마트' },
+  { keyword: '다이소', category: '생활/잡화' },
+  { keyword: 'DAISO', category: '생활/잡화' },
+  { keyword: '이케아', category: '생활/잡화' },
+  { keyword: 'IKEA', category: '생활/잡화' },
+  { keyword: '버터', category: '생활/잡화' },
+  { keyword: '마트', category: '마트/편의점' },
+  { keyword: '슈퍼', category: '마트/편의점' },
+  { keyword: '슈퍼마켓', category: '마트/편의점' },
+  { keyword: '상회', category: '마트/편의점' },
+  { keyword: '유통', category: '마트/편의점' },
+  { keyword: '청과', category: '마트/편의점' },
+  { keyword: '정육', category: '마트/편의점' },
+  { keyword: '수산', category: '마트/편의점' },
+  { keyword: '시장', category: '마트/편의점' },
+  { keyword: '상점', category: '생활/잡화' },
+  { keyword: '철물', category: '생활/잡화' },
+  { keyword: '가구', category: '생활/잡화' },
+  { keyword: '잡화', category: '생활/잡화' },
 
   // =============================================
   // 병원/약국 - 의원/약국/클리닉

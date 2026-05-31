@@ -19,7 +19,7 @@
             "type": "EXPENSE"
         },
         {
-            "name": "편의점",
+            "name": "마트/편의점",
             "color": "#38bdf8",
             "icon": "store",
             "type": "EXPENSE"
@@ -91,7 +91,7 @@
             "type": "EXPENSE"
         },
         {
-            "name": "생활/마트",
+            "name": "생활/잡화",
             "color": "#cc5de8",
             "icon": "shopping-cart",
             "type": "EXPENSE"
