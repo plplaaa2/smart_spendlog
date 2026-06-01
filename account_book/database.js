@@ -730,6 +730,10 @@ async function findCategoryByMerchant(db, merchantName) {
     if (row.merchant) {
       const upperKeyword = row.merchant.toUpperCase();
       if (upperMerchant.includes(upperKeyword)) {
+        // 예외 처리: 키워드가 '마트'인데 상호명에 '스마트', '토마토', '마스크' 등이 포함된 경우 마트/편의점 오분류 방지
+        if (upperKeyword === '마트' && (upperMerchant.includes('스마트') || upperMerchant.includes('토마토') || upperMerchant.includes('마스크'))) {
+          continue;
+        }
         return row.category;
       }
     }
