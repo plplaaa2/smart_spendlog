@@ -867,6 +867,23 @@ function autoGeneratePattern(silent = false) {
     if (patternInput) rulePatternInput.value = patternInput.value;
   }
 
+  // 본문 텍스트 내용을 기반으로 거래 유형(수입/지출) 감지 및 연계 카테고리 갱신
+  let autoType = 'EXPENSE';
+  if (text.includes('입금') || text.includes('급여') || text.includes('수입')) {
+    autoType = 'INCOME';
+  } else if (text.includes('출금') || text.includes('사용') || text.includes('지출') || text.includes('결제')) {
+    autoType = 'EXPENSE';
+  }
+
+  const ruleTypeSelect = document.getElementById('rule-type');
+  if (ruleTypeSelect) {
+    ruleTypeSelect.value = autoType;
+    // 카테고리 셀렉트 갱신
+    if (typeof updateCategorySelect === 'function') {
+      updateCategorySelect('#rule-category', autoType, '');
+    }
+  }
+
   if (!silent) {
     alert('알림 텍스트의 각 요소를 위치 기반으로 정밀 자동 분석하여 정규식 패턴을 생성했습니다! 바로 [테스트 실행]을 진행해 보세요.');
   }
