@@ -672,6 +672,8 @@ function autoGeneratePattern(silent = false) {
     while ((am = acRegex.exec(cleanText)) !== null) {
       const val = am[0];
       if (val.includes('/') || val.includes(':') || val.includes('원')) continue;
+      // 숫자나 하이픈이 전혀 없고 오직 별표(*)만 있는 문자열은 계좌번호에서 제외 (이름 마스킹 오인 차단)
+      if (!/[\d-]/.test(val)) continue;
       
       const start = am.index;
       const end = am.index + val.length;
