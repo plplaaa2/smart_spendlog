@@ -258,8 +258,9 @@ function renderAssetGrid(assets) {
   }
 
   activeAssets.forEach(asset => {
+    const isCardStyle = asset.isCard || asset.name.includes('체크');
     const card = document.createElement('div');
-    card.className = `asset-card-item glass ${asset.isCard ? 'card-type' : 'bank-type'}`;
+    card.className = `asset-card-item glass ${isCardStyle ? 'card-type' : 'bank-type'}`;
     card.style.padding = '1.25rem';
     card.style.borderRadius = '12px';
     card.style.border = '1px solid rgba(255, 255, 255, 0.08)';
@@ -289,7 +290,7 @@ function renderAssetGrid(assets) {
       });
     }
     
-    if (asset.isCard) {
+    if (asset.isCard || asset.name.includes('체크')) {
       // 의존성: index.js의 /api/stats 응답 구조에서 제공하는 initialPoint 및 remainingPoint와 연동됩니다.
       const hasPoint = asset.initialPoint && asset.initialPoint > 0;
       let pointHtml = '';
@@ -379,6 +380,25 @@ function renderAssetGrid(assets) {
         `;
       }
 
+      const isCheck = asset.name.includes('체크');
+      const balanceColor = asset.currentBalance < 0 ? '#ef4444' : '#10b981';
+      const mainLabel = isCheck ? '현재 잔액' : '이번 달 결제금액';
+      const mainValueHtml = isCheck 
+        ? `<span class="asset-card-value" style="font-weight: 700; font-size: 1.1rem; color: ${balanceColor};">${formatCurrency(asset.currentBalance)}</span>`
+        : `<span class="asset-card-value card-color" style="font-weight: 700; font-size: 1.1rem; color: #f43f5e;">${formatCurrency(asset.monthExpense)}</span>`;
+
+      let checkDetailHtml = '';
+      if (isCheck) {
+        checkDetailHtml = `
+          <div class="asset-card-detail-rows" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.25rem; margin-bottom: 0.25rem;">
+            <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.75rem;">
+              <span style="color: var(--text-secondary);">이번 달 결제금액</span>
+              <span style="color: #f43f5e; font-weight: 500;">${formatCurrency(asset.monthExpense)}</span>
+            </div>
+          </div>
+        `;
+      }
+
       card.innerHTML = `
         <div class="asset-card-item-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -387,7 +407,7 @@ function renderAssetGrid(assets) {
             </div>
             <div class="asset-card-title-info" style="display: flex; flex-direction: column;">
               <span class="asset-card-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-color);">${asset.name}</span>
-              <span class="asset-card-badge badge-card" style="font-size: 0.7rem; color: #6366f1; font-weight: 500; margin-top: 2px;">카드</span>
+              <span class="asset-card-badge badge-card" style="font-size: 0.7rem; color: #6366f1; font-weight: 500; margin-top: 2px;">${isCheck ? '체크카드' : '카드'}</span>
             </div>
           </div>
           <div class="drag-handle" style="cursor: grab; color: var(--text-secondary); padding: 4px; display: flex; align-items: center; opacity: 0.3; transition: opacity 0.2s;">
@@ -396,12 +416,13 @@ function renderAssetGrid(assets) {
         </div>
         <div class="asset-card-item-body">
           <div class="asset-card-value-row" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
-            <span class="asset-card-label" style="font-size: 0.8rem; color: var(--text-secondary);">이번 달 결제금액</span>
-            <span class="asset-card-value card-color" style="font-weight: 700; font-size: 1.1rem; color: #f43f5e;">${formatCurrency(asset.monthExpense)}</span>
+            <span class="asset-card-label" style="font-size: 0.8rem; color: var(--text-secondary);">${mainLabel}</span>
+            ${mainValueHtml}
           </div>
+          ${checkDetailHtml}
           ${pointHtml}
           ${performanceGoalHtml}
-          <div class="asset-card-footer-row" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: ${(hasPoint || hasGoal) ? '0.5rem' : '0px'}">
+          <div class="asset-card-footer-row" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: ${(hasPoint || hasGoal || isCheck) ? '0.5rem' : '0px'}">
             <span class="asset-card-subtext" style="font-size: 0.75rem; color: var(--text-secondary);">이번 달 신용/체크 누적 사용 금액</span>
           </div>
         </div>

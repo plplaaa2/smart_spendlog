@@ -101,6 +101,11 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         let payMethod = groups.pay_method || rule.pay_method || '카드';
         payMethod = payMethod.trim();
 
+        // [보정] 본문에 '체크' 문구가 있고, payMethod 명칭에 '카드'가 들어가며 '체크'가 없을 때 '체크카드'로 변환
+        if (text.includes('체크') && payMethod.includes('카드') && !payMethod.includes('체크')) {
+          payMethod = payMethod.replace('카드', '체크카드');
+        }
+
         // 5. 카테고리(category)
         let category = rule.category || '기타';
 

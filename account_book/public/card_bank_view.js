@@ -36,7 +36,7 @@ async function loadCardExpenses() {
     const cardAssets = (stats.assets || []).filter(a => {
       if (a.isTotal) return false;
       const name = a.name;
-      return a.isCard || name.includes('페이') || name.includes('머니') || name.includes('포인트');
+      return a.isCard || name.includes('페이') || name.includes('머니') || name.includes('포인트') || name.includes('체크');
     });
 
     const cardSelect = document.getElementById('card-select-filter');
@@ -220,7 +220,8 @@ async function loadBankTransactions() {
         name.includes('머니') || 
         name.includes('포인트') ||
         name.includes('쿠폰') ||
-        name.includes('상품권')
+        name.includes('상품권') ||
+        name.includes('체크')
       ) {
         return false;
       }

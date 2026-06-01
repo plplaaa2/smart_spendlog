@@ -194,7 +194,8 @@ router.get('/stats', async (req, res) => {
         continue;
       }
       
-      const isCard = name.includes('카드') || name.includes('페이') || name.includes('머니'); // 카드, 페이, 머니류는 잔고 제외 (소비로 분류)
+      const isCheckCard = name.includes('체크');
+      const isCard = (name.includes('카드') || name.includes('페이') || name.includes('머니')) && !isCheckCard; // 카드, 페이, 머니류는 잔고 제외하되, 체크카드는 잔고 관리 대상에 포함
       // 카드가 아닌 모든 결제수단(계좌이체 제외)은 자산으로 유연하게 판정하여 누락 방지
       const isAsset = !isCard && name !== '계좌이체';
                       
