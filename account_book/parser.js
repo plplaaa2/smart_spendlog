@@ -168,7 +168,8 @@ function generatePatternFromText(text) {
   if (cardMatch) {
     const value = cardMatch[1] || cardMatch[0];
     const isBracket = cardMatch[0].startsWith('[');
-    const isDepositOrWithdraw = isBracket && (/출금|입금/.test(value) || /\d/.test(value));
+    // [입금], [출금] 같은 짧은 상태 문구이거나 숫자가 포함된 경우만 스킵 (입출금알림 같은 헤더성 문구는 카드명/은행명 블록으로 인정)
+    const isDepositOrWithdraw = isBracket && ((value.length <= 5 && /출금|입금/.test(value)) || /\d/.test(value));
     
     if (!isDepositOrWithdraw) {
       const start = cardMatch.index;
@@ -186,28 +187,28 @@ function generatePatternFromText(text) {
   }
 
   // 2. 시간/일시 감지 (금액 감지보다 먼저 처리하여 연도/날짜가 금액으로 오인되는 것을 방지합니다)
-  const timeMatch = cleanText.match(/\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{2}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{1,2}월\s*\d{1,2}일\s*\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{2}[/\-.]\d{2}\s+\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{2}:\d{2}/);
+  const timeMatch = cleanText.match(/\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}(?::\d{2})?/) || 
+                    cleanText.match(/\d{2}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}(?::\d{2})?/) || 
+                    cleanText.match(/\d{1,2}월\s*\d{1,2}일\s*\d{2}:\d{2}(?::\d{2})?/) || 
+                    cleanText.match(/\d{2}[/\-.]\d{2}\s+\d{2}:\d{2}(?::\d{2})?/) || 
+                    cleanText.match(/\d{2}:\d{2}(?::\d{2})?/);
   if (timeMatch) {
-    let regex = '(?<time>\\d{2}:\\d{2})';
+    let regex = '(?<time>\\d{2}:\\d{2}(?::\\d{2})?)';
     const rawTime = timeMatch[0];
     const start = timeMatch.index;
     const end = timeMatch.index + rawTime.length;
     
     if (!isOverlapping(start, end)) {
       if (rawTime.includes('월') && rawTime.includes('일')) {
-        regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일\\s*\\d{2}:\\d{2})';
+        regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일\\s*\\d{2}:\\d{2}(?::\\d{2})?)';
       } else if (rawTime.includes(':') && (rawTime.includes('/') || rawTime.includes('-') || rawTime.includes('.'))) {
         const sep = rawTime.match(/[/\-.]/)[0];
         const partCount = (rawTime.split(sep).length - 1);
         if (partCount === 2) {
           const yearLen = rawTime.split(sep)[0].length;
-          regex = `(?<time>\\d{${yearLen}}${escapeRegexChars(sep)}\\d{1,2}${escapeRegexChars(sep)}\\d{1,2}\\s+\\d{2}:\\d{2})`;
+          regex = `(?<time>\\d{${yearLen}}${escapeRegexChars(sep)}\\d{1,2}${escapeRegexChars(sep)}\\d{1,2}\\s+\\d{2}:\\d{2}(?::\\d{2})?)`;
         } else {
-          regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2}\\s+\\d{2}:\\d{2})`;
+          regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2}\\s+\\d{2}:\\d{2}(?::\\d{2})?)`;
         }
       }
       blocks.push({
