@@ -8,8 +8,21 @@
  */
 
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
-const { getDB, findCategoryByMerchant, updateHASensors } = require('../database');
+const { getDB, findCategoryByMerchant, updateHASensors, sendHANotification, createInAppNotification } = require('../database');
+
+// 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
+function safeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 const { parseNotification, generatePatternFromText } = require('../parser');
 
 // 현재 한국 시간(KST, UTC+9) 문자열을 YYYY-MM-DD HH:mm:ss 포맷으로 반환하는 헬퍼 함수
@@ -170,8 +183,12 @@ async function processIncomingNotification(newState, username) {
       return false;
     };
     
+    const isCardCompany = result.merchant.endsWith('카드') || 
+                          /카드대금|카드결제|카드출금/.test(result.merchant);
+
     const isTransferMerchant = (realName && result.merchant === realName) || 
-                               ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant);
+                               ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant) ||
+                               isCardCompany;
 
     if (isTransferMerchant && isBank) {
       if (result.type === 'INCOME') {
@@ -227,6 +244,23 @@ async function processIncomingNotification(newState, username) {
     );
     console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 사용 포인트: ${result.used_point || 0}]`);
 
+    if (finalCategory === '기타') {
+      const nameTag = targetUser === 'admin' ? '' : ` (${targetUser})`;
+      sendHANotification(
+        `🔍 [Smart Spendlog] 미분류 거래 등록 안내${nameTag}`,
+        `카테고리가 '기타'로 분류된 거래가 등록되었습니다.\n\n` +
+        `- 사용처: **${result.merchant}**\n` +
+        `- 금액: **${result.amount.toLocaleString()}원**\n\n` +
+        `정확한 소비 분석을 위해 규칙 설정을 확인해 주세요.`
+      );
+      await createInAppNotification(
+        targetUser,
+        'UNCLASSIFIED',
+        `미분류 거래 등록 안내`,
+        `카테고리가 '기타'로 분류된 거래가 등록되었습니다.\n- 사용처: ${result.merchant}\n- 금액: ${result.amount.toLocaleString()}원\n규칙 설정을 확인해 주세요.`
+      );
+    }
+
     updateHASensors(targetUser);
   } else {
     console.log(`[파서][${targetUser}] 일치하는 정규식 규칙이 없습니다.`);
@@ -242,11 +276,21 @@ async function processIncomingNotification(newState, username) {
   }
 }
 
-// HTTP Webhook 수신 엔드포인트
-router.post('/webhook', async (req, res) => {
+// HTTP Webhook 수신 엔드포인트 (용량을 최대 10kb로 엄격 제한)
+router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
   const { title, text, package: reqPackage, packageName, package_name, username } = req.body;
   const packageVal = reqPackage || packageName || package_name || '';
   const targetUser = username || 'admin';
+
+  const config = req.app.locals.config;
+  // webhook_token 보안 검증 (options.json에 webhook_token이 정의되어 있는 경우에만 검증하여 하위 호환성 유지)
+  if (config && config.webhook_token) {
+    const receivedToken = req.headers['authorization'] || req.query.token || req.body.token;
+    if (!safeCompare(receivedToken, config.webhook_token)) {
+      console.warn(`[웹훅 보안 경고][${targetUser}] 잘못된 웹훅 토큰으로 접근이 차단되었습니다.`);
+      return res.status(403).json({ error: 'Forbidden: Invalid webhook token' });
+    }
+  }
 
   console.log(`[웹훅][${targetUser}] 알림 수신: title="${title}", text="${text}", package="${packageVal}"`);
 
@@ -396,8 +440,12 @@ router.post('/webhook', async (req, res) => {
         return false;
       };
       
+      const isCardCompany = result.merchant.endsWith('카드') || 
+                            /카드대금|카드결제|카드출금/.test(result.merchant);
+
       const isTransferMerchant = (realName && result.merchant === realName) || 
-                                 ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant);
+                                 ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant) ||
+                                 isCardCompany;
 
       if (isTransferMerchant && isBank) {
         if (result.type === 'INCOME') {
@@ -453,6 +501,23 @@ router.post('/webhook', async (req, res) => {
         'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', finalRawText, result.used_point || 0]
       );
+
+      if (finalCategory === '기타') {
+        const nameTag = targetUser === 'admin' ? '' : ` (${targetUser})`;
+        sendHANotification(
+          `🔍 [Smart Spendlog] 미분류 거래 등록 안내${nameTag}`,
+          `카테고리가 '기타'로 분류된 거래가 등록되었습니다.\n\n` +
+          `- 사용처: **${result.merchant}**\n` +
+          `- 금액: **${result.amount.toLocaleString()}원**\n\n` +
+          `정확한 소비 분석을 위해 규칙 설정을 확인해 주세요.`
+        );
+        await createInAppNotification(
+          targetUser,
+          'UNCLASSIFIED',
+          `미분류 거래 등록 안내`,
+          `카테고리가 '기타'로 분류된 거래가 등록되었습니다.\n- 사용처: ${result.merchant}\n- 금액: ${result.amount.toLocaleString()}원\n규칙 설정을 확인해 주세요.`
+        );
+      }
 
       res.json({ success: true, transaction: { ...result, category: finalCategory, pay_method: finalPayMethod } });
       updateHASensors(targetUser);

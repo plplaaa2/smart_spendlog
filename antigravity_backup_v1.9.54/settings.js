@@ -584,197 +584,35 @@ async function loadPackagePayMethods() {
 async function loadDataSettings() {
   try {
     const settings = await fetch('api/settings').then(r => r.json());
-    
-    // 자동 백업 시간 및 요일 스케줄러 바인딩
     const autoBackupEl = document.getElementById('settings-auto-backup');
-    const backupTimeEl = document.getElementById('settings-backup-time');
-    const backupDaysEls = document.querySelectorAll('.settings-backup-day');
-    const scheduleOptionsContainer = document.getElementById('auto-backup-schedule-options');
-
     if (autoBackupEl) {
       autoBackupEl.checked = settings.auto_backup === 'true';
-      if (scheduleOptionsContainer) {
-        scheduleOptionsContainer.style.display = autoBackupEl.checked ? 'flex' : 'none';
-      }
-      autoBackupEl.onchange = () => {
-        if (scheduleOptionsContainer) {
-          scheduleOptionsContainer.style.display = autoBackupEl.checked ? 'flex' : 'none';
-        }
-      };
-    }
 
-    if (backupTimeEl) {
-      backupTimeEl.value = settings.backup_time || '00:00';
-    }
-
-    if (backupDaysEls.length > 0) {
-      const activeDays = (settings.backup_days || '0,1,2,3,4,5,6').split(',');
-      backupDaysEls.forEach(el => {
-        el.checked = activeDays.includes(el.value);
-      });
-    }
-
-    // [네트워크 백업 설정 데이터 연동 및 이벤트 바인딩]
-    const netTypeEl = document.getElementById('settings-network-backup-type');
-    const netPathEl = document.getElementById('settings-network-backup-path');
-    const netUrlEl = document.getElementById('settings-network-webdav-url');
-    const netUserEl = document.getElementById('settings-network-webdav-user');
-    const netPassEl = document.getElementById('settings-network-webdav-pass');
-
-    const pathGroup = document.getElementById('network-path-group');
-    const webdavGroup = document.getElementById('network-webdav-group');
-
-    if (netTypeEl) {
-      netTypeEl.value = settings.network_backup_type || 'path';
-      
-      const toggleGroups = (type) => {
-        if (pathGroup) pathGroup.style.display = type === 'path' ? 'block' : 'none';
-        if (webdavGroup) webdavGroup.style.display = type === 'webdav' ? 'flex' : 'none';
-      };
-
-      toggleGroups(netTypeEl.value);
-
-      netTypeEl.onchange = () => {
-        toggleGroups(netTypeEl.value);
-      };
-    }
-
-    // HA 네트워크 마운트 목록 불러오기 및 드롭다운 연동
-    const haMountsDropdown = document.getElementById('settings-ha-mounts-dropdown');
-    const haMountsContainer = document.getElementById('ha-mounts-selector-container');
-    if (haMountsDropdown && haMountsContainer) {
-      (async () => {
+      // 토글 변경 시 즉시 저장
+      autoBackupEl.onchange = async () => {
         try {
-          const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || '';
-          const mounts = await fetch('api/settings/ha_mounts', {
-            headers: {
-              'Authorization': token
-            }
-          }).then(r => r.json());
-
-          if (Array.isArray(mounts) && mounts.length > 0) {
-            haMountsContainer.style.display = 'block';
-            mounts.forEach(mount => {
-              const opt = document.createElement('option');
-              const mountPath = `/share/${mount.name}`;
-              opt.value = mountPath;
-              opt.textContent = `${mount.name} (${mount.type.toUpperCase()} ➔ ${mountPath})`;
-              haMountsDropdown.appendChild(opt);
-            });
-
-            if (settings.network_backup_path) {
-              const matched = mounts.some(m => `/share/${m.name}` === settings.network_backup_path);
-              if (matched) {
-                haMountsDropdown.value = settings.network_backup_path;
-              }
-            }
-
-            haMountsDropdown.onchange = () => {
-              if (haMountsDropdown.value && netPathEl) {
-                netPathEl.value = haMountsDropdown.value;
-              }
-            };
-          }
-        } catch (err) {
-          console.error('HA 마운트 목록 로드 에러:', err);
-        }
-      })();
-    }
-
-    if (netPathEl) netPathEl.value = settings.network_backup_path || '';
-    if (netUrlEl) netUrlEl.value = settings.network_backup_webdav_url || '';
-    if (netUserEl) netUserEl.value = settings.network_backup_webdav_username || '';
-    if (netPassEl) netPassEl.value = settings.network_backup_webdav_password || '';
-
-    const saveNetworkBackupSettings = async () => {
-      // 선택된 요일 수집
-      const selectedDays = [];
-      document.querySelectorAll('.settings-backup-day').forEach(el => {
-        if (el.checked) {
-          selectedDays.push(el.value);
-        }
-      });
-
-      const payload = {
-        auto_backup: autoBackupEl ? autoBackupEl.checked : false,
-        backup_time: backupTimeEl ? backupTimeEl.value : '00:00',
-        backup_days: selectedDays.join(','),
-        network_backup_enabled: autoBackupEl ? autoBackupEl.checked : false,
-        network_backup_type: netTypeEl ? netTypeEl.value : 'path',
-        network_backup_path: netPathEl ? netPathEl.value.trim() : '',
-        network_backup_path_username: '',
-        network_backup_path_password: '',
-        network_backup_webdav_url: netUrlEl ? netUrlEl.value.trim() : '',
-        network_backup_webdav_username: netUserEl ? netUserEl.value.trim() : '',
-        network_backup_webdav_password: netPassEl ? netPassEl.value : ''
-      };
-
-      const res = await fetch('api/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || ''
-        },
-        body: JSON.stringify(payload)
-      }).then(r => r.json());
-
-      if (!res.success) {
-        throw new Error(res.error || '설정 저장 실패');
-      }
-      return res;
-    };
-
-    // 네트워크 백업 저장 폼 바인딩
-    const netForm = document.getElementById('network-backup-form');
-    if (netForm) {
-      netForm.onsubmit = async (e) => {
-        e.preventDefault();
-        try {
-          await saveNetworkBackupSettings();
-          alert('자동 네트워크 백업 설정이 저장되었습니다.');
-        } catch (err) {
-          console.error('설정 저장 중 에러:', err);
-          alert('설정 저장 중 오류가 발생했습니다: ' + err.message);
-        }
-      };
-    }
-
-    // 네트워크 백업 테스트 실행 바인딩
-    const btnTest = document.getElementById('btn-test-network-backup');
-    const testIndicator = document.getElementById('network-test-indicator');
-
-    if (btnTest) {
-      btnTest.onclick = async () => {
-        if (btnTest.disabled) return;
-        
-        btnTest.disabled = true;
-        if (testIndicator) testIndicator.style.display = 'inline-flex';
-        try {
-          // 테스트 실행 전 입력된 설정을 자동으로 먼저 저장
-          await saveNetworkBackupSettings();
-          
-          const res = await fetch('api/settings/backups/test-network', {
+          const res = await fetch('api/settings', {
             method: 'POST',
             headers: {
-              'Authorization': localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || ''
-            }
+              'Content-Type': 'application/json',
+              'Authorization': localStorage.getItem('token') || ''
+            },
+            body: JSON.stringify({
+              auto_backup: autoBackupEl.checked
+            })
           }).then(r => r.json());
 
           if (res.success) {
-            alert(`✅ 네트워크 백업 설정이 저장되었으며 테스트에 성공했습니다!\n파일이 지정된 네트워크 저장소로 정상 전송되었습니다.\n파일명: ${res.filename}`);
+            alert('자동 백업 설정이 변경되었습니다.');
           } else {
-            alert('❌ 네트워크 백업 테스트 실패: ' + (res.error || '알 수 없는 전송 실패'));
+            alert('설정 저장 실패: ' + (res.error || '오류 발생'));
           }
-        } catch (err) {
-          console.error('네트워크 백업 테스트 에러:', err);
-          alert('❌ 네트워크 백업 저장 및 테스트 중 오류가 발생했습니다: ' + err.message);
-        } finally {
-          btnTest.disabled = false;
-          if (testIndicator) testIndicator.style.display = 'none';
+        } catch (e) {
+          console.error('자동 백업 설정 저장 중 에러:', e);
+          alert('자동 백업 설정 저장 중 오류가 발생했습니다.');
         }
       };
     }
-
   } catch (err) {
     console.error('데이터 설정 로드 실패:', err);
   }
@@ -784,9 +622,6 @@ async function loadDataSettings() {
 // 설정 초기화
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-  // Lucide 아이콘 변환 강제 실행 (정적 마크업 파싱)
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
-  }
+  // 초기 로드에 필요한 바인딩 코드가 있다면 추가
 });
 

@@ -977,9 +977,7 @@ function initEventListeners() {
     backupBtn.addEventListener('click', async () => {
       try {
         const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || '';
-        const encryptEl = document.getElementById('settings-manual-encrypt');
-        const isEncrypt = encryptEl ? encryptEl.checked : false;
-        window.location.href = `api/settings/backup?token=${encodeURIComponent(token)}&encrypt=${isEncrypt}`;
+        window.location.href = `api/settings/backup?token=${encodeURIComponent(token)}`;
       } catch (err) {
         alert('백업 다운로드 실패: ' + err.message);
       }
@@ -1010,15 +1008,7 @@ function initEventListeners() {
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
-          const fileContent = event.target.result.trim();
-          let backupObj;
-
-          if (fileContent.startsWith('{')) {
-            backupObj = JSON.parse(fileContent);
-          } else {
-            // 암호화된 파일일 경우 백엔드에서 복호화하도록 감싸서 전송
-            backupObj = { isEncrypted: true, rawBody: fileContent };
-          }
+          const backupObj = JSON.parse(event.target.result);
           
           const res = await fetch('api/settings/restore', {
             method: 'POST',
@@ -1220,29 +1210,14 @@ function initEventListeners() {
   if (resetBalanceBtn) {
     resetBalanceBtn.addEventListener('click', async () => {
       if (!confirm('초기 보유 잔액 설정을 0원으로 초기화하시겠습니까?')) return;
-      
-      const password = prompt('⚠️ 잔액을 초기화하려면 가계부 로그인 비밀번호를 입력해 주십시오:');
-      if (password === null) return; // 취소 시 종료
-      if (!password.trim()) {
-        alert('비밀번호를 입력해야 합니다.');
-        return;
-      }
-
       try {
-        const res = await fetch('api/settings/reset-balance', { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        }).then(r => r.json());
-
+        const res = await fetch('api/settings/reset-balance', { method: 'POST' }).then(r => r.json());
         if (res.success) {
           alert('초기 잔액이 초기화되었습니다.');
           const balanceEl = document.getElementById('settings-initial-balance');
           if (balanceEl) balanceEl.value = 0;
           await loadMetadata();
           await loadBalanceSettings();
-        } else {
-          alert('초기화 실패: ' + (res.error || '오류 발생'));
         }
       } catch (err) {
         alert('잔액 초기화 실패: ' + err.message);
@@ -1260,25 +1235,11 @@ function initEventListeners() {
       const confirmed2 = confirm('진짜로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다. 모든 데이터가 소멸하고 기본 규칙들로만 재설정됩니다.');
       if (!confirmed2) return;
 
-      const password = prompt('⚠️ 전체 데이터를 영구 초기화하려면 가계부 로그인 비밀번호를 입력해 주십시오:');
-      if (password === null) return; // 취소 시 종료
-      if (!password.trim()) {
-        alert('비밀번호를 입력해야 합니다.');
-        return;
-      }
-
       try {
-        const res = await fetch('api/settings/reset-all', { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        }).then(r => r.json());
-
+        const res = await fetch('api/settings/reset-all', { method: 'POST' }).then(r => r.json());
         if (res.success) {
           alert('가계부의 모든 데이터와 설정이 초기화되었습니다. 페이지를 새로고침합니다.');
           location.reload();
-        } else {
-          alert('초기화 실패: ' + (res.error || '오류 발생'));
         }
       } catch (err) {
         alert('전체 초기화 실패: ' + err.message);

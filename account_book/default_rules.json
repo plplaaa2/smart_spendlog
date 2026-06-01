@@ -19,7 +19,7 @@
             "type": "EXPENSE"
         },
         {
-            "name": "편의점",
+            "name": "마트/편의점",
             "color": "#38bdf8",
             "icon": "store",
             "type": "EXPENSE"
@@ -55,15 +55,27 @@
             "type": "EXPENSE"
         },
         {
-            "name": "주거/통신",
+            "name": "주거",
             "color": "#fcc419",
             "icon": "home",
             "type": "EXPENSE"
         },
         {
-            "name": "공과금",
+            "name": "통신비",
+            "color": "#1c7ed6",
+            "icon": "phone",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "수도광열비",
             "color": "#e8590c",
             "icon": "receipt",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "세금",
+            "color": "#495057",
+            "icon": "landmark",
             "type": "EXPENSE"
         },
         {
@@ -79,7 +91,7 @@
             "type": "EXPENSE"
         },
         {
-            "name": "생활/마트",
+            "name": "생활/잡화",
             "color": "#cc5de8",
             "icon": "shopping-cart",
             "type": "EXPENSE"
@@ -151,6 +163,12 @@
             "type": "EXPENSE"
         },
         {
+            "name": "기부금",
+            "color": "#e64980",
+            "icon": "heart",
+            "type": "EXPENSE"
+        },
+        {
             "name": "기타",
             "color": "#868e96",
             "icon": "more-horizontal",
@@ -191,6 +209,18 @@
             "color": "#64748b",
             "icon": "plus-circle",
             "type": "INCOME"
+        },
+        {
+            "name": "연금",
+            "color": "#fab005",
+            "icon": "piggy-bank",
+            "type": "INCOME"
+        },
+        {
+            "name": "지원금/환급금",
+            "color": "#be4bdb",
+            "icon": "gift",
+            "type": "INCOME"
         }
     ],
     "pay_methods": [
@@ -227,7 +257,8 @@
         "하나카드",
         "우리카드",
         "NH농협카드",
-        "BC카드"
+        "BC카드",
+        "토스"
     ],
     "rules": [
         {

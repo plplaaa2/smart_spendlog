@@ -20,6 +20,8 @@ function initLogsSubTabs() {
 }
 
 function switchLogsSubTab(subtab) {
+  state.currentLogsSubTab = subtab;
+
   // 버튼 액티브 클래스 조정
   document.querySelectorAll('.logs-tab-btn').forEach(btn => {
     if (btn.dataset.subtab === subtab) {
@@ -37,6 +39,11 @@ function switchLogsSubTab(subtab) {
       content.classList.remove('active');
     }
   });
+
+  // 헤더 업데이트
+  if (typeof updateHeaderTitle === 'function') {
+    updateHeaderTitle('logs', subtab);
+  }
 
   // 서브 탭별 데이터 로드
   if (subtab === 'logs-list') {
@@ -443,7 +450,8 @@ function autoGeneratePattern(silent = false) {
   if (cardMatch) {
     const value = cardMatch[1] || cardMatch[0];
     const isBracket = cardMatch[0].startsWith('[');
-    const isDepositOrWithdraw = isBracket && (/출금|입금/.test(value) || /\d/.test(value));
+    // [입금], [출금] 같은 짧은 상태 문구이거나 숫자가 포함된 경우만 스킵 (입출금알림 같은 헤더성 문구는 카드명/은행명 블록으로 인정)
+    const isDepositOrWithdraw = isBracket && ((value.length <= 5 && /출금|입금/.test(value)) || /\d/.test(value));
     
     if (!isDepositOrWithdraw) {
       const start = cardMatch.index;
@@ -461,28 +469,28 @@ function autoGeneratePattern(silent = false) {
   }
 
   // 2. 시간/일시 감지 (금액 감지보다 먼저 처리하여 연도/날짜가 금액으로 오인되는 것을 방지합니다)
-  const timeMatch = cleanText.match(/\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{2}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{1,2}월\s*\d{1,2}일\s*\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{2}[/\-.]\d{2}\s+\d{2}:\d{2}/) || 
-                    cleanText.match(/\d{2}:\d{2}/);
+  const timeMatch = cleanText.match(/\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}(?::\d{2})?/) || 
+                    cleanText.match(/\d{2}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}(?::\d{2})?/) || 
+                    cleanText.match(/\d{1,2}월\s*\d{1,2}일\s*\d{2}:\d{2}(?::\d{2})?/) || 
+                    cleanText.match(/\d{2}[/\-.]\d{2}\s+\d{2}:\d{2}(?::\d{2})?/) || 
+                    cleanText.match(/\d{2}:\d{2}(?::\d{2})?/);
   if (timeMatch) {
-    let regex = '(?<time>\\d{2}:\\d{2})';
+    let regex = '(?<time>\\d{2}:\\d{2}(?::\\d{2})?)';
     const rawTime = timeMatch[0];
     const start = timeMatch.index;
     const end = timeMatch.index + rawTime.length;
     
     if (!isOverlapping(start, end)) {
       if (rawTime.includes('월') && rawTime.includes('일')) {
-        regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일\\s*\\d{2}:\\d{2})';
+        regex = '(?<time>\\d{1,2}월\\s*\\d{1,2}일\\s*\\d{2}:\\d{2}(?::\\d{2})?)';
       } else if (rawTime.includes(':') && (rawTime.includes('/') || rawTime.includes('-') || rawTime.includes('.'))) {
         const sep = rawTime.match(/[/\-.]/)[0];
         const partCount = (rawTime.split(sep).length - 1);
         if (partCount === 2) {
           const yearLen = rawTime.split(sep)[0].length;
-          regex = `(?<time>\\d{${yearLen}}${escapeRegexChars(sep)}\\d{1,2}${escapeRegexChars(sep)}\\d{1,2}\\s+\\d{2}:\\d{2})`;
+          regex = `(?<time>\\d{${yearLen}}${escapeRegexChars(sep)}\\d{1,2}${escapeRegexChars(sep)}\\d{1,2}\\s+\\d{2}:\\d{2}(?::\\d{2})?)`;
         } else {
-          regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2}\\s+\\d{2}:\\d{2})`;
+          regex = `(?<time>\\d{2}${escapeRegexChars(sep)}\\d{2}\\s+\\d{2}:\\d{2}(?::\\d{2})?)`;
         }
       }
       blocks.push({
@@ -619,18 +627,19 @@ function autoGeneratePattern(silent = false) {
     }
   }
 
-  // 7. 상태 감지 (승인, 사용, 취소, 출금, 입금 등)
-  const statusMatch = cleanText.match(/(승인|사용|취소|출금|입금|결제)/);
-  if (statusMatch) {
-    const idx = statusMatch.index;
-    const len = statusMatch[0].length;
+  // 7. 상태 감지 (승인, 사용, 취소, 출금, 입금 등) - 다중 감지하여 중복되지 않는 모든 상태 수집
+  const statusRegex = /(승인|사용|취소|출금|입금|결제)/g;
+  let sm;
+  while ((sm = statusRegex.exec(cleanText)) !== null) {
+    const idx = sm.index;
+    const len = sm[0].length;
     if (!isOverlapping(idx, idx + len)) {
       blocks.push({
         type: '상태',
         start: idx,
         end: idx + len,
-        regex: escapeRegexChars(statusMatch[0]),
-        value: statusMatch[0]
+        regex: escapeRegexChars(sm[0]),
+        value: sm[0]
       });
     }
   }
@@ -664,6 +673,8 @@ function autoGeneratePattern(silent = false) {
     while ((am = acRegex.exec(cleanText)) !== null) {
       const val = am[0];
       if (val.includes('/') || val.includes(':') || val.includes('원')) continue;
+      // 숫자나 하이픈이 전혀 없고 오직 별표(*)만 있는 문자열은 계좌번호에서 제외 (이름 마스킹 오인 차단)
+      if (!/[\d-]/.test(val)) continue;
       
       const start = am.index;
       const end = am.index + val.length;
@@ -713,11 +724,11 @@ function autoGeneratePattern(silent = false) {
 
   gaps.forEach(g => {
     const txt = cleanText.substring(g.start, g.end);
-    // 잔액, 잔고, 누적 등 명백히 가맹점명이 아닌 고유 텍스트가 들어가 있는 여백은 제외
-    if (/잔액|잔고|누적|입금|출금/.test(txt)) return;
+    // 잔액, 잔고, 누적 등 가맹점명이 될 수 없는 지시어를 제외한 클린 텍스트 추출 (입금/출금 등 브라켓과 지시용어 제외)
+    const cleanTxt = txt.replace(/\[?(입금|출금|잔액|잔고|누적|결제)\]?/g, '').trim();
     
     // 한글이나 영문이 최소 1글자 이상 포함되어 있지 않은 gap은 제외 (숫자, 특수문자, 마스킹만 있는 경우 방지)
-    const cleanLetters = txt.replace(/[^가-힣a-zA-Z]/g, '');
+    const cleanLetters = cleanTxt.replace(/[^가-힣a-zA-Z]/g, '');
     if (cleanLetters.length === 0) return;
 
     if (cleanLetters.length > maxCleanLen) {
@@ -740,11 +751,12 @@ function autoGeneratePattern(silent = false) {
     if (gapText.length > 0) {
       const mStart = targetGap.start + leadLen + (rawGap.substring(leadLen).length - rawGap.substring(leadLen).trimStart().length);
       const mEnd = mStart + gapText.length;
+      const hasNums = /\d/.test(gapText);
       merchantBlock = {
         type: '사용처',
         start: mStart,
         end: mEnd,
-        regex: '(?<merchant>.+?)(?:\\s+[\\d,]+)?',
+        regex: hasNums ? '(?<merchant>.+?)(?:\\s+[\\d,]+)?' : '(?<merchant>.+?)',
         value: gapText
       };
     }
@@ -758,7 +770,7 @@ function autoGeneratePattern(silent = false) {
       type: '사용처',
       start: cleanText.length,
       end: cleanText.length,
-      regex: '(?<merchant>.+?)(?:\\s+[\\d,]+)?',
+      regex: '(?<merchant>.+?)',
       value: ''
     });
   }
@@ -853,6 +865,23 @@ function autoGeneratePattern(silent = false) {
   if (formCard && formCard.style.display === 'none') {
     loadRuleToEditor(null);
     if (patternInput) rulePatternInput.value = patternInput.value;
+  }
+
+  // 본문 텍스트 내용을 기반으로 거래 유형(수입/지출) 감지 및 연계 카테고리 갱신
+  let autoType = 'EXPENSE';
+  if (text.includes('입금') || text.includes('급여') || text.includes('수입')) {
+    autoType = 'INCOME';
+  } else if (text.includes('출금') || text.includes('사용') || text.includes('지출') || text.includes('결제')) {
+    autoType = 'EXPENSE';
+  }
+
+  const ruleTypeSelect = document.getElementById('rule-type');
+  if (ruleTypeSelect) {
+    ruleTypeSelect.value = autoType;
+    // 카테고리 셀렉트 갱신
+    if (typeof updateCategorySelect === 'function') {
+      updateCategorySelect('#rule-category', autoType, '');
+    }
   }
 
   if (!silent) {

@@ -38,10 +38,17 @@
     border-top: 1px solid var(--glass-border);
     backdrop-filter: blur(20px);
     z-index: 1000;
-    justify-content: space-around;
+    justify-content: flex-start;
     align-items: center;
     padding: 0 0.5rem;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.25rem;
+  }
+
+  .mobile-bottom-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .mobile-nav-item {
@@ -56,6 +63,8 @@
     font-weight: 500;
     gap: 4px;
     flex: 1;
+    flex-shrink: 0;
+    min-width: 65px;
     height: 100%;
     cursor: pointer;
     transition: all 0.2s ease;
