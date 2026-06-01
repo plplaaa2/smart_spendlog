@@ -729,9 +729,15 @@ async function findCategoryByMerchant(db, merchantName) {
   for (const row of allMappings) {
     if (row.merchant) {
       const upperKeyword = row.merchant.toUpperCase();
-      if (upperMerchant.includes(upperKeyword)) {
-        // 예외 처리: 키워드가 '마트'인데 상호명에 '스마트', '토마토', '마스크' 등이 포함된 경우 마트/편의점 오분류 방지
-        if (upperKeyword === '마트' && (upperMerchant.includes('스마트') || upperMerchant.includes('토마토') || upperMerchant.includes('마스크'))) {
+      const idx = upperMerchant.indexOf(upperKeyword);
+      if (idx !== -1) {
+        // [예외 1] 키워드가 '마트'인데 상호명에 '스마트'가 포함된 경우 마트/편의점 오분류 방지
+        if (upperKeyword === '마트' && upperMerchant.includes('스마트')) {
+          continue;
+        }
+        // [예외 2] 키워드 바로 뒷글자가 한글(가-힣)인 경우 다른 단어의 일부로 간주해 매칭 제외 (예: '마트폰'의 '마트', '카페트'의 '카페')
+        const nextChar = upperMerchant.charAt(idx + upperKeyword.length);
+        if (nextChar && /^[가-힣]$/.test(nextChar)) {
           continue;
         }
         return row.category;
