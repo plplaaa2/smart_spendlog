@@ -458,6 +458,13 @@ async function migrateCategoriesAndData(dbInstance, username) {
     console.error('[DB 마이그레이션] 마트/편의점 및 생활/잡화 마이그레이션 실패:', e);
   }
 
+  // 기부금 카테고리 강제 마이그레이션 주입
+  try {
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('기부금', '#e64980', 'heart', 'EXPENSE')");
+  } catch (e) {
+    console.error('[DB 마이그레이션] 기부금 마이그레이션 실패:', e);
+  }
+
   await seedDefaultData(dbInstance, username);
 }
 
@@ -752,7 +759,7 @@ async function seedFranchisePresets(db, force = false) {
   let txUpdatedCount = 0;
   if (force) {
     for (const preset of FRANCHISE_PRESETS) {
-      if (['편의점', '음료/카페', '배달음식', '디저트', '패션/의류', '병원/약국', '해외직구', '구독', '렌탈', '세금', '수도광열비', '주거', '통신비', '연금', '지원금/환급금'].includes(preset.category)) {
+      if (['편의점', '음료/카페', '배달음식', '디저트', '패션/의류', '병원/약국', '해외직구', '구독', '렌탈', '세금', '수도광열비', '주거', '통신비', '연금', '지원금/환급금', '기부금'].includes(preset.category)) {
         let sourceCategories = ["식비"];
         if (preset.category === '패션/의류') {
           sourceCategories = ["식비", "온라인쇼핑", "생활/마트"];
@@ -776,6 +783,8 @@ async function seedFranchisePresets(db, force = false) {
           sourceCategories = ["기타수입", "부수입", "기타"];
         } else if (preset.category === '지원금/환급금') {
           sourceCategories = ["기타수입", "부수입", "기타"];
+        } else if (preset.category === '기부금') {
+          sourceCategories = ["기타", "경조사/용돈"];
         }
         for (const srcCat of sourceCategories) {
           const txResult = await db.run(
