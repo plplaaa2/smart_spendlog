@@ -977,7 +977,9 @@ function initEventListeners() {
     backupBtn.addEventListener('click', async () => {
       try {
         const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || '';
-        window.location.href = `api/settings/backup?token=${encodeURIComponent(token)}`;
+        const encryptEl = document.getElementById('settings-manual-encrypt');
+        const isEncrypt = encryptEl ? encryptEl.checked : false;
+        window.location.href = `api/settings/backup?token=${encodeURIComponent(token)}&encrypt=${isEncrypt}`;
       } catch (err) {
         alert('백업 다운로드 실패: ' + err.message);
       }
@@ -1008,7 +1010,15 @@ function initEventListeners() {
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
-          const backupObj = JSON.parse(event.target.result);
+          const fileContent = event.target.result.trim();
+          let backupObj;
+
+          if (fileContent.startsWith('{')) {
+            backupObj = JSON.parse(fileContent);
+          } else {
+            // 암호화된 파일일 경우 백엔드에서 복호화하도록 감싸서 전송
+            backupObj = { isEncrypted: true, rawBody: fileContent };
+          }
           
           const res = await fetch('api/settings/restore', {
             method: 'POST',

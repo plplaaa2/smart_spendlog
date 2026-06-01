@@ -12,7 +12,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const router = express.Router();
-const { getDB, resetAllData, updateHASensors, migrateCategoriesAndData, getUserBackups, restoreUserDBBackup, deleteUserBackup, testNetworkBackup } = require('../database');
+const { getDB, resetAllData, updateHASensors, migrateCategoriesAndData, testNetworkBackup, executeRestore } = require('../database');
 const cryptoHelper = require('../crypto_helper'); // 민감 정보 암호화/복호화용 헬퍼 로드
 
 // HA 호스트에 마운트된 네트워크 스토리지 목록 조회
@@ -147,7 +147,7 @@ router.post('/settings', async (req, res) => {
     const { 
       ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, 
       card_performance_goals, card_performance_days, user_real_name, auto_rule_generation, 
-      pay_methods_order, auto_backup,
+      pay_methods_order, auto_backup, backup_time, backup_days,
       network_backup_enabled, network_backup_type, network_backup_path, 
       network_backup_path_username, network_backup_path_password,
       network_backup_webdav_url, network_backup_webdav_username, network_backup_webdav_password 
@@ -185,6 +185,12 @@ router.post('/settings', async (req, res) => {
     }
     if (auto_backup !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_backup', ?)", [String(auto_backup)]);
+    }
+    if (backup_time !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_time', ?)", [backup_time]);
+    }
+    if (backup_days !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_days', ?)", [backup_days]);
     }
 
     // [신규] 네트워크 백업 설정 개별 업데이트 및 패스워드 대칭 암호화 저장
@@ -319,153 +325,23 @@ router.get('/settings/backup', async (req, res) => {
     const rawFilename = `account_book_backup_${req.username}_${new Date().toISOString().slice(0, 10)}.json`;
     const encodedFilename = encodeURIComponent(rawFilename);
     res.setHeader('Content-disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
-    res.setHeader('Content-type', 'application/json');
-    res.send(JSON.stringify(backupData, null, 2));
+    
+    const encrypt = req.query.encrypt === 'true';
+    let outputContent;
+    if (encrypt) {
+      outputContent = cryptoHelper.encrypt(JSON.stringify(backupData));
+      res.setHeader('Content-type', 'text/plain');
+    } else {
+      outputContent = JSON.stringify(backupData, null, 2);
+      res.setHeader('Content-type', 'application/json');
+    }
+    res.send(outputContent);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 공통 데이터 복원 실행 함수
-async function executeRestore(username, backupObj) {
-  const db = await getDB(username);
-  const adminDb = await getDB('admin');
 
-  if (!backupObj || !backupObj.data || typeof backupObj.data !== 'object') {
-    throw new Error('올바르지 않은 백업 데이터 포맷입니다.');
-  }
-
-  const tables = [
-    'categories',
-    'pay_methods',
-    'rules',
-    'transactions',
-    'notification_logs',
-    'package_pay_methods',
-    'settings',
-    'merchant_categories'
-  ];
-
-  // 데이터 구조 검증
-  for (const table of tables) {
-    if (!Array.isArray(backupObj.data[table])) {
-      throw new Error(`백업 데이터 내 '${table}' 테이블 정보가 유실되었습니다.`);
-    }
-  }
-
-  // SQLite 트랜잭션 구동으로 일괄 안전하게 교체
-  await db.run('BEGIN TRANSACTION');
-  const runAdminTx = (username !== 'admin');
-  if (runAdminTx) {
-    await adminDb.run('BEGIN TRANSACTION');
-  }
-
-  try {
-    for (const table of tables) {
-      if (table === 'rules') {
-        await adminDb.run('DELETE FROM rules');
-      } else {
-        await db.run(`DELETE FROM ${table}`);
-      }
-    }
-
-    // categories 복구 (type 속성 복원 포함)
-    if (backupObj.data.categories.length > 0) {
-      const stmt = await db.prepare('INSERT INTO categories (id, name, color, icon, type) VALUES (?, ?, ?, ?, ?)');
-      for (const row of backupObj.data.categories) {
-        await stmt.run(row.id, row.name, row.color, row.icon, row.type || 'EXPENSE');
-      }
-      await stmt.finalize();
-    }
-
-    // 복원 시 필수 이체 카테고리가 누락되지 않도록 강제 보강 주입
-    await db.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('이체/송금', '#7950f2', 'arrow-left-right', 'EXPENSE')");
-    await db.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('이체/입금', '#228be6', 'arrow-left-right', 'INCOME')");
-    await db.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('페이류', '#0ca678', 'wallet', 'EXPENSE')");
-
-    // pay_methods 복구
-    if (backupObj.data.pay_methods.length > 0) {
-      const stmt = await db.prepare('INSERT INTO pay_methods (id, name) VALUES (?, ?)');
-      for (const row of backupObj.data.pay_methods) {
-        await stmt.run(row.id, row.name);
-      }
-      await stmt.finalize();
-    }
-
-    // rules 복구 (공공 공유 규칙이므로 adminDb에 입력)
-    if (backupObj.data.rules.length > 0) {
-      const stmt = await adminDb.prepare('INSERT INTO rules (id, name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?, ?)');
-      for (const row of backupObj.data.rules) {
-        await stmt.run(row.id, row.name, row.pattern, row.category, row.pay_method, row.merchant_template, row.type || 'EXPENSE');
-      }
-      await stmt.finalize();
-    }
-
-    // transactions 복구
-    if (backupObj.data.transactions.length > 0) {
-      const stmt = await db.prepare('INSERT INTO transactions (id, type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-      for (const row of backupObj.data.transactions) {
-        await stmt.run(row.id, row.type || 'EXPENSE', row.amount, row.merchant, row.category, row.pay_method, row.datetime, row.memo, row.raw_text, row.used_point || 0);
-      }
-      await stmt.finalize();
-    }
-
-    // notification_logs 복구
-    if (backupObj.data.notification_logs.length > 0) {
-      const stmt = await db.prepare('INSERT INTO notification_logs (id, sender, raw_text, parsed_status, matched_rule_id, title, text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-      for (const row of backupObj.data.notification_logs) {
-        await stmt.run(row.id, row.sender, row.raw_text, row.parsed_status, row.matched_rule_id, row.title, row.text, row.created_at || row.received_at);
-      }
-      await stmt.finalize();
-    }
-
-    // package_pay_methods 복구
-    if (backupObj.data.package_pay_methods.length > 0) {
-      const stmt = await db.prepare('INSERT INTO package_pay_methods (id, package, pay_method) VALUES (?, ?, ?)');
-      for (const row of backupObj.data.package_pay_methods) {
-        await stmt.run(row.id, row.package, row.pay_method);
-      }
-      await stmt.finalize();
-    }
-
-    // settings 복구
-    if (backupObj.data.settings.length > 0) {
-      const stmt = await db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
-      for (const row of backupObj.data.settings) {
-        await stmt.run(row.key, row.value);
-      }
-      await stmt.finalize();
-    }
-
-    // merchant_categories 복구
-    if (backupObj.data.merchant_categories.length > 0) {
-      const stmt = await db.prepare('INSERT INTO merchant_categories (id, merchant, category) VALUES (?, ?, ?)');
-      for (const row of backupObj.data.merchant_categories) {
-        await stmt.run(row.id, row.merchant, row.category);
-      }
-      await stmt.finalize();
-    }
-
-    // 복원 완료 시 최신 카테고리 병합/분리 및 스키마 변경 사항 소급 정합 적용
-    await migrateCategoriesAndData(db, username);
-
-    await db.run('COMMIT');
-    if (runAdminTx) {
-      await adminDb.run('COMMIT');
-    }
-
-    updateHASensors(username);
-    return { success: true, message: '데이터가 성공적으로 복원되었습니다.' };
-  } catch (txErr) {
-    await db.run('ROLLBACK');
-    if (runAdminTx) {
-      try {
-        await adminDb.run('ROLLBACK');
-      } catch (e) { }
-    }
-    throw txErr;
-  }
-}
 
 // 데이터 복원 API (가져오기)
 router.post('/settings/restore', async (req, res) => {
@@ -478,93 +354,12 @@ router.post('/settings/restore', async (req, res) => {
   }
 });
 
-// 로컬 자동 백업 목록 조회 API
-// 의존성: public/settings.js 및 public/app.js의 백업 목록 렌더링 함수와 연결됩니다.
-router.get('/settings/backups', async (req, res) => {
-  try {
-    const list = await getUserBackups(req.username);
-    res.json(list);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 로컬 자동 백업 파일로 DB 복원 API
-// 의존성: public/settings.js의 백업 복원 동작과 연결됩니다.
-router.post('/settings/backups/restore', async (req, res) => {
-  try {
-    const { filename } = req.body;
-    if (!filename) {
-      return res.status(400).json({ error: 'filename이 필요합니다.' });
-    }
-    const result = await restoreUserDBBackup(req.username, filename);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 로컬 자동 백업 파일 직접 다운로드 API
-// 의존성: public/settings.js의 다운로드 링크 호출과 연결됩니다.
-router.get('/settings/backups/download/:filename', async (req, res) => {
-  try {
-    const { filename } = req.params;
-    const isWin = process.platform === 'win32';
-    const dbDir = isWin ? path.join(__dirname, '../data') : '/data';
-    const filePath = path.join(dbDir, 'backups', filename);
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: '백업 파일을 찾을 수 없습니다.' });
-    }
-
-    // 본인 소유의 백업 파일만 다운로드할 수 있도록 슬러그 검증
-    const crypto = require('crypto');
-    function getSlug(uname) {
-      if (!uname || uname === 'admin') return 'admin';
-      return /^[a-zA-Z0-9_]+$/.test(uname) ? uname.toLowerCase() : `u_${crypto.createHash('sha1').update(String(uname), 'utf8').digest('hex').slice(0, 12)}`;
-    }
-    const slug = getSlug(req.username);
-    if (!filename.startsWith(`account_book_${slug}_`) || !filename.endsWith('.db')) {
-      return res.status(403).json({ error: '권한이 없거나 잘못된 파일 요청입니다.' });
-    }
-
-    res.download(filePath, filename);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 로컬 자동 백업 파일 삭제 API
-// 의존성: public/settings.js의 삭제 동작과 연결됩니다.
-router.delete('/settings/backups/:filename', async (req, res) => {
-  try {
-    const { filename } = req.params;
-    const result = await deleteUserBackup(req.username, filename);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // [신규] 네트워크 백업 즉시 테스트 수행 API
 // 의존성: public/settings.js의 백업 테스트 버튼 클릭 시 호출됩니다.
 router.post('/settings/backups/test-network', async (req, res) => {
   try {
     const result = await testNetworkBackup(req.username);
     res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// [신규] 로컬 및 네트워크 백업 즉시 실행(수동 백업) API
-// 의존성: public/settings.js의 '지금 백업' 버튼 클릭 시 호출됩니다.
-router.post('/settings/backups/run', async (req, res) => {
-  try {
-    // 순환 의존성 방지를 위해 동적 로드 사용 가능하나 이미 상단에서 가져온 함수들을 사용하므로 필요 시 호출
-    const { backupUserDB } = require('../database');
-    await backupUserDB(req.username);
-    res.json({ success: true, message: '수동 백업 및 네트워크 전송이 완료되었습니다.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

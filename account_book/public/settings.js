@@ -584,62 +584,45 @@ async function loadPackagePayMethods() {
 async function loadDataSettings() {
   try {
     const settings = await fetch('api/settings').then(r => r.json());
+    
+    // 자동 백업 시간 및 요일 스케줄러 바인딩
     const autoBackupEl = document.getElementById('settings-auto-backup');
+    const backupTimeEl = document.getElementById('settings-backup-time');
+    const backupDaysEls = document.querySelectorAll('.settings-backup-day');
+    const scheduleOptionsContainer = document.getElementById('auto-backup-schedule-options');
+
     if (autoBackupEl) {
       autoBackupEl.checked = settings.auto_backup === 'true';
-
-      // 토글 변경 시 즉시 저장
-      autoBackupEl.onchange = async () => {
-        try {
-          const res = await fetch('api/settings', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || ''
-            },
-            body: JSON.stringify({
-              auto_backup: autoBackupEl.checked
-            })
-          }).then(r => r.json());
-
-          if (res.success) {
-            alert('자동 백업 설정이 변경되었습니다.');
-            loadLocalBackups();
-          } else {
-            alert('설정 저장 실패: ' + (res.error || '오류 발생'));
-          }
-        } catch (e) {
-          console.error('자동 백업 설정 저장 중 에러:', e);
-          alert('자동 백업 설정 저장 중 오류가 발생했습니다.');
+      if (scheduleOptionsContainer) {
+        scheduleOptionsContainer.style.display = autoBackupEl.checked ? 'flex' : 'none';
+      }
+      autoBackupEl.onchange = () => {
+        if (scheduleOptionsContainer) {
+          scheduleOptionsContainer.style.display = autoBackupEl.checked ? 'flex' : 'none';
         }
       };
     }
 
+    if (backupTimeEl) {
+      backupTimeEl.value = settings.backup_time || '00:00';
+    }
+
+    if (backupDaysEls.length > 0) {
+      const activeDays = (settings.backup_days || '0,1,2,3,4,5,6').split(',');
+      backupDaysEls.forEach(el => {
+        el.checked = activeDays.includes(el.value);
+      });
+    }
+
     // [네트워크 백업 설정 데이터 연동 및 이벤트 바인딩]
-    // 의존성: public/index.html의 network-backup-card 내 입력 폼 컨트롤들과 연결됩니다.
-    const netEnabledEl = document.getElementById('settings-network-backup');
     const netTypeEl = document.getElementById('settings-network-backup-type');
     const netPathEl = document.getElementById('settings-network-backup-path');
     const netUrlEl = document.getElementById('settings-network-webdav-url');
     const netUserEl = document.getElementById('settings-network-webdav-user');
     const netPassEl = document.getElementById('settings-network-webdav-pass');
 
-    const optionsContainer = document.getElementById('network-backup-options');
     const pathGroup = document.getElementById('network-path-group');
     const webdavGroup = document.getElementById('network-webdav-group');
-
-    if (netEnabledEl) {
-      netEnabledEl.checked = settings.network_backup_enabled === 'true';
-      if (optionsContainer) {
-        optionsContainer.style.display = netEnabledEl.checked ? 'flex' : 'none';
-      }
-
-      netEnabledEl.onchange = () => {
-        if (optionsContainer) {
-          optionsContainer.style.display = netEnabledEl.checked ? 'flex' : 'none';
-        }
-      };
-    }
 
     if (netTypeEl) {
       netTypeEl.value = settings.network_backup_type || 'path';
@@ -703,41 +686,55 @@ async function loadDataSettings() {
     if (netUserEl) netUserEl.value = settings.network_backup_webdav_username || '';
     if (netPassEl) netPassEl.value = settings.network_backup_webdav_password || '';
 
+    const saveNetworkBackupSettings = async () => {
+      // 선택된 요일 수집
+      const selectedDays = [];
+      document.querySelectorAll('.settings-backup-day').forEach(el => {
+        if (el.checked) {
+          selectedDays.push(el.value);
+        }
+      });
+
+      const payload = {
+        auto_backup: autoBackupEl ? autoBackupEl.checked : false,
+        backup_time: backupTimeEl ? backupTimeEl.value : '00:00',
+        backup_days: selectedDays.join(','),
+        network_backup_enabled: autoBackupEl ? autoBackupEl.checked : false,
+        network_backup_type: netTypeEl ? netTypeEl.value : 'path',
+        network_backup_path: netPathEl ? netPathEl.value.trim() : '',
+        network_backup_path_username: '',
+        network_backup_path_password: '',
+        network_backup_webdav_url: netUrlEl ? netUrlEl.value.trim() : '',
+        network_backup_webdav_username: netUserEl ? netUserEl.value.trim() : '',
+        network_backup_webdav_password: netPassEl ? netPassEl.value : ''
+      };
+
+      const res = await fetch('api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || ''
+        },
+        body: JSON.stringify(payload)
+      }).then(r => r.json());
+
+      if (!res.success) {
+        throw new Error(res.error || '설정 저장 실패');
+      }
+      return res;
+    };
+
     // 네트워크 백업 저장 폼 바인딩
     const netForm = document.getElementById('network-backup-form');
     if (netForm) {
       netForm.onsubmit = async (e) => {
         e.preventDefault();
-        
-        const payload = {
-          network_backup_enabled: netEnabledEl ? netEnabledEl.checked : false,
-          network_backup_type: netTypeEl ? netTypeEl.value : 'path',
-          network_backup_path: netPathEl ? netPathEl.value.trim() : '',
-          network_backup_path_username: '',
-          network_backup_path_password: '',
-          network_backup_webdav_url: netUrlEl ? netUrlEl.value.trim() : '',
-          network_backup_webdav_username: netUserEl ? netUserEl.value.trim() : '',
-          network_backup_webdav_password: netPassEl ? netPassEl.value : ''
-        };
-
         try {
-          const res = await fetch('api/settings', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || ''
-            },
-            body: JSON.stringify(payload)
-          }).then(r => r.json());
-
-          if (res.success) {
-            alert('네트워크 백업 설정이 저장되었습니다.');
-          } else {
-            alert('저장 실패: ' + (res.error || '오류 발생'));
-          }
+          await saveNetworkBackupSettings();
+          alert('자동 네트워크 백업 설정이 저장되었습니다.');
         } catch (err) {
-          console.error('네트워크 백업 설정 저장 중 에러:', err);
-          alert('설정 저장 중 오류가 발생했습니다.');
+          console.error('설정 저장 중 에러:', err);
+          alert('설정 저장 중 오류가 발생했습니다: ' + err.message);
         }
       };
     }
@@ -753,6 +750,9 @@ async function loadDataSettings() {
         btnTest.disabled = true;
         if (testIndicator) testIndicator.style.display = 'inline-flex';
         try {
+          // 테스트 실행 전 입력된 설정을 자동으로 먼저 저장
+          await saveNetworkBackupSettings();
+          
           const res = await fetch('api/settings/backups/test-network', {
             method: 'POST',
             headers: {
@@ -761,13 +761,13 @@ async function loadDataSettings() {
           }).then(r => r.json());
 
           if (res.success) {
-            alert(`✅ 네트워크 백업 테스트 성공!\n파일이 지정된 네트워크 저장소로 정상 전송되었습니다.\n파일명: ${res.filename}`);
+            alert(`✅ 네트워크 백업 설정이 저장되었으며 테스트에 성공했습니다!\n파일이 지정된 네트워크 저장소로 정상 전송되었습니다.\n파일명: ${res.filename}`);
           } else {
             alert('❌ 네트워크 백업 테스트 실패: ' + (res.error || '알 수 없는 전송 실패'));
           }
         } catch (err) {
           console.error('네트워크 백업 테스트 에러:', err);
-          alert('❌ 네트워크 백업 테스트 중 오류가 발생했습니다: ' + err.message);
+          alert('❌ 네트워크 백업 저장 및 테스트 중 오류가 발생했습니다: ' + err.message);
         } finally {
           btnTest.disabled = false;
           if (testIndicator) testIndicator.style.display = 'none';
@@ -775,142 +775,8 @@ async function loadDataSettings() {
       };
     }
 
-    // 로컬 자동 백업 목록 로드
-    loadLocalBackups();
   } catch (err) {
     console.error('데이터 설정 로드 실패:', err);
-  }
-}
-
-/**
- * 서버에 저장된 로컬 자동 백업본 목록을 불러와 렌더링하고 동작을 연결합니다.
- * 의존성: index.html의 #local-backups-list-body 요소와 연결됩니다.
- */
-async function loadLocalBackups() {
-  const tbody = document.getElementById('local-backups-list-body');
-  if (!tbody) return;
-
-  try {
-    const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || '';
-    const list = await fetch('api/settings/backups', {
-      headers: {
-        'Authorization': token
-      }
-    }).then(r => r.json());
-
-    if (!Array.isArray(list) || list.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="4" class="text-secondary text-center" style="padding: 1.5rem;">
-            저장된 로컬 자동 백업본이 없습니다. (자동 백업 옵션을 켜두시면 매일 밤 생성됩니다)
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    tbody.innerHTML = '';
-    list.forEach(item => {
-      const tr = document.createElement('tr');
-      tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
-      
-      const sizeKB = (item.size / 1024).toFixed(1);
-
-      tr.innerHTML = `
-        <td data-label="백업 일시" style="padding: 10px 12px; font-weight: 500; color: var(--text-color);">${item.displayDate}</td>
-        <td data-label="파일명" style="padding: 10px 12px; font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">${item.filename}</td>
-        <td data-label="크기" style="padding: 10px 12px; color: var(--text-secondary);">${sizeKB} KB</td>
-        <td data-label="작업" style="padding: 10px 12px; text-align: right; display: flex; justify-content: flex-end; gap: 6px;">
-          <button class="btn btn-restore-backup" data-filename="${item.filename}" title="백업 복원"
-                  style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; padding: 6px; border-radius: 4px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;">
-            <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i>
-          </button>
-          <button class="btn btn-download-backup" data-filename="${item.filename}" title="백업 다운로드"
-                  style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); padding: 6px; border-radius: 4px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;">
-            <i data-lucide="download" style="width: 14px; height: 14px;"></i>
-          </button>
-          <button class="btn btn-delete-backup" data-filename="${item.filename}" title="백업 삭제"
-                  style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger-color); padding: 6px; border-radius: 4px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;">
-            <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
-          </button>
-        </td>
-      `;
-
-      // 1. 복원 버튼 동작 바인딩
-      tr.querySelector('.btn-restore-backup').onclick = async () => {
-        if (confirm(`⚠️ 경고: [${item.displayDate}] 백업본으로 가계부 데이터를 복원하시겠습니까?\n\n이 작업은 현재 등록된 모든 거래 내역과 설정을 백업 시점으로 완전히 대체하며 되돌릴 수 없습니다.`)) {
-          const loader = document.getElementById('restore-loading-indicator');
-          if (loader) loader.style.display = 'inline-flex';
-          
-          try {
-            const res = await fetch('api/settings/backups/restore', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': token
-              },
-              body: JSON.stringify({ filename: item.filename })
-            }).then(r => r.json());
-
-            if (res.success) {
-              alert('데이터베이스 복원이 성공적으로 완료되었습니다. 페이지를 새로고침합니다.');
-              window.location.reload();
-            } else {
-              alert('복원 실패: ' + (res.error || '오류 발생'));
-            }
-          } catch (e) {
-            console.error('복원 중 에러:', e);
-            alert('복원 처리 중 오류가 발생했습니다.');
-          } finally {
-            if (loader) loader.style.display = 'none';
-          }
-        }
-      };
-
-      // 2. 다운로드 버튼 동작 바인딩
-      tr.querySelector('.btn-download-backup').onclick = () => {
-        const url = `api/settings/backups/download/${encodeURIComponent(item.filename)}?token=${encodeURIComponent(token)}`;
-        window.location.href = url;
-      };
-
-      // 3. 삭제 버튼 동작 바인딩
-      tr.querySelector('.btn-delete-backup').onclick = async () => {
-        if (confirm(`정말 이 백업 파일(${item.filename})을 영구 삭제하시겠습니까?`)) {
-          try {
-            const res = await fetch(`api/settings/backups/${encodeURIComponent(item.filename)}`, {
-              method: 'DELETE',
-              headers: {
-                'Authorization': token
-              }
-            }).then(r => r.json());
-
-            if (res.success) {
-              alert('백업 파일이 삭제되었습니다.');
-              loadLocalBackups();
-            } else {
-              alert('삭제 실패: ' + (res.error || '오류 발생'));
-            }
-          } catch (e) {
-            console.error('삭제 중 에러:', e);
-            alert('삭제 처리 중 오류가 발생했습니다.');
-          }
-        }
-      };
-
-      tbody.appendChild(tr);
-    });
-
-    lucide.createIcons();
-
-  } catch (err) {
-    console.error('로컬 백업 목록 불러오기 실패:', err);
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="4" class="text-secondary text-center" style="padding: 1.5rem; color: var(--danger-color);">
-          백업 목록을 불러오는 중 오류가 발생했습니다.
-        </td>
-      </tr>
-    `;
   }
 }
 
@@ -918,40 +784,6 @@ async function loadLocalBackups() {
 // 설정 초기화
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-  // [신규] 지금 백업(수동 백업) 버튼 클릭 리스너 바인딩
-  const btnRunManualBackup = document.getElementById('btn-run-manual-backup');
-  const manualBackupIndicator = document.getElementById('manual-backup-indicator');
-  
-  if (btnRunManualBackup) {
-    btnRunManualBackup.onclick = async () => {
-      if (manualBackupIndicator) manualBackupIndicator.style.display = 'inline-flex';
-      btnRunManualBackup.disabled = true;
-      
-      try {
-        const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || '';
-        const res = await fetch('api/settings/backups/run', {
-          method: 'POST',
-          headers: {
-            'Authorization': token
-          }
-        }).then(r => r.json());
-        
-        if (res.success) {
-          alert('수동 백업이 완료되었습니다. (설정에 따라 네트워크 백업도 전송됨)');
-          await loadLocalBackups(); // 목록 갱신
-        } else {
-          alert('백업 실패: ' + (res.error || '오류 발생'));
-        }
-      } catch (err) {
-        console.error('수동 백업 오류:', err);
-        alert('백업 실행 중 오류가 발생했습니다.');
-      } finally {
-        if (manualBackupIndicator) manualBackupIndicator.style.display = 'none';
-        btnRunManualBackup.disabled = false;
-      }
-    };
-  }
-
   // Lucide 아이콘 변환 강제 실행 (정적 마크업 파싱)
   if (typeof lucide !== 'undefined') {
     lucide.createIcons();

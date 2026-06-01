@@ -529,6 +529,8 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       await dbInstance.run("INSERT INTO settings (key, value) VALUES ('monthly_budget', '500000')");
       await dbInstance.run("INSERT INTO settings (key, value) VALUES ('initial_balance', '0')");
       await dbInstance.run("INSERT INTO settings (key, value) VALUES ('auto_backup', 'false')");
+      await dbInstance.run("INSERT INTO settings (key, value) VALUES ('backup_time', '00:00')");
+      await dbInstance.run("INSERT INTO settings (key, value) VALUES ('backup_days', '0,1,2,3,4,5,6')");
     } else {
       const hasBalance = await dbInstance.get("SELECT 1 FROM settings WHERE key='initial_balance'");
       if (!hasBalance) {
@@ -541,6 +543,14 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       const hasAutoBackup = await dbInstance.get("SELECT 1 FROM settings WHERE key='auto_backup'");
       if (!hasAutoBackup) {
         await dbInstance.run("INSERT INTO settings (key, value) VALUES ('auto_backup', 'false')");
+      }
+      const hasBackupTime = await dbInstance.get("SELECT 1 FROM settings WHERE key='backup_time'");
+      if (!hasBackupTime) {
+        await dbInstance.run("INSERT INTO settings (key, value) VALUES ('backup_time', '00:00')");
+      }
+      const hasBackupDays = await dbInstance.get("SELECT 1 FROM settings WHERE key='backup_days'");
+      if (!hasBackupDays) {
+        await dbInstance.run("INSERT INTO settings (key, value) VALUES ('backup_days', '0,1,2,3,4,5,6')");
       }
     }
 
@@ -1367,7 +1377,7 @@ async function cleanupWebDAVBackups(url, username, password, slug) {
       const decHref = decodeURIComponent(file.href);
       const fileName = decHref.substring(decHref.lastIndexOf('/') + 1);
 
-      if (fileName.startsWith(prefix) && fileName.endsWith('.db')) {
+      if (fileName.startsWith(prefix) && fileName.endsWith('.json')) {
         if (file.lastModified.getTime() < oneWeekAgo) {
           let deleteUrl = url;
           if (!deleteUrl.endsWith('/')) {
@@ -1464,11 +1474,11 @@ async function runWithUNCConnection(targetPath, username, password, callback) {
 async function backupToNetwork(username, localFilePath, filename) {
   const db = await getDB(username);
   
-  const enabledRow = await db.get("SELECT value FROM settings WHERE key = 'network_backup_enabled'");
+  const enabledRow = await db.get("SELECT value FROM settings WHERE key = 'auto_backup'");
   const typeRow = await db.get("SELECT value FROM settings WHERE key = 'network_backup_type'");
   
   if (!enabledRow || enabledRow.value !== 'true') {
-    console.log(`[네트워크 백업][${username}] 네트워크 백업 옵션이 비활성화 상태입니다.`);
+    console.log(`[네트워크 백업][${username}] 자동 네트워크 백업 옵션이 비활성화 상태입니다.`);
     return;
   }
 
@@ -1514,7 +1524,7 @@ async function backupToNetwork(username, localFilePath, filename) {
         const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
 
         for (const file of files) {
-          if (file.startsWith(prefix) && file.endsWith('.db')) {
+          if (file.startsWith(prefix) && file.endsWith('.json')) {
             const filePath = path.join(targetDir, file);
             try {
               const stats = fs.statSync(filePath);
@@ -1579,7 +1589,7 @@ async function testNetworkBackup(username) {
   }
 
   const slug = getUserDbSlug(username);
-  const tempFileName = `account_book_${slug}_net_test_${Date.now()}.db`;
+  const tempFileName = `account_book_${slug}_net_test_${Date.now()}.json`;
   
   const backupDir = path.join(dbDir, 'backups');
   if (!fs.existsSync(backupDir)) {
@@ -1587,8 +1597,22 @@ async function testNetworkBackup(username) {
   }
   const tempBackupPath = path.join(backupDir, tempFileName);
 
-  // 1. 임시 백업 파일 생성
-  fs.copyFileSync(dbPath, tempBackupPath);
+  // 1. 임시 JSON 백업 파일 생성
+  const db = await getDB(username);
+  const adminDb = await getDB('admin');
+  const tables = ['categories', 'pay_methods', 'rules', 'transactions', 'notification_logs', 'package_pay_methods', 'settings', 'merchant_categories'];
+  const backupData = {
+    version: '1.9.84',
+    username: username,
+    backup_date: new Date().toISOString(),
+    data: {}
+  };
+  for (const table of tables) {
+    const targetDb = table === 'rules' ? adminDb : db;
+    const rows = await targetDb.all(`SELECT * FROM ${table}`);
+    backupData.data[table] = rows;
+  }
+  fs.writeFileSync(tempBackupPath, JSON.stringify(backupData, null, 2), 'utf8');
 
   try {
     const db = await getDB(username);
@@ -1651,23 +1675,156 @@ async function testNetworkBackup(username) {
   }
 }
 
-/**
- * 특정 사용자의 데이터베이스 백업 파일을 생성하고, 7일이 지난 백업을 롤링 삭제합니다.
- */
-async function backupUserDB(username) {
-  try {
-    const isWin = process.platform === 'win32';
-    const dbDir = isWin ? path.join(__dirname, 'data') : '/data';
-    const backupDir = path.join(dbDir, 'backups');
+async function executeRestore(username, backupObj) {
+  const db = await getDB(username);
+  const adminDb = await getDB('admin');
 
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
+  let dataObj = backupObj;
+  if (backupObj && backupObj.isEncrypted && backupObj.rawBody) {
+    const cryptoHelper = require('./crypto_helper');
+    try {
+      const decrypted = cryptoHelper.decrypt(backupObj.rawBody);
+      dataObj = JSON.parse(decrypted);
+    } catch (decErr) {
+      throw new Error('암호화된 백업 복호화 실패: 보안 토큰이 변경되었거나 파일이 손상되었습니다.');
+    }
+  }
+
+  if (!dataObj || !dataObj.data || typeof dataObj.data !== 'object') {
+    throw new Error('올바르지 않은 백업 데이터 포맷입니다.');
+  }
+
+  const tables = [
+    'categories',
+    'pay_methods',
+    'rules',
+    'transactions',
+    'notification_logs',
+    'package_pay_methods',
+    'settings',
+    'merchant_categories'
+  ];
+
+  for (const table of tables) {
+    if (!Array.isArray(dataObj.data[table])) {
+      throw new Error(`백업 데이터 내 '${table}' 테이블 정보가 유실되었습니다.`);
+    }
+  }
+
+  await db.run('BEGIN TRANSACTION');
+  const runAdminTx = (username !== 'admin');
+  if (runAdminTx) {
+    await adminDb.run('BEGIN TRANSACTION');
+  }
+
+  try {
+    for (const table of tables) {
+      if (table === 'rules') {
+        await adminDb.run('DELETE FROM rules');
+      } else {
+        await db.run(`DELETE FROM ${table}`);
+      }
     }
 
-    const dbPath = getUserDbPath(dbDir, username);
-    if (!fs.existsSync(dbPath)) {
-      console.warn(`[백업] 사용자 '${username}'의 DB 파일이 존재하지 않아 백업을 건너뜁니다.`);
-      return;
+    if (dataObj.data.categories.length > 0) {
+      const stmt = await db.prepare('INSERT INTO categories (id, name, color, icon, type) VALUES (?, ?, ?, ?, ?)');
+      for (const row of dataObj.data.categories) {
+        await stmt.run(row.id, row.name, row.color, row.icon, row.type || 'EXPENSE');
+      }
+      await stmt.finalize();
+    }
+
+    await db.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('이체/송금', '#7950f2', 'arrow-left-right', 'EXPENSE')");
+    await db.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('이체/입금', '#228be6', 'arrow-left-right', 'INCOME')");
+    await db.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('페이류', '#0ca678', 'wallet', 'EXPENSE')");
+
+    if (dataObj.data.pay_methods.length > 0) {
+      const stmt = await db.prepare('INSERT INTO pay_methods (id, name) VALUES (?, ?)');
+      for (const row of dataObj.data.pay_methods) {
+        await stmt.run(row.id, row.name);
+      }
+      await stmt.finalize();
+    }
+
+    if (dataObj.data.rules.length > 0) {
+      const stmt = await adminDb.prepare('INSERT INTO rules (id, name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      for (const row of dataObj.data.rules) {
+        await stmt.run(row.id, row.name, row.pattern, row.category, row.pay_method, row.merchant_template, row.type || 'EXPENSE');
+      }
+      await stmt.finalize();
+    }
+
+    if (dataObj.data.transactions.length > 0) {
+      const stmt = await db.prepare('INSERT INTO transactions (id, type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+      for (const row of dataObj.data.transactions) {
+        await stmt.run(row.id, row.type || 'EXPENSE', row.amount, row.merchant, row.category, row.pay_method, row.datetime, row.memo, row.raw_text, row.used_point || 0);
+      }
+      await stmt.finalize();
+    }
+
+    if (dataObj.data.notification_logs.length > 0) {
+      const stmt = await db.prepare('INSERT INTO notification_logs (id, sender, raw_text, parsed_status, matched_rule_id, title, text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+      for (const row of dataObj.data.notification_logs) {
+        await stmt.run(row.id, row.sender, row.raw_text, row.parsed_status, row.matched_rule_id, row.title, row.text, row.created_at || row.received_at);
+      }
+      await stmt.finalize();
+    }
+
+    if (dataObj.data.package_pay_methods.length > 0) {
+      const stmt = await db.prepare('INSERT INTO package_pay_methods (id, package, pay_method) VALUES (?, ?, ?)');
+      for (const row of dataObj.data.package_pay_methods) {
+        await stmt.run(row.id, row.package, row.pay_method);
+      }
+      await stmt.finalize();
+    }
+
+    if (dataObj.data.settings.length > 0) {
+      const stmt = await db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
+      for (const row of dataObj.data.settings) {
+        await stmt.run(row.key, row.value);
+      }
+      await stmt.finalize();
+    }
+
+    if (dataObj.data.merchant_categories.length > 0) {
+      const stmt = await db.prepare('INSERT INTO merchant_categories (id, merchant, category) VALUES (?, ?, ?)');
+      for (const row of dataObj.data.merchant_categories) {
+        await stmt.run(row.id, row.merchant, row.category);
+      }
+      await stmt.finalize();
+    }
+
+    await migrateCategoriesAndData(db, username);
+
+    await db.run('COMMIT');
+    if (runAdminTx) {
+      await adminDb.run('COMMIT');
+    }
+
+    updateHASensors(username);
+    return { success: true, message: '데이터가 성공적으로 복원되었습니다.' };
+  } catch (txErr) {
+    await db.run('ROLLBACK');
+    if (runAdminTx) {
+      try { await adminDb.run('ROLLBACK'); } catch (e) {}
+    }
+    throw txErr;
+  }
+}
+
+/**
+ * 특정 사용자의 데이터베이스 백업 파일을 생성하고, 네트워크 전송 후 로컬 임시 파일을 즉시 삭제합니다.
+ */
+async function backupUserDB(username) {
+  const isWin = process.platform === 'win32';
+  const dbDir = isWin ? path.join(__dirname, 'data') : '/data';
+  const backupDir = path.join(dbDir, 'backups');
+  let backupPath = '';
+  let backupFileName = '';
+
+  try {
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
     }
 
     const slug = getUserDbSlug(username);
@@ -1679,95 +1836,114 @@ async function backupUserDB(username) {
       String(now.getMinutes()).padStart(2, '0') +
       String(now.getSeconds()).padStart(2, '0');
     
-    const backupFileName = `account_book_${slug}_${timestamp}.db`;
-    const backupPath = path.join(backupDir, backupFileName);
+    backupFileName = `account_book_${slug}_${timestamp}.json`;
+    backupPath = path.join(backupDir, backupFileName);
 
-    // 1. DB 백업 파일 복사
-    fs.copyFileSync(dbPath, backupPath);
-    console.log(`[백업] 사용자 '${username}'의 DB 백업 완료: ${backupFileName}`);
+    // 1. 데이터베이스 JSON 데이터 직렬화 백업
+    const db = await getDB(username);
+    const adminDb = await getDB('admin');
+    const tables = ['categories', 'pay_methods', 'rules', 'transactions', 'notification_logs', 'package_pay_methods', 'settings', 'merchant_categories'];
+    const backupData = {
+      version: '1.9.85',
+      username: username,
+      backup_date: new Date().toISOString(),
+      data: {}
+    };
+    for (const table of tables) {
+      const targetDb = table === 'rules' ? adminDb : db;
+      const rows = await targetDb.all(`SELECT * FROM ${table}`);
+      backupData.data[table] = rows;
+    }
 
-    // [신규] 네트워크 백업 실행 (네트워크 오류가 로컬 자동 백업 프로세스 전체를 중단시키지 않도록 예외 처리)
+    // JSON 데이터 전체 암호화 (options.json token 기반 AES-256-CBC)
+    const cryptoHelper = require('./crypto_helper');
+    const encryptedJSON = cryptoHelper.encrypt(JSON.stringify(backupData));
+    
+    fs.writeFileSync(backupPath, encryptedJSON, 'utf8');
+    console.log(`[백업] 사용자 '${username}'의 JSON 백업 암호화 완료: ${backupFileName}`);
+
+    // 2. 네트워크 백업 실행
     try {
       await backupToNetwork(username, backupPath, backupFileName);
     } catch (netErr) {
-      console.error(`[백업][${username}] 네트워크 백업 실패 (로컬 백업은 정상 보존):`, netErr.message);
-    }
-
-    // 2. 7일이 지난 백업 롤링 삭제 (일주일 유지)
-    const files = fs.readdirSync(backupDir);
-    const prefix = `account_book_${slug}_`;
-    const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-
-    for (const file of files) {
-      if (file.startsWith(prefix) && file.endsWith('.db')) {
-        const filePath = path.join(backupDir, file);
-        try {
-          const stats = fs.statSync(filePath);
-          if (stats.mtimeMs < oneWeekAgo) {
-            fs.unlinkSync(filePath);
-            console.log(`[백업] 7일이 경과한 오래된 백업 파일 삭제 완료: ${file}`);
-          }
-        } catch (e) {
-          console.error(`[백업] 백업 파일 정보 조회/삭제 중 에러 (${file}):`, e.message);
-        }
-      }
+      console.error(`[백업][${username}] 네트워크 백업 실패:`, netErr.message);
     }
   } catch (err) {
-    console.error(`[백업] 사용자 '${username}'의 DB 백업 진행 중 에러 발생:`, err);
-  }
-}
-
-/**
- * 모든 사용자의 백업 활성화 여부를 조회하여 백업을 순차적으로 수행합니다.
- */
-async function runAutoBackups() {
-  const users = getActiveUsers();
-  console.log(`[백업] 자동 백업 실행 시작 (활성 사용자 수: ${users.length})`);
-  for (const username of users) {
-    try {
-      const db = await getDB(username);
-      const row = await db.get("SELECT value FROM settings WHERE key = 'auto_backup'");
-      const isAutoBackupEnabled = row && row.value === 'true';
-      if (isAutoBackupEnabled) {
-        await backupUserDB(username);
-      } else {
-        console.log(`[백업] 사용자 '${username}'의 자동 백업 옵션이 비활성화(false) 상태입니다.`);
+    console.error(`[백업] 사용자 '${username}'의 JSON 백업 진행 중 에러 발생:`, err);
+  } finally {
+    // 로컬 디바이스 용량 누적 방지를 위해 전송 성공/실패와 무관하게 로컬 임시 백업 파일은 즉시 삭제
+    if (backupPath && fs.existsSync(backupPath)) {
+      try {
+        fs.unlinkSync(backupPath);
+        console.log(`[백업] 임시 로컬 백업 파일 자동 삭제 완료: ${backupFileName}`);
+      } catch (e) {
+        console.error(`[백업] 임시 백업 파일 삭제 실패 (${backupFileName}):`, e.message);
       }
-    } catch (err) {
-      console.error(`[백업] 사용자 '${username}'의 자동 백업 확인 실패:`, err.message);
     }
   }
 }
 
-let lastBackupDate = '';
+const schedulerHistory = {}; // username -> executionKey
 
 /**
- * 자정(00:00 KST)에 모든 활성 사용자의 자동 백업을 트리거하는 백그라운드 스케줄러를 가동합니다.
+ * 활성 사용자들의 개별 일정(시간, 요일)에 맞추어 자동 백업을 처리하는 백그라운드 스케줄러를 작동시킵니다.
  */
 function startBackupScheduler() {
-  console.log('[백업] 자정 자동 백업 스케줄러가 활성화되었습니다.');
+  console.log('[백업] 사용자 맞춤 자동 백업 스케줄러가 활성화되었습니다.');
   
-  // 1분마다 자정 여부 체크
+  // 1분마다 스케줄 체크
   setInterval(async () => {
-    const kstOffset = 9 * 60; // KST = UTC+9
-    const now = new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const kstDate = new Date(utc + (kstOffset * 60000));
+    try {
+      const kstOffset = 9 * 60; // KST = UTC+9
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const kstDate = new Date(utc + (kstOffset * 60000));
 
-    const hours = kstDate.getHours();
-    const minutes = kstDate.getMinutes();
-    const dateStr = kstDate.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+      const currentDay = kstDate.getDay(); // 0(일) ~ 6(토)
+      const currentHour = String(kstDate.getHours()).padStart(2, '0');
+      const currentMin = String(kstDate.getMinutes()).padStart(2, '0');
+      const currentTimeStr = `${currentHour}:${currentMin}`;
+      const dateStr = kstDate.toISOString().slice(0, 10);
+      
+      const executionKey = `${dateStr} ${currentTimeStr}`;
 
-    // 자정(00:00)이고 오늘 백업이 실행되지 않은 경우
-    if (hours === 0 && minutes === 0 && lastBackupDate !== dateStr) {
-      lastBackupDate = dateStr;
-      try {
-        await runAutoBackups();
-      } catch (err) {
-        console.error('[백업] 자정 자동 백업 수행 실패:', err);
+      const users = getActiveUsers();
+      for (const username of users) {
+        // 동일 분 내에 중복 실행되는 것을 방지
+        if (schedulerHistory[username] === executionKey) {
+          continue;
+        }
+
+        try {
+          const db = await getDB(username);
+          const autoBackupRow = await db.get("SELECT value FROM settings WHERE key = 'auto_backup'");
+          const backupTimeRow = await db.get("SELECT value FROM settings WHERE key = 'backup_time'");
+          const backupDaysRow = await db.get("SELECT value FROM settings WHERE key = 'backup_days'");
+
+          const isAutoBackupEnabled = autoBackupRow && autoBackupRow.value === 'true';
+          if (!isAutoBackupEnabled) {
+            continue;
+          }
+
+          const targetTime = backupTimeRow ? backupTimeRow.value : '00:00';
+          const targetDays = (backupDaysRow && backupDaysRow.value) 
+            ? backupDaysRow.value.split(',') 
+            : ['0', '1', '2', '3', '4', '5', '6'];
+
+          // 시간 매칭 및 요일 매칭 확인
+          if (currentTimeStr === targetTime && targetDays.includes(String(currentDay))) {
+            schedulerHistory[username] = executionKey;
+            console.log(`[스케줄러] 사용자 '${username}' 자동 백업 조건 충족. 백업 실행 (설정 시간: ${targetTime}, 요일: ${targetDays.join(',')})`);
+            await backupUserDB(username);
+          }
+        } catch (dbErr) {
+          console.error(`[스케줄러] 사용자 '${username}'의 백업 설정 로드 중 에러:`, dbErr.message);
+        }
       }
+    } catch (schedErr) {
+      console.error('[스케줄러] 백업 스케줄링 연산 중 에러:', schedErr.message);
     }
-  }, 60000); // 1분
+  }, 60000);
 }
 
 /**
@@ -1790,12 +1966,12 @@ async function getUserBackups(username) {
     const backupList = [];
 
     for (const file of files) {
-      if (file.startsWith(prefix) && file.endsWith('.db')) {
+      if (file.startsWith(prefix) && file.endsWith('.json')) {
         const filePath = path.join(backupDir, file);
         try {
           const stats = fs.statSync(filePath);
-          // 파일명에서 타임스탬프 추출 (예: account_book_admin_20260531_201654.db)
-          const parts = file.replace(prefix, '').replace('.db', '').split('_');
+          // 파일명에서 타임스탬프 추출 (예: account_book_admin_20260531_201654.json)
+          const parts = file.replace(prefix, '').replace('.json', '').split('_');
           let displayDate = stats.mtime;
           if (parts.length >= 2) {
             const ymd = parts[0];
@@ -1842,38 +2018,19 @@ async function restoreUserDBBackup(username, backupFileName) {
 
     const slug = getUserDbSlug(username);
     // 보안 검증: 요청된 백업 파일명이 본인의 백업본이 맞는지 확인
-    if (!backupFileName.startsWith(`account_book_${slug}_`) || !backupFileName.endsWith('.db')) {
+    if (!backupFileName.startsWith(`account_book_${slug}_`) || !backupFileName.endsWith('.json')) {
       throw new Error('권한이 없거나 잘못된 백업 파일명입니다.');
     }
 
-    const dbPath = getUserDbPath(dbDir, username);
+    // 1. JSON 백업 데이터 로드
+    const rawData = fs.readFileSync(backupPath, 'utf8');
+    const backupObj = JSON.parse(rawData);
 
-    // 1. 기존 DB 커넥션 종료
-    if (dbs[username]) {
-      console.log(`[복원] 사용자 '${username}'의 DB 커넥션을 임시 종료합니다.`);
-      await dbs[username].close();
-      delete dbs[username];
-    }
-
-    // 2. 백업 파일 복사 (덮어쓰기)
-    fs.copyFileSync(backupPath, dbPath);
-    console.log(`[복원] 사용자 '${username}'의 DB 파일 복사 완료 (백업본: ${backupFileName})`);
-
-    // 3. DB 커넥션 재초기화
-    const newDb = await initUserDB(username);
-    dbs[username] = newDb;
-
-    // 4. HA 센서 동기화
-    await updateHASensors(username);
-
-    return { success: true, message: '백업본으로부터 데이터베이스 복원이 완료되었습니다.' };
+    // 2. executeRestore 공통 함수를 사용해 트랜잭션 내에서 데이터를 교체
+    const result = await executeRestore(username, backupObj);
+    return result;
   } catch (err) {
     console.error(`[복원] 사용자 '${username}'의 DB 복원 중 에러 발생:`, err);
-    try {
-      if (!dbs[username]) {
-        dbs[username] = await initUserDB(username);
-      }
-    } catch (e) {}
     throw err;
   }
 }
@@ -1895,7 +2052,7 @@ async function deleteUserBackup(username, backupFileName) {
 
     const slug = getUserDbSlug(username);
     // 보안 검증
-    if (!backupFileName.startsWith(`account_book_${slug}_`) || !backupFileName.endsWith('.db')) {
+    if (!backupFileName.startsWith(`account_book_${slug}_`) || !backupFileName.endsWith('.json')) {
       throw new Error('권한이 없거나 잘못된 백업 파일명입니다.');
     }
 
@@ -1924,12 +2081,12 @@ module.exports = {
   sendHANotification,
   createInAppNotification,
   backupUserDB,
-  runAutoBackups,
   startBackupScheduler,
   migrateCategoriesAndData,
   getUserBackups,
   restoreUserDBBackup,
   deleteUserBackup,
   backupToNetwork,
-  testNetworkBackup
+  testNetworkBackup,
+  executeRestore
 };

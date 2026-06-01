@@ -1155,14 +1155,127 @@
           <!-- 5) 데이터 관리 서브 탭 -->
           <div id="subtab-data" class="sub-settings-content" style="width: 100%;">
             <div style="display: flex; flex-direction: column; gap: 2rem;">
-              <!-- 데이터 백업 및 복원 카드 -->
-              <div class="card glass settings-form-card">
-                <h3>데이터 백업 및 복원</h3>
-                <div class="info-box">
-                  <p>현재 가계부의 모든 데이터를 안전하게 백업하거나 백업 파일(.json)로부터 데이터를 복원할 수 있습니다.</p>
+              <!-- 1) 자동 네트워크 백업 카드 -->
+              <div class="card glass settings-form-card" id="auto-network-backup-card">
+                <h3>자동 네트워크 백업</h3>
+                <div class="info-box" style="margin-bottom: 1.25rem;">
+                  <p>지정된 시간에 가계부 데이터를 JSON 백업 파일로 직렬화하여 지정된 네트워크 공유 디렉터리(UNC/Local) 또는 WebDAV 서버로 자동 백업합니다.</p>
+                  <p style="margin-top: 0.25rem; font-size: 0.85rem; color: var(--accent-color);">※ 개인 가계부 정보 보안을 위해 백업 파일은 서버 설정 토큰(token)을 기반으로 AES-256-CBC 암호화되어 전송됩니다.</p>
                 </div>
 
-                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 1rem; align-items: center;">
+                <form id="network-backup-form">
+                  <!-- 자동 백업 시간 및 요일 설정 영역 -->
+                  <div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; margin-bottom: 1.5rem;">
+                    <input type="checkbox" id="settings-auto-backup" style="width: 18px; height: 18px; accent-color: var(--accent-color); cursor: pointer;">
+                    <label for="settings-auto-backup" style="cursor: pointer; font-size: 0.95rem; font-weight: 500; margin-bottom: 0; display: inline;">자동 네트워크 백업 활성화</label>
+                  </div>
+
+                  <div id="auto-backup-schedule-options" style="display: none; flex-direction: column; gap: 1.25rem;">
+                    <div style="display: flex; flex-direction: column; gap: 1rem; padding-left: 0.5rem; border-left: 2px solid rgba(255, 255, 255, 0.08);">
+                      <div class="form-group" style="max-width: 250px;">
+                        <label for="settings-backup-time">백업 실행 시간</label>
+                        <input type="time" id="settings-backup-time" value="00:00" style="width: 100%; box-sizing: border-box;">
+                      </div>
+                      
+                      <div class="form-group">
+                        <label style="margin-bottom: 0.5rem; display: block;">백업 실행 요일 (다중 선택 가능)</label>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 0.25rem;">
+                          <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" class="settings-backup-day" value="0"> 일
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" class="settings-backup-day" value="1"> 월
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" class="settings-backup-day" value="2"> 화
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" class="settings-backup-day" value="3"> 수
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" class="settings-backup-day" value="4"> 목
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" class="settings-backup-day" value="5"> 금
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" class="settings-backup-day" value="6"> 토
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 1.25rem; padding-left: 0.5rem; border-left: 2px solid rgba(255, 255, 255, 0.08); margin-top: 1rem;">
+                    <div class="form-group">
+                      <label for="settings-network-backup-type">백업 전송 방식</label>
+                      <select id="settings-network-backup-type" class="select-filter" style="width: 100%; box-sizing: border-box;">
+                        <option value="path">로컬/네트워크 디렉토리 경로 (UNC/Local Path)</option>
+                        <option value="webdav">WebDAV 프로토콜</option>
+                      </select>
+                    </div>
+
+                    <div class="form-group" id="network-path-group">
+                      <label for="settings-network-backup-path">네트워크 백업 경로 (Network Path / Target Folder)</label>
+                      
+                      <div id="ha-mounts-selector-container" style="display: none; margin-top: 0.5rem; margin-bottom: 0.75rem;">
+                        <label for="settings-ha-mounts-dropdown" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">HA 네트워크 스토리지 간편 선택</label>
+                        <select id="settings-ha-mounts-dropdown" class="select-filter" style="width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); padding: 8px; border-radius: 6px;">
+                          <option value="">-- 마운트 선택 안함 (수동 입력) --</option>
+                        </select>
+                      </div>
+
+                      <div class="info-box" style="margin-bottom: 0.5rem; border-left: 4px solid var(--accent-color);">
+                        <p style="font-weight: 600; color: var(--text-primary);">⚠️ Home Assistant (HA) 환경 필수 주의사항:</p>
+                        <p style="margin-top: 0.25rem;">[시스템 -> 스토리지]에서 추가/마운트한 공유 디렉터리의 로컬 마운트 경로(예: <code>/share/backups</code>, <code>/media/backup</code>, <code>/backup</code> 등)를 우선 지정하십시오. (UNC 경로 <code>\\192.168.x.x\Backup</code>는 Windows 단독 설치 환경에서만 지원됩니다.)</p>
+                        <p style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--accent-color); font-weight: 500;">★ 중요: 설정을 변경하신 후 반드시 [설정 저장] 버튼을 누르거나 [테스트 실행]을 진행해 주시기 바랍니다. (테스트 실행 시 입력한 설정 정보가 먼저 자동 저장된 후 백업 전송 테스트가 진행됩니다.)</p>
+                      </div>
+                      <input type="text" id="settings-network-backup-path" placeholder="예: \\192.168.1.100\Backup or /share/backup" style="margin-bottom: 1rem;">
+                    </div>
+
+                    <div id="network-webdav-group" style="display: none; flex-direction: column; gap: 1.25rem;">
+                      <div class="form-group">
+                        <label for="settings-network-webdav-url">WebDAV 주소 (URL)</label>
+                        <input type="text" id="settings-network-webdav-url" placeholder="예: https://nas.local:5006/webdav/Backup">
+                      </div>
+                      <div class="form-row" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <div class="form-group" style="flex: 1; min-width: 200px;">
+                          <label style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem; display: block;">사용자 이름 (Username)</label>
+                          <input type="text" id="settings-network-webdav-user" placeholder="admin">
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 200px;">
+                          <label style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem; display: block;">비밀번호 (Password)</label>
+                          <input type="password" id="settings-network-webdav-pass" placeholder="******">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 1.5rem; align-items: center;">
+                    <button type="submit" class="btn btn-primary" id="btn-save-network-backup">설정 저장</button>
+                    <button type="button" class="btn" id="btn-test-network-backup" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary); display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s;">
+                      <i data-lucide="play" style="width: 16px; height: 16px;"></i> 테스트 실행
+                    </button>
+                    <span id="network-test-indicator" style="display: none; font-size: 0.85rem; color: var(--primary-color); align-items: center; gap: 0.25rem;">
+                      <i data-lucide="loader" class="animate-spin" style="width: 16px; height: 16px;"></i> 테스트 진행 중...
+                    </span>
+                  </div>
+                </form>
+              </div>
+
+              <!-- 2) 수동 데이터 백업 및 복원 카드 -->
+              <div class="card glass settings-form-card">
+                <h3>수동 데이터 백업 및 복원</h3>
+                <div class="info-box">
+                  <p>현재 가계부의 모든 데이터를 안전하게 파일(.json)로 즉시 다운로드하거나, 이전에 내보낸 백업 파일로부터 데이터를 직접 복원할 수 있습니다.</p>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; margin-bottom: 1rem; padding-left: 0.25rem;">
+                  <input type="checkbox" id="settings-manual-encrypt" style="width: 16px; height: 16px; accent-color: var(--accent-color); cursor: pointer;">
+                  <label for="settings-manual-encrypt" style="cursor: pointer; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0; display: inline;">백업 파일 암호화 (AES-256-CBC)</label>
+                </div>
+
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
                   <button type="button" class="btn btn-primary" id="btn-backup-data"
                     style="display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px;">
                     <i data-lucide="download" style="width: 16px; height: 16px;"></i> 데이터 백업 (내보내기)
@@ -1179,121 +1292,7 @@
                 </div>
               </div>
 
-              <!-- 네트워크 백업 설정 카드 (신설) -->
-              <div class="card glass settings-form-card" id="network-backup-card">
-                <h3>네트워크 백업 설정</h3>
-                <div class="info-box">
-                  <p>로컬에 생성된 백업본을 지정된 네트워크 공유 폴더(UNC)나 WebDAV 서버로 전송하여 이중 백업을 구성합니다.</p>
-                </div>
-
-                <form id="network-backup-form">
-                  <div class="form-group" style="margin: 1.25rem 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
-                    <input type="checkbox" id="settings-network-backup" style="width: 18px; height: 18px; accent-color: var(--accent-color); cursor: pointer;">
-                    <label for="settings-network-backup" style="cursor: pointer; font-size: 0.9rem; font-weight: normal; margin-bottom: 0; display: inline;">네트워크 백업 활성화</label>
-                  </div>
-
-                  <div id="network-backup-options" style="display: none; flex-direction: column; gap: 1.25rem;">
-                    <div class="form-group">
-                      <label for="settings-network-backup-type">백업 전송 방식</label>
-                      <select id="settings-network-backup-type" class="select-filter" style="width: 100%; box-sizing: border-box;">
-                        <option value="path">로컬/네트워크 디렉토리 경로 (UNC/Local Path)</option>
-                        <option value="webdav">WebDAV 프로토콜</option>
-                      </select>
-                    </div>
-
-                    <div class="form-group" id="network-path-group">
-                      <label for="settings-network-backup-path">네트워크 백업 경로 (Network Path / Target Folder)</label>
-                      
-                      <!-- [추가] HA 마운트 목록 자동 선택기 -->
-                      <div id="ha-mounts-selector-container" style="display: none; margin-top: 0.5rem; margin-bottom: 0.75rem;">
-                        <label for="settings-ha-mounts-dropdown" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">HA 네트워크 스토리지 간편 선택</label>
-                        <select id="settings-ha-mounts-dropdown" class="select-filter" style="width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); padding: 8px; border-radius: 6px;">
-                          <option value="">-- 마운트 선택 안함 (수동 입력) --</option>
-                        </select>
-                      </div>
-
-                      <div class="info-box" style="margin-bottom: 0.5rem;">
-                        <p>윈도우인 경우 공유 폴더 UNC 경로(예: <code>\\192.168.0.100\Backups</code>)를 입력하거나, 리눅스인 경우 마운트 경로(예: <code>/share/backups</code>)를 입력합니다. (Home Assistant 네트워크 저장소만 지원)</p>
-                      </div>
-                      <input type="text" id="settings-network-backup-path" placeholder="예: \\192.168.1.100\Backup or /share/backup" style="margin-bottom: 1rem;">
-                    </div>
-
-                    <div id="network-webdav-group" style="display: none; flex-direction: column; gap: 1.25rem;">
-                      <div class="form-group">
-                        <label for="settings-network-webdav-url">WebDAV 주소 (URL)</label>
-                        <input type="text" id="settings-network-webdav-url" placeholder="예: https://nas.local:5006/webdav/Backup">
-                      </div>
-                      <div class="form-row" style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                        <div class="form-group" style="flex: 1; min-width: 200px;">
-                          <label for="settings-network-webdav-user">사용자 이름 (Username)</label>
-                          <input type="text" id="settings-network-webdav-user" placeholder="admin">
-                        </div>
-                        <div class="form-group" style="flex: 1; min-width: 200px;">
-                          <label for="settings-network-webdav-pass">비밀번호 (Password)</label>
-                          <input type="password" id="settings-network-webdav-pass" placeholder="******">
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 1.5rem; align-items: center;">
-                    <button type="submit" class="btn btn-primary" id="btn-save-network-backup">네트워크 설정 저장</button>
-                    <button type="button" class="btn" id="btn-test-network-backup" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary); display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; font-weight: 500; cursor: pointer; transition: all 0.2s;">
-                      <i data-lucide="play" style="width: 16px; height: 16px;"></i> 테스트 실행
-                    </button>
-                    <span id="network-test-indicator" style="display: none; font-size: 0.85rem; color: var(--primary-color); align-items: center; gap: 0.25rem;">
-                      <i data-lucide="loader" class="animate-spin" style="width: 16px; height: 16px;"></i> 테스트 진행 중...
-                    </span>
-                  </div>
-                </form>
-              </div>
-
-              <!-- 로컬 자동 백업 관리 카드 (신설) -->
-              <div class="card glass settings-form-card" id="local-backups-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 8px;">
-                  <h3 style="margin-bottom: 0;">자동 백업</h3>
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <button type="button" class="btn" id="btn-run-manual-backup" style="background: var(--primary-color); color: #fff; display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none;">
-                      <i data-lucide="save" style="width: 14px; height: 14px;"></i> 지금 백업
-                    </button>
-                    <span id="manual-backup-indicator" style="display: none; font-size: 0.8rem; color: var(--primary-color); align-items: center; gap: 0.2rem;">
-                      <i data-lucide="loader" class="animate-spin" style="width: 14px; height: 14px;"></i> 백업 중...
-                    </span>
-                  </div>
-                </div>
-                <div class="info-box" style="margin-bottom: 1rem;">
-                  <p>매일 밤 12시에 자동으로 생성되며 최근 7일 동안 보관되는 데이터베이스 파일(.db) 백업본들입니다. 원하는 시점의 백업본으로 즉시 복원하거나 파일을 직접 다운로드할 수 있습니다.</p>
-                </div>
-                
-                <div style="margin: 0.5rem 0 1.25rem 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
-                  <input type="checkbox" id="settings-auto-backup" style="width: 18px; height: 18px; accent-color: var(--accent-color); cursor: pointer;">
-                  <label for="settings-auto-backup" style="cursor: pointer; font-size: 0.9rem; font-weight: normal; margin-bottom: 0; display: inline; color: var(--text-primary);">
-                    매일 밤 12시에 데이터 자동 백업 실행
-                  </label>
-                </div>
-                
-                <div class="table-responsive" style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
-                  <table class="table" style="margin-bottom: 0; font-size: 0.9rem;">
-                    <thead>
-                      <tr>
-                        <th>백업 일시</th>
-                        <th>파일명</th>
-                        <th>크기</th>
-                        <th style="text-align: right; width: 180px;">작업</th>
-                      </tr>
-                    </thead>
-                    <tbody id="local-backups-list-body">
-                      <tr>
-                        <td colspan="4" class="text-secondary text-center" style="padding: 1.5rem;">백업 목록을 불러오는 중...</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-
-
-              <!-- Danger Zone (Data Reset) Card -->
+              <!-- 3) 데이터 초기화 카드 -->
               <div class="card glass reset-card" style="border-color: rgba(239, 68, 68, 0.25);">
                 <h3
                   style="color: var(--danger-color); display: flex; align-items: center; gap: 8px; font-size: 1.25rem; margin-bottom: 1rem;">
