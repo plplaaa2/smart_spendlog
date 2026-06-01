@@ -723,11 +723,11 @@ function autoGeneratePattern(silent = false) {
 
   gaps.forEach(g => {
     const txt = cleanText.substring(g.start, g.end);
-    // 잔액, 잔고, 누적 등 명백히 가맹점명이 아닌 고유 텍스트가 들어가 있는 여백은 제외
-    if (/잔액|잔고|누적|입금|출금/.test(txt)) return;
+    // 잔액, 잔고, 누적 등 가맹점명이 될 수 없는 지시어를 제외한 클린 텍스트 추출 (입금/출금 등 브라켓과 지시용어 제외)
+    const cleanTxt = txt.replace(/\[?(입금|출금|잔액|잔고|누적|결제)\]?/g, '').trim();
     
     // 한글이나 영문이 최소 1글자 이상 포함되어 있지 않은 gap은 제외 (숫자, 특수문자, 마스킹만 있는 경우 방지)
-    const cleanLetters = txt.replace(/[^가-힣a-zA-Z]/g, '');
+    const cleanLetters = cleanTxt.replace(/[^가-힣a-zA-Z]/g, '');
     if (cleanLetters.length === 0) return;
 
     if (cleanLetters.length > maxCleanLen) {
