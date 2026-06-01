@@ -638,6 +638,24 @@ const FRANCHISE_PRESETS = [
   { keyword: '수당', category: '지원금/환급금' },
   { keyword: '장려금', category: '지원금/환급금' },
   { keyword: '캐시백', category: '지원금/환급금' },
+
+  // =============================================
+  // 기부금
+  // =============================================
+  { keyword: '유니세프', category: '기부금' },
+  { keyword: 'UNICEF', category: '기부금' },
+  { keyword: '초록우산', category: '기부금' },
+  { keyword: '월드비전', category: '기부금' },
+  { keyword: 'WORLD VISION', category: '기부금' },
+  { keyword: '세이브더칠드런', category: '기부금' },
+  { keyword: 'SAVE THE CHILDREN', category: '기부금' },
+  { keyword: '적십자', category: '기부금' },
+  { keyword: '굿네이버스', category: '기부금' },
+  { keyword: 'GOOD NEIGHBORS', category: '기부금' },
+  { keyword: '기부금', category: '기부금' },
+  { keyword: '기부', category: '기부금' },
+  { keyword: '후원금', category: '기부금' },
+  { keyword: '후원', category: '기부금' },
 ];
 
 module.exports = { FRANCHISE_PRESETS };

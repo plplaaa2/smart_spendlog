@@ -9,58 +9,8 @@
 
 const express = require('express');
 const http = require('http');
-const path = require('path');
-const fs = require('fs');
 const router = express.Router();
-const { getDB, resetAllData, updateHASensors, migrateCategoriesAndData, getUserBackups, restoreUserDBBackup, deleteUserBackup, testNetworkBackup } = require('../database');
-const cryptoHelper = require('../crypto_helper'); // 민감 정보 암호화/복호화용 헬퍼 로드
-
-// HA 호스트에 마운트된 네트워크 스토리지 목록 조회
-router.get('/settings/ha_mounts', async (req, res) => {
-  const token = process.env.SUPERVISOR_TOKEN;
-  if (!token) {
-    return res.json([]);
-  }
-
-  try {
-    const mountsData = await new Promise((resolve, reject) => {
-      const options = {
-        hostname: 'supervisor',
-        port: 80,
-        path: '/mounts',
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      };
-
-      const request = http.request(options, (response) => {
-        let data = '';
-        response.on('data', (chunk) => { data += chunk; });
-        response.on('end', () => {
-          if (response.statusCode >= 200 && response.statusCode < 300) {
-            try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
-          } else {
-            reject(new Error(`Status: ${response.statusCode}`));
-          }
-        });
-      });
-
-      request.on('error', (err) => reject(err));
-      request.setTimeout(5000);
-      request.end();
-    });
-
-    if (mountsData && mountsData.result === 'ok' && mountsData.data && Array.isArray(mountsData.data.mounts)) {
-      return res.json(mountsData.data.mounts);
-    }
-    return res.json([]);
-  } catch (err) {
-    console.error('[HA mounts] 네트워크 스토리지 목록 조회 실패:', err.message);
-    return res.json([]);
-  }
-});
+const { getDB, resetAllData, updateHASensors, migrateCategoriesAndData } = require('../database');
 
 // HA의 last_notification 엔티티 목록 조회
 router.get('/settings/ha_notification_sensors', async (req, res) => {
@@ -128,11 +78,7 @@ router.get('/settings', async (req, res) => {
     const rows = await db.all('SELECT * FROM settings');
     const settings = {};
     rows.forEach(r => {
-      if ((r.key === 'network_backup_webdav_password' || r.key === 'network_backup_path_password') && r.value) {
-        settings[r.key] = '******'; // 보안 및 전송 보호를 위해 마스킹 처리
-      } else {
-        settings[r.key] = r.value;
-      }
+      settings[r.key] = r.value;
     });
     res.json(settings);
   } catch (err) {
@@ -144,14 +90,7 @@ router.get('/settings', async (req, res) => {
 router.post('/settings', async (req, res) => {
   try {
     const db = await getDB(req.username);
-    const { 
-      ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, 
-      card_performance_goals, card_performance_days, user_real_name, auto_rule_generation, 
-      pay_methods_order, auto_backup,
-      network_backup_enabled, network_backup_type, network_backup_path, 
-      network_backup_path_username, network_backup_path_password,
-      network_backup_webdav_url, network_backup_webdav_username, network_backup_webdav_password 
-    } = req.body;
+    const { ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, card_performance_goals, card_performance_days, user_real_name, auto_rule_generation, pay_methods_order, auto_backup } = req.body;
 
     if (ws_sensor_entity !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ws_sensor_entity', ?)", [ws_sensor_entity]);
@@ -187,38 +126,6 @@ router.post('/settings', async (req, res) => {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_backup', ?)", [String(auto_backup)]);
     }
 
-    // [신규] 네트워크 백업 설정 개별 업데이트 및 패스워드 대칭 암호화 저장
-    if (network_backup_enabled !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('network_backup_enabled', ?)", [String(network_backup_enabled)]);
-    }
-    if (network_backup_type !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('network_backup_type', ?)", [network_backup_type]);
-    }
-    if (network_backup_path !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('network_backup_path', ?)", [network_backup_path]);
-    }
-    if (network_backup_path_username !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('network_backup_path_username', ?)", [network_backup_path_username]);
-    }
-    if (network_backup_path_password !== undefined) {
-      if (network_backup_path_password !== '******') {
-        const encrypted = network_backup_path_password ? cryptoHelper.encrypt(network_backup_path_password) : '';
-        await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('network_backup_path_password', ?)", [encrypted]);
-      }
-    }
-    if (network_backup_webdav_url !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('network_backup_webdav_url', ?)", [network_backup_webdav_url]);
-    }
-    if (network_backup_webdav_username !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('network_backup_webdav_username', ?)", [network_backup_webdav_username]);
-    }
-    if (network_backup_webdav_password !== undefined) {
-      if (network_backup_webdav_password !== '******') {
-        const encrypted = network_backup_webdav_password ? cryptoHelper.encrypt(network_backup_webdav_password) : '';
-        await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('network_backup_webdav_password', ?)", [encrypted]);
-      }
-    }
-
     res.json({ success: true });
     updateHASensors(req.username);
 
@@ -235,21 +142,6 @@ router.post('/settings', async (req, res) => {
 // 전체 초기화 API
 router.post('/settings/reset-all', async (req, res) => {
   try {
-    const { password } = req.body;
-    const config = req.app.locals.config;
-    const user = config.users.find(u => u.username === req.username);
-    
-    let isPasswordValid = false;
-    if (user) {
-      isPasswordValid = (user.password === password);
-    } else if (!config.users.length && req.username === 'admin') {
-      isPasswordValid = true;
-    }
-    
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' });
-    }
-
     await resetAllData(req.username);
     res.json({ success: true, message: '모든 데이터와 설정이 성공적으로 초기화되었습니다.' });
     updateHASensors(req.username);
@@ -261,21 +153,6 @@ router.post('/settings/reset-all', async (req, res) => {
 // 잔액 초기화 API
 router.post('/settings/reset-balance', async (req, res) => {
   try {
-    const { password } = req.body;
-    const config = req.app.locals.config;
-    const user = config.users.find(u => u.username === req.username);
-    
-    let isPasswordValid = false;
-    if (user) {
-      isPasswordValid = (user.password === password);
-    } else if (!config.users.length && req.username === 'admin') {
-      isPasswordValid = true;
-    }
-    
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: '비밀번호가 올바르지 않습니다.' });
-    }
-
     const db = await getDB(req.username);
     await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('initial_balance', '0')");
     res.json({ success: true, message: '초기 잔액이 0원으로 초기화되었습니다.' });
@@ -473,98 +350,6 @@ router.post('/settings/restore', async (req, res) => {
     const backupObj = req.body;
     const result = await executeRestore(req.username, backupObj);
     res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 로컬 자동 백업 목록 조회 API
-// 의존성: public/settings.js 및 public/app.js의 백업 목록 렌더링 함수와 연결됩니다.
-router.get('/settings/backups', async (req, res) => {
-  try {
-    const list = await getUserBackups(req.username);
-    res.json(list);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 로컬 자동 백업 파일로 DB 복원 API
-// 의존성: public/settings.js의 백업 복원 동작과 연결됩니다.
-router.post('/settings/backups/restore', async (req, res) => {
-  try {
-    const { filename } = req.body;
-    if (!filename) {
-      return res.status(400).json({ error: 'filename이 필요합니다.' });
-    }
-    const result = await restoreUserDBBackup(req.username, filename);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 로컬 자동 백업 파일 직접 다운로드 API
-// 의존성: public/settings.js의 다운로드 링크 호출과 연결됩니다.
-router.get('/settings/backups/download/:filename', async (req, res) => {
-  try {
-    const { filename } = req.params;
-    const isWin = process.platform === 'win32';
-    const dbDir = isWin ? path.join(__dirname, '../data') : '/data';
-    const filePath = path.join(dbDir, 'backups', filename);
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: '백업 파일을 찾을 수 없습니다.' });
-    }
-
-    // 본인 소유의 백업 파일만 다운로드할 수 있도록 슬러그 검증
-    const crypto = require('crypto');
-    function getSlug(uname) {
-      if (!uname || uname === 'admin') return 'admin';
-      return /^[a-zA-Z0-9_]+$/.test(uname) ? uname.toLowerCase() : `u_${crypto.createHash('sha1').update(String(uname), 'utf8').digest('hex').slice(0, 12)}`;
-    }
-    const slug = getSlug(req.username);
-    if (!filename.startsWith(`account_book_${slug}_`) || !filename.endsWith('.db')) {
-      return res.status(403).json({ error: '권한이 없거나 잘못된 파일 요청입니다.' });
-    }
-
-    res.download(filePath, filename);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 로컬 자동 백업 파일 삭제 API
-// 의존성: public/settings.js의 삭제 동작과 연결됩니다.
-router.delete('/settings/backups/:filename', async (req, res) => {
-  try {
-    const { filename } = req.params;
-    const result = await deleteUserBackup(req.username, filename);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// [신규] 네트워크 백업 즉시 테스트 수행 API
-// 의존성: public/settings.js의 백업 테스트 버튼 클릭 시 호출됩니다.
-router.post('/settings/backups/test-network', async (req, res) => {
-  try {
-    const result = await testNetworkBackup(req.username);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// [신규] 로컬 및 네트워크 백업 즉시 실행(수동 백업) API
-// 의존성: public/settings.js의 '지금 백업' 버튼 클릭 시 호출됩니다.
-router.post('/settings/backups/run', async (req, res) => {
-  try {
-    // 순환 의존성 방지를 위해 동적 로드 사용 가능하나 이미 상단에서 가져온 함수들을 사용하므로 필요 시 호출
-    const { backupUserDB } = require('../database');
-    await backupUserDB(req.username);
-    res.json({ success: true, message: '수동 백업 및 네트워크 전송이 완료되었습니다.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

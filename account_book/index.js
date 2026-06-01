@@ -42,7 +42,54 @@ try {
 // 라우터 공유 전역 설정 바인딩
 app.locals.config = config;
 
+// [신규] 보안 HTTP 헤더 주입 (브라우저 취약점 방어)
+// 의존성: 외부 노출 시 클릭재킹, XSS 등의 브라우저 단 공격 시도를 완화하기 위해 브라우저 보안 헤더들을 직접 설정합니다.
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'");
+  next();
+});
+
+// [신규] IP별 API 요청 속도 제한 (Rate Limiting)
+// 의존성: 외부 무차별 대입 공격 및 DoS 방어를 위해 Express 전역/개별 라우트에 적용합니다.
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1분
+const GENERAL_LIMIT = 60; // 1분당 일반 API 최대 60회
+const SENSITIVE_LIMIT = 10; // 1분당 로그인/웹훅 등 민감 API 최대 10회
+
+const createRateLimiter = (limit, message) => {
+  return (req, res, next) => {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const now = Date.now();
+    
+    if (!rateLimitMap.has(ip)) {
+      rateLimitMap.set(ip, []);
+    }
+    
+    const timestamps = rateLimitMap.get(ip);
+    const activeTimestamps = timestamps.filter(time => now - time < RATE_LIMIT_WINDOW);
+    activeTimestamps.push(now);
+    rateLimitMap.set(ip, activeTimestamps);
+
+    if (activeTimestamps.length > limit) {
+      console.warn(`[보안] IP ${ip}가 요청 제한을 초과했습니다. (${activeTimestamps.length}/${limit}회)`);
+      return res.status(429).json({ error: message || 'Too Many Requests: 요청 속도가 너무 빠릅니다. 잠시 후 다시 시도해 주세요.' });
+    }
+    next();
+  };
+};
+
+const generalLimiter = createRateLimiter(GENERAL_LIMIT, '요청 속도가 너무 빠릅니다. 잠시 후 다시 시도해 주세요.');
+const sensitiveLimiter = createRateLimiter(SENSITIVE_LIMIT, '인증 및 웹훅 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.');
+
 app.use(express.json());
+
+// 민감 API 및 일반 API 개별 제한 순차 적용
+app.use('/api/login', sensitiveLimiter);
+app.use('/api/webhook', sensitiveLimiter);
+app.use('/api', generalLimiter);
 
 // 에러 메시지 마스킹 미들웨어 (Information Disclosure 방지)
 app.use((req, res, next) => {

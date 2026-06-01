@@ -183,8 +183,12 @@ async function processIncomingNotification(newState, username) {
       return false;
     };
     
+    const isCardCompany = result.merchant.endsWith('카드') || 
+                          /카드대금|카드결제|카드출금/.test(result.merchant);
+
     const isTransferMerchant = (realName && result.merchant === realName) || 
-                               ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant);
+                               ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant) ||
+                               isCardCompany;
 
     if (isTransferMerchant && isBank) {
       if (result.type === 'INCOME') {
@@ -436,8 +440,12 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
         return false;
       };
       
+      const isCardCompany = result.merchant.endsWith('카드') || 
+                            /카드대금|카드결제|카드출금/.test(result.merchant);
+
       const isTransferMerchant = (realName && result.merchant === realName) || 
-                                 ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant);
+                                 ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant) ||
+                                 isCardCompany;
 
       if (isTransferMerchant && isBank) {
         if (result.type === 'INCOME') {

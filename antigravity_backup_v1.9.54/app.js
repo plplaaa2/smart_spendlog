@@ -1210,29 +1210,14 @@ function initEventListeners() {
   if (resetBalanceBtn) {
     resetBalanceBtn.addEventListener('click', async () => {
       if (!confirm('초기 보유 잔액 설정을 0원으로 초기화하시겠습니까?')) return;
-      
-      const password = prompt('⚠️ 잔액을 초기화하려면 가계부 로그인 비밀번호를 입력해 주십시오:');
-      if (password === null) return; // 취소 시 종료
-      if (!password.trim()) {
-        alert('비밀번호를 입력해야 합니다.');
-        return;
-      }
-
       try {
-        const res = await fetch('api/settings/reset-balance', { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        }).then(r => r.json());
-
+        const res = await fetch('api/settings/reset-balance', { method: 'POST' }).then(r => r.json());
         if (res.success) {
           alert('초기 잔액이 초기화되었습니다.');
           const balanceEl = document.getElementById('settings-initial-balance');
           if (balanceEl) balanceEl.value = 0;
           await loadMetadata();
           await loadBalanceSettings();
-        } else {
-          alert('초기화 실패: ' + (res.error || '오류 발생'));
         }
       } catch (err) {
         alert('잔액 초기화 실패: ' + err.message);
@@ -1250,25 +1235,11 @@ function initEventListeners() {
       const confirmed2 = confirm('진짜로 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다. 모든 데이터가 소멸하고 기본 규칙들로만 재설정됩니다.');
       if (!confirmed2) return;
 
-      const password = prompt('⚠️ 전체 데이터를 영구 초기화하려면 가계부 로그인 비밀번호를 입력해 주십시오:');
-      if (password === null) return; // 취소 시 종료
-      if (!password.trim()) {
-        alert('비밀번호를 입력해야 합니다.');
-        return;
-      }
-
       try {
-        const res = await fetch('api/settings/reset-all', { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        }).then(r => r.json());
-
+        const res = await fetch('api/settings/reset-all', { method: 'POST' }).then(r => r.json());
         if (res.success) {
           alert('가계부의 모든 데이터와 설정이 초기화되었습니다. 페이지를 새로고침합니다.');
           location.reload();
-        } else {
-          alert('초기화 실패: ' + (res.error || '오류 발생'));
         }
       } catch (err) {
         alert('전체 초기화 실패: ' + err.message);

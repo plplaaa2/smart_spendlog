@@ -28,8 +28,10 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // IP 실패 기록이 15분 경과했으면 리셋
-    if (ipSec.fail_count > 0 && now - ipSec.last_failed_at > 15 * 60 * 1000) {
+    // IP 실패 기록 리셋 시간도 누적 실패 카운트에 비례하여 지수적으로 증가 (최대 24시간)
+    // 의존성: database.js의 getLoginSecurity 및 clearLoginSecurity 함수와 결합됩니다.
+    const ipResetWindow = Math.min(24 * 60 * 60 * 1000, 15 * 60 * 1000 * Math.pow(2, Math.max(0, ipSec.fail_count - 5)));
+    if (ipSec.fail_count > 0 && now - ipSec.last_failed_at > ipResetWindow) {
       await clearLoginSecurity(ip);
       ipSec.fail_count = 0;
     }
@@ -46,8 +48,9 @@ router.post('/login', async (req, res) => {
         });
       }
 
-      // 계정 실패 기록이 15분 경과했으면 리셋
-      if (userSec.fail_count > 0 && now - userSec.last_failed_at > 15 * 60 * 1000) {
+      // 계정 실패 기록 리셋 시간도 누적 실패 카운트에 비례하여 지수적으로 증가
+      const userResetWindow = Math.min(24 * 60 * 60 * 1000, 15 * 60 * 1000 * Math.pow(2, Math.max(0, userSec.fail_count - 5)));
+      if (userSec.fail_count > 0 && now - userSec.last_failed_at > userResetWindow) {
         await clearLoginSecurity(username);
         userSec.fail_count = 0;
       }
@@ -70,12 +73,15 @@ router.post('/login', async (req, res) => {
       const userToken = `${config.token}:${encodeURIComponent(username)}`;
       return res.json({ success: true, username, token: userToken });
     } else {
-      // 로그인 실패 시 실패 기록 및 밴 처리
+      // 로그인 실패 시 실패 기록 및 지수적 밴(Backoff) 처리
       const newIpFailCount = ipSec.fail_count + 1;
       let newIpBannedUntil = 0;
       if (newIpFailCount >= 5) {
-        newIpBannedUntil = now + 15 * 60 * 1000; // 15분 차단
-        console.warn(`[보안 경보] IP ${ip}가 5회 연속 로그인 실패로 15분간 차단되었습니다.`);
+        const exponent = Math.max(0, newIpFailCount - 5);
+        const bannedDuration = Math.min(24 * 60 * 60 * 1000, 15 * 60 * 1000 * Math.pow(2, exponent));
+        newIpBannedUntil = now + bannedDuration;
+        const minutes = Math.ceil(bannedDuration / 60000);
+        console.warn(`[보안 경보] IP ${ip}가 ${newIpFailCount}회 연속 로그인 실패로 ${minutes}분간 차단되었습니다.`);
       }
       await updateLoginSecurity(ip, 'IP', newIpFailCount, now, newIpBannedUntil);
 
@@ -85,23 +91,28 @@ router.post('/login', async (req, res) => {
         const currentFailCount = userSec ? userSec.fail_count : 0;
         newUserFailCount = currentFailCount + 1;
         if (newUserFailCount >= 5) {
-          newUserBannedUntil = now + 15 * 60 * 1000; // 15분 잠금
-          console.warn(`[보안 경보] 계정 ${username}이 5회 연속 로그인 실패로 15분간 차단되었습니다.`);
+          const exponent = Math.max(0, newUserFailCount - 5);
+          const bannedDuration = Math.min(24 * 60 * 60 * 1000, 15 * 60 * 1000 * Math.pow(2, exponent));
+          newUserBannedUntil = now + bannedDuration;
+          const minutes = Math.ceil(bannedDuration / 60000);
+          console.warn(`[보안 경보] 계정 ${username}이 ${newUserFailCount}회 연속 로그인 실패로 ${minutes}분간 차단되었습니다.`);
         }
         await updateLoginSecurity(username, 'USER', newUserFailCount, now, newUserBannedUntil);
       }
 
       // IP 밴에 걸렸거나 계정 밴에 걸린 경우 차단 메시지 반환
       if (newIpBannedUntil > 0) {
+        const remainingMin = Math.ceil((newIpBannedUntil - now) / 60000);
         return res.status(403).json({
           success: false,
-          message: '로그인 5회 실패로 인해 IP가 15분간 차단되었습니다.'
+          message: `로그인 실패 누적으로 인해 IP가 ${remainingMin}분간 차단되었습니다.`
         });
       }
       if (newUserBannedUntil > 0) {
+        const remainingMin = Math.ceil((newUserBannedUntil - now) / 60000);
         return res.status(403).json({
           success: false,
-          message: `로그인 5회 실패로 인해 계정('${username}')이 15분간 차단되었습니다.`
+          message: `로그인 실패 누적으로 인해 계정('${username}')이 ${remainingMin}분간 차단되었습니다.`
         });
       }
 

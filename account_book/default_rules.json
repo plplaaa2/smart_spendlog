@@ -163,6 +163,12 @@
             "type": "EXPENSE"
         },
         {
+            "name": "기부금",
+            "color": "#e64980",
+            "icon": "heart",
+            "type": "EXPENSE"
+        },
+        {
             "name": "기타",
             "color": "#868e96",
             "icon": "more-horizontal",

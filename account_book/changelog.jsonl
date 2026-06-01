@@ -101,3 +101,14 @@
 {"version":"dev-1.9.49","date":"2026-05-31","description":"소득 분석(Income Analytics) 대시보드 추가 (수입 분석용 GET API 엔드포인트 신설, 연간/월간 수입 통계 카드 3종 및 수입 추이 바 차트, 카테고리별 비중 도넛 차트, 요약 테이블 및 클릭 시 상세 내역 필터링 인터랙션 구현)"}
 {"version":"dev-1.9.50","date":"2026-05-31","description":"routes/analytics.js 내 일반지출 분석 API(/analytics/general) 라우터의 닫는 괄호(});) 누락으로 인한 Unexpected end of input SyntaxError 구문 오류 해결"}
 {"version":"dev-1.9.54","date":"2026-05-31","description":"로컬 데이터베이스 자동 백업 관리 및 즉시 복원 시스템 구현 (최근 7일 백업 목록 조회, 개별 복원, 다운로드, 삭제 API 및 UI 구축)"}
+{"version":"dev-1.9.57","date":"2026-05-31","description":"네트워크 백업(Samba/UNC 공유폴더 및 WebDAV 외부 전송) 기능 추가 및 즉시 테스트 실행(Test Connection) API/UI 구현 (WebDAV 비밀번호 AES-256-CBC 기반 암호화 및 UI 마스킹 적용, 자동 로컬 백업 완료 시 네트워크 전송 자동 연동)"}
+{"version":"dev-1.9.58","date":"2026-05-31","description":"외부 접속 보안 강화 (IP별 API Rate Limiter 미들웨어 구축, 브라우저 취약점 대비 보안 HTTP 헤더 주입, 로그인 실패 시 지수 대기 시간(Exponential Backoff) 기반 계정/IP 자동 잠금 및 리셋 윈도우 증가 처리)"}
+{"version":"dev-1.9.59","date":"2026-05-31","description":"네트워크 백업(Samba/UNC 경로 방식) 로그인 자격증명 기능 추가 (사용자 이름, 비밀번호 입력 필드 UI/API 추가, 윈도우 환경 net use 연동 임시 세션 맺기 헬퍼 구현 및 도커/리눅스 환경 예외 안내 처리)"}
+{"version":"dev-1.9.60","date":"2026-05-31","description":"설정 탭 내 로컬 자동백업 목록 우측에 '지금 백업' 즉시 실행 버튼 추가 (수동 백업 API 구현 및 목록 갱신 연동 완료)"}
+{"version":"dev-1.9.61","date":"2026-05-31","description":"백업 카드 타이틀을 '자동 백업'으로 축소하고 최근 7일 유지 등의 세부 스펙 문구를 하단 안내 텍스트박스로 이관 반영"}
+{"version":"dev-1.9.62","date":"2026-05-31","description":"매일 밤 12시 자동 백업 토글 옵션의 마크업 위치를 기존 데이터 백업 및 복원(JSON 내보내기) 카드에서 신설된 '자동 백업' 카드 내부로 이동 정렬"}
+{"version":"dev-1.9.63","date":"2026-05-31","description":"브라우저 정적 자산 캐시 만료를 위한 JS 파일들의 버전을 1.9.62로 일괄 상향 적용 및 settings.js 초기화 시 Lucide 아이콘 변환 강제 실행 적용"}
+{"version":"dev-1.9.64","date":"2026-05-31","description":"위험 구역 타이틀을 '데이터 초기화 (위험)'로 명칭 수정하고, 데이터 전체 초기화 및 잔액 초기화 실행 시 로그인한 사용자의 로그인 비밀번호 검증 단계를 추가하여 보안 강화"}
+{"version":"dev-1.9.65","date":"2026-05-31","description":"네트워크 백업 경로 주의 사항 안내 문구에 'Home Assistant 네트워크 저장소만 지원' 추가 명시"}
+{"version":"dev-1.9.66","date":"2026-05-31","description":"네트워크 백업(Samba 경로, WebDAV) 시 7일이 경과한 오래된 백업 파일을 자동 삭제하는 롤링 Retention 정리 로직 구현"}
+{"version":"dev-1.9.67","date":"2026-05-31","description":"settings.js 내의 백업 API 호출부들에서 인증용 토큰 키 값을 ab_token으로 정합화하여 백업 목록 불러오기 및 수동 백업 실행 기능 복구"}
