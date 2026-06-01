@@ -627,18 +627,19 @@ function autoGeneratePattern(silent = false) {
     }
   }
 
-  // 7. 상태 감지 (승인, 사용, 취소, 출금, 입금 등)
-  const statusMatch = cleanText.match(/(승인|사용|취소|출금|입금|결제)/);
-  if (statusMatch) {
-    const idx = statusMatch.index;
-    const len = statusMatch[0].length;
+  // 7. 상태 감지 (승인, 사용, 취소, 출금, 입금 등) - 다중 감지하여 중복되지 않는 모든 상태 수집
+  const statusRegex = /(승인|사용|취소|출금|입금|결제)/g;
+  let sm;
+  while ((sm = statusRegex.exec(cleanText)) !== null) {
+    const idx = sm.index;
+    const len = sm[0].length;
     if (!isOverlapping(idx, idx + len)) {
       blocks.push({
         type: '상태',
         start: idx,
         end: idx + len,
-        regex: escapeRegexChars(statusMatch[0]),
-        value: statusMatch[0]
+        regex: escapeRegexChars(sm[0]),
+        value: sm[0]
       });
     }
   }
@@ -750,11 +751,12 @@ function autoGeneratePattern(silent = false) {
     if (gapText.length > 0) {
       const mStart = targetGap.start + leadLen + (rawGap.substring(leadLen).length - rawGap.substring(leadLen).trimStart().length);
       const mEnd = mStart + gapText.length;
+      const hasNums = /\d/.test(gapText);
       merchantBlock = {
         type: '사용처',
         start: mStart,
         end: mEnd,
-        regex: '(?<merchant>.+?)(?:\\s+[\\d,]+)?',
+        regex: hasNums ? '(?<merchant>.+?)(?:\\s+[\\d,]+)?' : '(?<merchant>.+?)',
         value: gapText
       };
     }
@@ -768,7 +770,7 @@ function autoGeneratePattern(silent = false) {
       type: '사용처',
       start: cleanText.length,
       end: cleanText.length,
-      regex: '(?<merchant>.+?)(?:\\s+[\\d,]+)?',
+      regex: '(?<merchant>.+?)',
       value: ''
     });
   }

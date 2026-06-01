@@ -345,18 +345,19 @@ function generatePatternFromText(text) {
     }
   }
 
-  // 상태 감지 (승인, 사용, 취소, 출금, 입금 등)
-  const statusMatch = cleanText.match(/(승인|사용|취소|출금|입금|결제)/);
-  if (statusMatch) {
-    const idx = statusMatch.index;
-    const len = statusMatch[0].length;
+  // 상태 감지 (승인, 사용, 취소, 출금, 입금 등) - 다중 감지하여 중복되지 않는 모든 상태 수집
+  const statusRegex = /(승인|사용|취소|출금|입금|결제)/g;
+  let sm;
+  while ((sm = statusRegex.exec(cleanText)) !== null) {
+    const idx = sm.index;
+    const len = sm[0].length;
     if (!isOverlapping(idx, idx + len)) {
       blocks.push({
         type: '상태',
         start: idx,
         end: idx + len,
-        regex: escapeRegexChars(statusMatch[0]),
-        value: statusMatch[0]
+        regex: escapeRegexChars(sm[0]),
+        value: sm[0]
       });
     }
   }
@@ -470,7 +471,8 @@ function generatePatternFromText(text) {
     
     // 이 여백 구간이 선정된 가맹점명(merchant) 구간인 경우
     if (i === bestGapIndex && maxCleanLen > 0) {
-      finalRegex += '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*';
+      const hasNums = /\d/.test(prefixGap);
+      finalRegex += hasNums ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*' : '\\s*(?<merchant>.+?)\\s*';
     } else {
       finalRegex += escapeRegexChars(prefixGap);
     }
@@ -490,10 +492,11 @@ function generatePatternFromText(text) {
   const suffixGap = cleanText.substring(lastIndex);
   if (blocks.length === bestGapIndex && maxCleanLen > 0) {
     const slashMatch = suffixGap.match(/^\s*\/\s*(.+)/);
+    const hasNums = /\d/.test(suffixGap);
     if (slashMatch) {
-      finalRegex += '\\s*\\/\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?';
+      finalRegex += hasNums ? '\\s*\\/\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?' : '\\s*\\/\\s*(?<merchant>.+?)';
     } else {
-      finalRegex += '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?';
+      finalRegex += hasNums ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?' : '\\s*(?<merchant>.+?)';
     }
   } else {
     finalRegex += escapeRegexChars(suffixGap);
