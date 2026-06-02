@@ -128,7 +128,7 @@ router.get('/settings', async (req, res) => {
     const rows = await db.all('SELECT * FROM settings');
     const settings = {};
     rows.forEach(r => {
-      if ((r.key === 'network_backup_webdav_password' || r.key === 'network_backup_path_password') && r.value) {
+      if ((r.key === 'network_backup_webdav_password' || r.key === 'network_backup_path_password' || r.key === 'ai_api_key') && r.value) {
         settings[r.key] = '******'; // 보안 및 전송 보호를 위해 마스킹 처리
       } else {
         settings[r.key] = r.value;
@@ -150,7 +150,8 @@ router.post('/settings', async (req, res) => {
       pay_methods_order, auto_backup, backup_time, backup_days,
       network_backup_enabled, network_backup_type, network_backup_path, 
       network_backup_path_username, network_backup_path_password,
-      network_backup_webdav_url, network_backup_webdav_username, network_backup_webdav_password 
+      network_backup_webdav_url, network_backup_webdav_username, network_backup_webdav_password,
+      ai_parsing_enabled, ai_provider, ai_api_key, ai_local_ip, ai_local_model
     } = req.body;
 
     if (ws_sensor_entity !== undefined) {
@@ -223,6 +224,36 @@ router.post('/settings', async (req, res) => {
         const encrypted = network_backup_webdav_password ? cryptoHelper.encrypt(network_backup_webdav_password) : '';
         await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('network_backup_webdav_password', ?)", [encrypted]);
       }
+    }
+
+    // [신규] AI 파싱 설정 개별 업데이트
+    if (ai_parsing_enabled !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ai_parsing_enabled', ?)", [String(ai_parsing_enabled)]);
+    }
+    if (ai_provider !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ai_provider', ?)", [ai_provider]);
+    }
+    if (ai_api_key !== undefined) {
+      if (ai_api_key !== '******') {
+        const encrypted = ai_api_key ? cryptoHelper.encrypt(ai_api_key) : '';
+        await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ai_api_key', ?)", [encrypted]);
+      }
+    }
+    if (ai_local_ip !== undefined) {
+      let formattedIp = ai_local_ip.trim();
+      if (formattedIp) {
+        if (!formattedIp.endsWith('/v1') && !formattedIp.endsWith('/v1/')) {
+          if (formattedIp.endsWith('/')) {
+            formattedIp += 'v1';
+          } else {
+            formattedIp += '/v1';
+          }
+        }
+      }
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ai_local_ip', ?)", [formattedIp]);
+    }
+    if (ai_local_model !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ai_local_model', ?)", [ai_local_model]);
     }
 
     res.json({ success: true });

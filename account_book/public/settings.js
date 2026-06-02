@@ -50,6 +50,8 @@ function switchSettingsSubTab(subtab) {
     loadSettingsTab();
   } else if (subtab === 'balance') {
     loadBalanceSettings();
+  } else if (subtab === 'ai') {
+    loadAISettings();
   } else if (subtab === 'data') {
     loadDataSettings();
     lucide.createIcons();
@@ -180,8 +182,7 @@ async function loadBalanceSettings() {
       // 의존성: routes/analytics.js의 api/stats 엔드포인트 내 자산 판정(isAsset) 로직과 완벽히 호환되어야 합니다.
       const filteredPayMethods = payMethods.filter(pm => {
         const name = pm.name;
-        const isCheckCard = name.includes('체크');
-        if ((name.includes('카드') && !isCheckCard) || name === '계좌이체' || name.includes('페이') || name.includes('머니')) {
+        if (name.includes('카드') || name === '계좌이체' || name.includes('페이') || name.includes('머니')) {
           return false;
         }
         return true;
@@ -778,6 +779,95 @@ async function loadDataSettings() {
 
   } catch (err) {
     console.error('데이터 설정 로드 실패:', err);
+  }
+}
+
+async function loadAISettings() {
+  try {
+    const settings = await fetch('api/settings').then(r => r.json());
+
+    const aiEnabledEl = document.getElementById('settings-ai-enabled');
+    const aiProviderEl = document.getElementById('settings-ai-provider');
+    const aiApiKeyEl = document.getElementById('settings-ai-api-key');
+    const aiLocalIpEl = document.getElementById('settings-ai-local-ip');
+    const aiLocalModelEl = document.getElementById('settings-ai-local-model');
+
+    const optionsContainer = document.getElementById('ai-options-container');
+    const apiKeyGroup = document.getElementById('ai-api-key-group');
+    const localGroup = document.getElementById('ai-local-group');
+
+    if (aiEnabledEl) {
+      aiEnabledEl.checked = settings.ai_parsing_enabled === 'true';
+      
+      const toggleOptions = () => {
+        if (optionsContainer) {
+          optionsContainer.style.display = aiEnabledEl.checked ? 'flex' : 'none';
+        }
+      };
+      toggleOptions();
+      aiEnabledEl.onchange = toggleOptions;
+    }
+
+    if (aiProviderEl) {
+      aiProviderEl.value = settings.ai_provider || 'gemini';
+
+      const toggleProviderFields = () => {
+        const provider = aiProviderEl.value;
+        if (provider === 'local') {
+          if (localGroup) localGroup.style.display = 'flex';
+          if (apiKeyGroup) apiKeyGroup.style.display = 'none';
+        } else {
+          if (localGroup) localGroup.style.display = 'none';
+          if (apiKeyGroup) apiKeyGroup.style.display = 'block';
+        }
+      };
+      toggleProviderFields();
+      aiProviderEl.onchange = toggleProviderFields;
+    }
+
+    if (aiApiKeyEl) aiApiKeyEl.value = settings.ai_api_key || '';
+    if (aiLocalIpEl) aiLocalIpEl.value = settings.ai_local_ip || '';
+    if (aiLocalModelEl) aiLocalModelEl.value = settings.ai_local_model || '';
+
+    // AI 설정 폼 저장 핸들러 등록
+    const aiForm = document.getElementById('ai-settings-form');
+    if (aiForm) {
+      aiForm.onsubmit = async (e) => {
+        e.preventDefault();
+        
+        const payload = {
+          ai_parsing_enabled: aiEnabledEl ? aiEnabledEl.checked : false,
+          ai_provider: aiProviderEl ? aiProviderEl.value : 'gemini',
+          ai_api_key: aiApiKeyEl ? aiApiKeyEl.value : '',
+          ai_local_ip: aiLocalIpEl ? aiLocalIpEl.value.trim() : '',
+          ai_local_model: aiLocalModelEl ? aiLocalModelEl.value.trim() : ''
+        };
+
+        try {
+          const res = await fetch('api/settings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || ''
+            },
+            body: JSON.stringify(payload)
+          }).then(r => r.json());
+
+          if (res.success) {
+            alert('AI 파싱 설정이 저장되었습니다.');
+            loadAISettings(); // 마스킹 갱신 등을 위해 다시 불러오기
+          } else {
+            alert('설정 저장 실패: ' + (res.error || '알 수 없는 오류'));
+          }
+        } catch (err) {
+          console.error('AI 설정 저장 오류:', err);
+          alert('설정 저장 중 오류가 발생했습니다: ' + err.message);
+        }
+      };
+    }
+
+  } catch (err) {
+    console.error('AI 설정 로드 실패:', err);
   }
 }
 

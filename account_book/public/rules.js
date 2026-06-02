@@ -889,6 +889,59 @@ function autoGeneratePattern(silent = false) {
   }
 }
 
+async function aiGeneratePattern() {
+  const text = document.getElementById('test-text').value.trim();
+  if (!text) {
+    alert('AI 패턴 생성을 진행할 알림 본문을 먼저 입력해 주세요.');
+    return;
+  }
+
+  const aiGenBtn = document.getElementById('btn-ai-generate-pattern');
+  const originalHtml = aiGenBtn.innerHTML;
+
+  try {
+    aiGenBtn.disabled = true;
+    aiGenBtn.innerHTML = '<i data-lucide="loader" class="animate-spin" style="width:14px;height:14px;"></i> 생성 중...';
+    lucide.createIcons();
+
+    const res = await fetch('api/rules/ai-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    }).then(r => r.json());
+
+    if (res.success && res.pattern) {
+      const patternInput = document.getElementById('test-pattern');
+      const rulePatternInput = document.getElementById('rule-pattern');
+      if (patternInput) patternInput.value = res.pattern;
+      if (rulePatternInput) rulePatternInput.value = res.pattern;
+
+      // 규칙 이름 자동 추천
+      const ruleNameEl = document.getElementById('rule-name');
+      if (ruleNameEl && !ruleNameEl.value) {
+        ruleNameEl.value = 'AI 생성 규칙';
+      }
+
+      // 규칙 생성 카드창이 안 열려있으면 강제로 활성화
+      const formCard = document.getElementById('rule-form-card');
+      if (formCard && formCard.style.display === 'none') {
+        loadRuleToEditor(null);
+        if (patternInput) rulePatternInput.value = patternInput.value;
+      }
+
+      alert('AI가 알림 내용을 완벽히 파싱할 수 있는 정규식 패턴을 생성했습니다! 바로 [테스트 실행]을 클릭해 정상 작동하는지 검증해 보세요.');
+    } else {
+      alert('AI 패턴 생성 실패: ' + (res.error || '알 수 없는 오류'));
+    }
+  } catch (err) {
+    alert('AI 패턴 생성 중 오류 발생: ' + err.message);
+  } finally {
+    aiGenBtn.disabled = false;
+    aiGenBtn.innerHTML = originalHtml;
+    lucide.createIcons();
+  }
+}
+
 function escapeRegexChars(str) {
   return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 }

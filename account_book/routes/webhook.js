@@ -23,7 +23,8 @@ function safeCompare(a, b) {
   }
   return crypto.timingSafeEqual(bufA, bufB);
 }
-const { parseNotification, generatePatternFromText } = require('../parser');
+const { parseNotification, generatePatternFromText, parseNotificationWithAI } = require('../parser');
+const cryptoHelper = require('../crypto_helper');
 
 // 현재 한국 시간(KST, UTC+9) 문자열을 YYYY-MM-DD HH:mm:ss 포맷으로 반환하는 헬퍼 함수
 function getKSTDateString() {
@@ -94,6 +95,42 @@ async function processIncomingNotification(newState, username) {
   let parsedStatus = 'FAILED';
   let matchedRuleId = null;
 
+  // 정규식 매칭 실패 시 AI 파싱 시도
+  if (!result) {
+    const aiEnabledRow = await db.get("SELECT value FROM settings WHERE key = 'ai_parsing_enabled'");
+    const isAiEnabled = aiEnabledRow && aiEnabledRow.value === 'true';
+    if (isAiEnabled) {
+      const aiProviderRow = await db.get("SELECT value FROM settings WHERE key = 'ai_provider'");
+      const aiApiKeyRow = await db.get("SELECT value FROM settings WHERE key = 'ai_api_key'");
+      const aiLocalIpRow = await db.get("SELECT value FROM settings WHERE key = 'ai_local_ip'");
+      const aiLocalModelRow = await db.get("SELECT value FROM settings WHERE key = 'ai_local_model'");
+
+      const provider = aiProviderRow ? aiProviderRow.value : 'gemini';
+      const encryptedKey = aiApiKeyRow ? aiApiKeyRow.value : '';
+      let apiKey = '';
+      if (encryptedKey && encryptedKey !== '******') {
+        try {
+          apiKey = cryptoHelper.decrypt(encryptedKey);
+        } catch (decErr) {
+          console.error(`[웹훅][${targetUser}] AI API Key 복호화 실패:`, decErr.message);
+        }
+      }
+      const localIp = aiLocalIpRow ? aiLocalIpRow.value : '';
+      const localModel = aiLocalModelRow ? aiLocalModelRow.value : '';
+
+      console.log(`[웹훅][${targetUser}] 정규식 파싱 실패. AI 파싱 시도 (${provider})`);
+      result = await parseNotificationWithAI(rawText, {
+        provider,
+        apiKey,
+        localIp,
+        localModel
+      }, fallbackKST);
+      if (result) {
+        parsedStatus = 'SUCCESS';
+      }
+    }
+  }
+
   if (!result) {
     const autoRuleRow = await db.get("SELECT value FROM settings WHERE key = 'auto_rule_generation'");
     const isAutoRuleEnabled = autoRuleRow && autoRuleRow.value === 'true';
@@ -144,6 +181,26 @@ async function processIncomingNotification(newState, username) {
 
     if (finalPayMethod === '_AUTO_MAPPING_') {
       finalPayMethod = '카드';
+    }
+
+    // 패키지 매핑이나 규칙 등에 의해 결정된 최종 결제수단이 카드사이고, 원래 문자 텍스트에 '체크'가 포함되어 있다면 은행 결제로 변환
+    if (rawText.includes('체크') || finalPayMethod.includes('체크')) {
+      const cardToBankMap = {
+        'KB국민카드': '국민은행',
+        '신한카드': '신한은행',
+        '하나카드': '하나은행',
+        '우리카드': '우리은행',
+        'NH농협카드': '농협은행',
+        'BC카드': '계좌이체',
+        '삼성카드': '계좌이체',
+        '현대카드': '계좌이체',
+        '롯데카드': '계좌이체'
+      };
+      if (cardToBankMap[finalPayMethod]) {
+        finalPayMethod = cardToBankMap[finalPayMethod];
+      } else if (finalPayMethod.includes('카드') && !finalPayMethod.includes('체크')) {
+        finalPayMethod = '계좌이체';
+      }
     }
 
     // 사용처 카테고리 자동 매핑
@@ -222,7 +279,12 @@ async function processIncomingNotification(newState, username) {
                                cleanCurrent.includes(cleanExisting) ||
                                cleanExisting === cleanCurrent;
 
-      if (isSimilarMerchant && duplicateCheck.pay_method !== finalPayMethod) {
+      // 체크카드 관련 거래였는지 판단 (기존 거래 또는 현재 알림 중 하나라도 '체크' 관련인 경우)
+      const isCheck1 = duplicateCheck.raw_text && (duplicateCheck.raw_text.includes('체크') || duplicateCheck.pay_method.includes('체크'));
+      const isCheck2 = rawText.includes('체크') || finalPayMethod.includes('체크');
+      const isCheckRelated = isCheck1 || isCheck2;
+
+      if (isSimilarMerchant && (duplicateCheck.pay_method !== finalPayMethod || isCheckRelated)) {
         console.log(`[파서][${targetUser}] 중복 거래 감지 차단: 기존 거래 ID ${duplicateCheck.id} (${existingMerchant}, ${duplicateCheck.pay_method})와 현재 알림 (${currentMerchant}, ${finalPayMethod})의 금액/시간/사용처가 일치하므로 이중 등록을 방지합니다.`);
         
         parsedStatus = 'IGNORED_DUPLICATE';
@@ -352,6 +414,42 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
     let parsedStatus = 'FAILED';
     let matchedRuleId = null;
 
+    // 정규식 매칭 실패 시 AI 파싱 시도
+    if (!result) {
+      const aiEnabledRow = await db.get("SELECT value FROM settings WHERE key = 'ai_parsing_enabled'");
+      const isAiEnabled = aiEnabledRow && aiEnabledRow.value === 'true';
+      if (isAiEnabled) {
+        const aiProviderRow = await db.get("SELECT value FROM settings WHERE key = 'ai_provider'");
+        const aiApiKeyRow = await db.get("SELECT value FROM settings WHERE key = 'ai_api_key'");
+        const aiLocalIpRow = await db.get("SELECT value FROM settings WHERE key = 'ai_local_ip'");
+        const aiLocalModelRow = await db.get("SELECT value FROM settings WHERE key = 'ai_local_model'");
+
+        const provider = aiProviderRow ? aiProviderRow.value : 'gemini';
+        const encryptedKey = aiApiKeyRow ? aiApiKeyRow.value : '';
+        let apiKey = '';
+        if (encryptedKey && encryptedKey !== '******') {
+          try {
+            apiKey = cryptoHelper.decrypt(encryptedKey);
+          } catch (decErr) {
+            console.error(`[웹훅][${targetUser}] AI API Key 복호화 실패:`, decErr.message);
+          }
+        }
+        const localIp = aiLocalIpRow ? aiLocalIpRow.value : '';
+        const localModel = aiLocalModelRow ? aiLocalModelRow.value : '';
+
+        console.log(`[웹훅][${targetUser}] 정규식 파싱 실패. AI 파싱 시도 (${provider})`);
+        result = await parseNotificationWithAI(finalRawText, {
+          provider,
+          apiKey,
+          localIp,
+          localModel
+        }, fallbackKST);
+        if (result) {
+          parsedStatus = 'SUCCESS';
+        }
+      }
+    }
+
     if (!result) {
       const autoRuleRow = await db.get("SELECT value FROM settings WHERE key = 'auto_rule_generation'");
       const isAutoRuleEnabled = autoRuleRow && autoRuleRow.value === 'true';
@@ -402,6 +500,26 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
 
       if (finalPayMethod === '_AUTO_MAPPING_') {
         finalPayMethod = '카드';
+      }
+
+      // 패키지 매핑이나 규칙 등에 의해 결정된 최종 결제수단이 카드사이고, 원래 문자 텍스트에 '체크'가 포함되어 있다면 은행 결제로 변환
+      if (finalRawText.includes('체크') || finalPayMethod.includes('체크')) {
+        const cardToBankMap = {
+          'KB국민카드': '국민은행',
+          '신한카드': '신한은행',
+          '하나카드': '하나은행',
+          '우리카드': '우리은행',
+          'NH농협카드': '농협은행',
+          'BC카드': '계좌이체',
+          '삼성카드': '계좌이체',
+          '현대카드': '계좌이체',
+          '롯데카드': '계좌이체'
+        };
+        if (cardToBankMap[finalPayMethod]) {
+          finalPayMethod = cardToBankMap[finalPayMethod];
+        } else if (finalPayMethod.includes('카드') && !finalPayMethod.includes('체크')) {
+          finalPayMethod = '계좌이체';
+        }
       }
 
       // 사용처 카테고리 자동 매핑
@@ -479,7 +597,12 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
                                  cleanCurrent.includes(cleanExisting) ||
                                  cleanExisting === cleanCurrent;
 
-        if (isSimilarMerchant && duplicateCheck.pay_method !== finalPayMethod) {
+        // 체크카드 관련 거래였는지 판단 (기존 거래 또는 현재 알림 중 하나라도 '체크' 관련인 경우)
+        const isCheck1 = duplicateCheck.raw_text && (duplicateCheck.raw_text.includes('체크') || duplicateCheck.pay_method.includes('체크'));
+        const isCheck2 = finalRawText.includes('체크') || finalPayMethod.includes('체크');
+        const isCheckRelated = isCheck1 || isCheck2;
+
+        if (isSimilarMerchant && (duplicateCheck.pay_method !== finalPayMethod || isCheckRelated)) {
           console.log(`[웹훅][${targetUser}] 중복 거래 감지 차단: 기존 거래 ID ${duplicateCheck.id} (${existingMerchant}, ${duplicateCheck.pay_method})와 현재 알림 (${currentMerchant}, ${finalPayMethod})의 금액/시간/사용처가 일치하므로 이중 등록을 방지합니다.`);
           
           parsedStatus = 'IGNORED_DUPLICATE';

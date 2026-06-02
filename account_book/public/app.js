@@ -428,6 +428,7 @@ function updateHeaderTitle(mainTabId, subTabId) {
     transactions: ['거래 내역', '상세 가계부 내역 조회 및 편집'],
     analytics: ['소비 분석', '월별/연도별 자산 흐름 및 전년 대비 소비 비교'],
     income: ['소득 분석', '월별/연도별 수입 추이 및 카테고리별 비중 분석'],
+    'ai-report': ['AI 소비 리포트', 'AI 모델 분석에 의한 월간 및 연간 종합 가계 피드백'],
     logs: ['알림 로그', 'Home Assistant에서 수신된 스마트폰 알림 원본 이력'],
     settings: ['설정', '시스템 연동 정보 및 마스터 데이터 관리']
   };
@@ -563,6 +564,9 @@ function refreshCurrentTabData() {
     case 'logs':
       initLogsSubTabs();
       switchLogsSubTab('logs-list');
+      break;
+    case 'ai-report':
+      if (typeof initAiReportTab === 'function') initAiReportTab();
       break;
     case 'settings':
       loadSettingsTab();
@@ -911,25 +915,13 @@ function initEventListeners() {
   // 정규식 패턴 자동 생성 버튼
   const autoGenBtn = document.getElementById('btn-auto-generate-pattern');
   if (autoGenBtn) {
-    autoGenBtn.addEventListener('click', autoGeneratePattern);
+    autoGenBtn.addEventListener('click', () => autoGeneratePattern(false));
   }
 
-  // 수동 순서 조정 옵션 토글
-  const toggleSeqOpts = document.getElementById('toggle-sequence-opts');
-  if (toggleSeqOpts) {
-    toggleSeqOpts.addEventListener('click', () => {
-      const container = document.getElementById('sequence-opts-container');
-      if (container) {
-        if (container.style.display === 'none') {
-          container.style.display = 'block';
-          toggleSeqOpts.innerHTML = '<i data-lucide="sliders" style="width: 14px; height: 14px;"></i> 수동 순서 조정 옵션 접기';
-        } else {
-          container.style.display = 'none';
-          toggleSeqOpts.innerHTML = '<i data-lucide="sliders" style="width: 14px; height: 14px;"></i> 수동 순서 조정 옵션';
-        }
-        lucide.createIcons();
-      }
-    });
+  // AI 정규식 패턴 자동 생성 버튼
+  const aiGenBtn = document.getElementById('btn-ai-generate-pattern');
+  if (aiGenBtn) {
+    aiGenBtn.addEventListener('click', aiGeneratePattern);
   }
 
   // 로그 탭 새로고침

@@ -10,7 +10,8 @@
 const express = require('express');
 const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors } = require('../database');
-const { parseNotification, generatePatternFromText } = require('../parser');
+const { parseNotification, generatePatternFromText, generatePatternWithAI } = require('../parser');
+const cryptoHelper = require('../crypto_helper');
 
 // SQLite UTC 날짜 문자열(YYYY-MM-DD HH:mm:ss)을 KST 로컬 시각 문자열로 변환하는 헬퍼 함수
 function convertUTCToKSTString(utcStr) {
@@ -244,6 +245,53 @@ router.post('/parse-test', async (req, res) => {
       res.json({ success: true, result: { ...result, category: finalCategory } });
     } else {
       res.json({ success: false, message: '정규식 패턴이 문자열과 일치하지 않습니다.' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// AI 기반 정규식 패턴 생성 API
+router.post('/rules/ai-generate', async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: '분석할 알림 내용이 필요합니다.' });
+    }
+    
+    const db = await getDB(req.username);
+    const settingsList = await db.all("SELECT key, value FROM settings WHERE key IN ('ai_parsing_enabled', 'ai_provider', 'ai_api_key', 'ai_local_ip', 'ai_local_model')");
+    const settings = {};
+    settingsList.forEach(row => {
+      settings[row.key] = row.value;
+    });
+    
+    if (settings.ai_parsing_enabled !== 'true') {
+      return res.status(400).json({ error: 'AI 파싱 설정이 비활성화 상태입니다. 설정 탭의 AI 설정에서 먼저 활성화해 주세요.' });
+    }
+    
+    const provider = settings.ai_provider || 'gemini';
+    let apiKey = settings.ai_api_key;
+    if (apiKey && (provider === 'gemini' || provider === 'openai')) {
+      try {
+        apiKey = cryptoHelper.decrypt(apiKey);
+      } catch (decErr) {
+        console.error('[AI 패턴 빌더] API Key 복호화 실패:', decErr.message);
+      }
+    }
+    
+    const aiConfig = {
+      provider,
+      apiKey,
+      localIp: settings.ai_local_ip,
+      localModel: settings.ai_local_model
+    };
+    
+    const pattern = await generatePatternWithAI(text, aiConfig);
+    if (pattern) {
+      res.json({ success: true, pattern });
+    } else {
+      res.status(500).json({ error: 'AI를 통한 정규식 패턴 생성에 실패했습니다.' });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
