@@ -755,7 +755,7 @@ Example Output:
       const apiKey = config.apiKey;
       if (!apiKey) throw new Error('OpenAI API Key가 누락되었습니다.');
 
-      const models = ['gpt-5.4-nano', 'gpt-4o-mini'];
+      const models = ['gpt-5.4-mini'];
       let success = false;
       let lastErr = null;
 
@@ -943,7 +943,7 @@ Example Output:
       const apiKey = config.apiKey;
       if (!apiKey) throw new Error('OpenAI API Key가 누락되었습니다.');
 
-      const models = ['gpt-5.4-nano', 'gpt-4o-mini'];
+      const models = ['gpt-5.4-mini'];
       let success = false;
       let lastErr = null;
 
@@ -1121,7 +1121,7 @@ ${dataText}
       const apiKey = config.apiKey;
       if (!apiKey) throw new Error('OpenAI API Key가 누락되었습니다.');
 
-      const models = ['gpt-5.4-nano', 'gpt-4o-mini'];
+      const models = ['gpt-5.4-mini'];
       let success = false;
       let lastErr = null;
 
