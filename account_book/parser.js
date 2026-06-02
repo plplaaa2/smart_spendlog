@@ -1069,8 +1069,8 @@ ${dataText}
 }
 `;
 
+  let responseText = '';
   try {
-    let responseText = '';
     const provider = config.provider || 'gemini';
 
     if (provider === 'gemini') {
