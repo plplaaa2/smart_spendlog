@@ -154,11 +154,21 @@ async function generateAiReport() {
 
   if (!year || !month) return;
 
-  // AI 활성화 여부 사전 체크
-  const aiEnabled = state.settings?.ai_parsing_enabled === 'true';
-  if (!aiEnabled) {
-    showToast('설정 탭의 AI 설정에서 AI 기능을 먼저 활성화해 주세요.', 'warning');
-    return;
+  // AI 연동 정보 사전 체크 (제공자가 local이 아니면 API Key가 존재해야 함)
+  const provider = state.settings?.ai_provider || 'gemini';
+  const apiKey = state.settings?.ai_api_key;
+  const localIp = state.settings?.ai_local_ip;
+
+  if (provider === 'local') {
+    if (!localIp) {
+      showToast('설정 탭의 AI 설정에서 로컬 API 주소를 먼저 입력해 주세요.', 'warning');
+      return;
+    }
+  } else {
+    if (!apiKey) {
+      showToast('설정 탭의 AI 설정에서 API Key를 먼저 설정해 주세요.', 'warning');
+      return;
+    }
   }
 
   const emptyView = document.getElementById('ai-report-empty-view');

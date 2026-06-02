@@ -798,14 +798,6 @@ async function loadAISettings() {
 
     if (aiEnabledEl) {
       aiEnabledEl.checked = settings.ai_parsing_enabled === 'true';
-      
-      const toggleOptions = () => {
-        if (optionsContainer) {
-          optionsContainer.style.display = aiEnabledEl.checked ? 'flex' : 'none';
-        }
-      };
-      toggleOptions();
-      aiEnabledEl.onchange = toggleOptions;
     }
 
     if (aiProviderEl) {
