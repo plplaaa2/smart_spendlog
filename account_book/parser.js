@@ -711,7 +711,7 @@ Example Output:
       const apiKey = config.apiKey;
       if (!apiKey) throw new Error('Gemini API Key가 누락되었습니다.');
 
-      const models = ['gemini-3.1-flash-lite', 'gemini-1.5-flash'];
+      const models = ['gemini-3.1-flash-lite'];
       let success = false;
       let lastErr = null;
 
@@ -899,7 +899,7 @@ Example Output:
       const apiKey = config.apiKey;
       if (!apiKey) throw new Error('Gemini API Key가 누락되었습니다.');
 
-      const models = ['gemini-3.1-flash-lite', 'gemini-1.5-flash'];
+      const models = ['gemini-3.1-flash-lite'];
       let success = false;
       let lastErr = null;
 
@@ -1077,7 +1077,7 @@ ${dataText}
       const apiKey = config.apiKey;
       if (!apiKey) throw new Error('Gemini API Key가 누락되었습니다.');
 
-      const models = ['gemini-3.1-flash-lite', 'gemini-1.5-flash'];
+      const models = ['gemini-3.1-flash-lite'];
       let success = false;
       let lastErr = null;
 
