@@ -95,6 +95,10 @@
           <i data-lucide="history"></i>
           <span>알림 로그</span>
         </button>
+        <button class="nav-item" data-tab="ai-report">
+          <i data-lucide="sparkles"></i>
+          <span>AI 소비 리포트</span>
+        </button>
         <button class="nav-item" data-tab="settings">
           <i data-lucide="settings"></i>
           <span>설정</span>
@@ -1048,6 +1052,8 @@
           <button class="settings-tab-btn" data-subtab="balance"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">잔액
             설정</button>
+          <button class="settings-tab-btn" data-subtab="ai"
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">AI 설정</button>
           <button class="settings-tab-btn" data-subtab="data"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">데이터
             관리</button>
@@ -1314,6 +1320,154 @@
               </div>
             </div>
           </div>
+
+          <!-- 6) AI 설정 서브 탭 -->
+          <div id="subtab-ai" class="sub-settings-content" style="width: 100%;">
+            <div style="display: flex; flex-direction: column; gap: 2rem;">
+              <div class="card glass settings-form-card">
+                <h3>AI 파싱 설정</h3>
+                <div class="info-box" style="margin-bottom: 1.25rem;">
+                  <p>수신된 알림 문자(SMS) 분석 실패 시, AI(LLM) 모델을 이용하여 결제금액, 사용처, 결제수단, 일시 등을 정밀하게 분석 및 자동 분류합니다.</p>
+                </div>
+                <form id="ai-settings-form">
+                  <div class="form-group" style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="settings-ai-enabled" style="width: 18px; height: 18px; accent-color: var(--accent-color); cursor: pointer;">
+                    <label for="settings-ai-enabled" style="cursor: pointer; font-size: 0.95rem; font-weight: 500; margin-bottom: 0; display: inline;">AI 자동 파싱 활성화</label>
+                  </div>
+
+                  <div id="ai-options-container" style="display: none; flex-direction: column; gap: 1.25rem; padding-left: 0.5rem; border-left: 2px solid rgba(255, 255, 255, 0.08);">
+                    <div class="form-group">
+                      <label for="settings-ai-provider">AI 서비스 제공자</label>
+                      <select id="settings-ai-provider" class="select-filter" style="width: 100%; box-sizing: border-box;">
+                        <option value="gemini">Google Gemini API (gemini-3.5-flash-lite 고정)</option>
+                        <option value="openai">OpenAI API (gpt-5.4-nano 고정)</option>
+                        <option value="local">로컬 OpenAI 호환 API (Ollama, LM Studio 등)</option>
+                      </select>
+                    </div>
+
+                    <!-- API Key 입력란 (Gemini, OpenAI 선택 시 표시) -->
+                    <div class="form-group" id="ai-api-key-group">
+                      <label for="settings-ai-api-key">API Key</label>
+                      <input type="password" id="settings-ai-api-key" placeholder="******" style="width: 100%;">
+                    </div>
+
+                    <!-- 로컬 API 입력란 (Local 선택 시 표시) -->
+                    <div id="ai-local-group" style="display: none; flex-direction: column; gap: 1.25rem;">
+                      <div class="form-group">
+                        <label for="settings-ai-local-ip">API 주소 (IP / Base URL)</label>
+                        <div class="info-box" style="margin-bottom: 0.5rem;">
+                          <p>Ollama 또는 LM Studio 등의 로컬 API 주소를 입력합니다. (예: <code>http://192.168.1.50:11434</code> / 뒤의 <code>/v1</code> 경로는 저장 시 자동 추가됩니다.)</p>
+                        </div>
+                        <input type="text" id="settings-ai-local-ip" placeholder="예: http://192.168.1.50:11434" style="width: 100%;">
+                      </div>
+                      <div class="form-group">
+                        <label for="settings-ai-local-model">로컬 모델명 (Model Name)</label>
+                        <input type="text" id="settings-ai-local-model" placeholder="예: qwen2.5-coder:7b" style="width: 100%;">
+                      </div>
+                    </div>
+                  </div>
+
+                  <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem;">AI 설정 저장</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7) AI 소비 리포트 탭 -->
+      <section id="tab-ai-report" class="tab-content">
+        <div class="analytics-control-bar card glass" style="margin-bottom: 1.5rem; padding: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="ai-report-year" style="display: none;">연도</label>
+              <select id="ai-report-year" class="select-filter" style="padding: 8px 12px; border-radius: 8px; width: 120px;">
+                <!-- dynamic -->
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label for="ai-report-month" style="display: none;">월</label>
+              <select id="ai-report-month" class="select-filter" style="padding: 8px 12px; border-radius: 8px; width: 120px;">
+                <option value="all">전체 (연간)</option>
+                <option value="1">1월</option>
+                <option value="2">2월</option>
+                <option value="3">3월</option>
+                <option value="4">4월</option>
+                <option value="5">5월</option>
+                <option value="6">6월</option>
+                <option value="7">7월</option>
+                <option value="8">8월</option>
+                <option value="9">9월</option>
+                <option value="10">10월</option>
+                <option value="11">11월</option>
+                <option value="12">12월</option>
+              </select>
+            </div>
+            <button id="btn-load-ai-report" class="btn btn-secondary" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
+              <i data-lucide="search" style="width: 16px; height: 16px;"></i> 조회
+            </button>
+          </div>
+          <button id="btn-generate-ai-report" class="btn btn-primary" style="display: flex; align-items: center; gap: 6px; padding: 8px 18px;">
+            <i data-lucide="sparkles" style="width: 16px; height: 16px;"></i> AI 리포트 생성
+          </button>
+        </div>
+
+        <!-- 리포트 데이터 없을 때의 기본 뷰 -->
+        <div id="ai-report-empty-view" class="card glass" style="padding: 3rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem;">
+          <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, 0.08);">
+            <i data-lucide="sparkles" style="width: 48px; height: 48px; color: var(--accent-color);"></i>
+          </div>
+          <div>
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">생성된 AI 소비 리포트가 없습니다</h3>
+            <p class="text-secondary" style="font-size: 0.9rem;">선택하신 기간의 AI 소비 리포트가 아직 생성되지 않았습니다.<br>우측 상단의 "AI 리포트 생성" 버튼을 눌러 분석을 시작해 보세요.</p>
+          </div>
+        </div>
+
+        <!-- 로딩 뷰 -->
+        <div id="ai-report-loading-view" class="card glass" style="padding: 4rem; text-align: center; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem;">
+          <div class="ai-loading-spinner" style="position: relative; width: 80px; height: 80px;">
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 4px solid rgba(255, 255, 255, 0.05); border-top-color: var(--accent-color); animation: spin 1s linear infinite;"></div>
+            <div style="position: absolute; top: 10px; left: 10px; width: 60px; height: 60px; border-radius: 50%; border: 4px solid rgba(255, 255, 255, 0.05); border-bottom-color: var(--primary-color); animation: spin 1.5s linear infinite reverse;"></div>
+          </div>
+          <div>
+            <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">AI 소비 리포트 생성 중...</h3>
+            <p class="text-secondary" style="font-size: 0.9rem;" id="ai-report-loading-text">가계부 데이터를 수집하여 AI 분석 모델에 전달 중입니다.<br>소비 패턴을 꼼꼼하게 읽어오느라 약 10~30초 정도 소요될 수 있습니다.</p>
+          </div>
+        </div>
+
+        <!-- 리포트 결과 뷰 -->
+        <div id="ai-report-result-view" style="display: none; flex-direction: column; gap: 1.5rem;">
+          <!-- 요약 한 줄 평 카드 -->
+          <div class="card glass" style="background: linear-gradient(135deg, rgba(121, 80, 242, 0.15), rgba(12, 166, 120, 0.15)); border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: flex-start; gap: 1rem; padding: 1.5rem;">
+            <div style="background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--accent-color); margin-top: 2px;">
+              <i data-lucide="sparkles" style="width: 24px; height: 24px;"></i>
+            </div>
+            <div style="flex: 1;">
+              <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-color); font-weight: 700; margin-bottom: 0.25rem;">AI 한 줄 평 요약</div>
+              <h4 id="ai-report-summary-text" style="font-size: 1.1rem; font-weight: 600; line-height: 1.4; color: var(--text-primary);">가계부를 요약 중입니다...</h4>
+            </div>
+          </div>
+
+          <!-- 마크다운 리포트 카드 -->
+          <div class="card glass" style="padding: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+              <h3 style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="file-text" style="color: var(--primary-color);"></i>
+                <span id="ai-report-title-date">2026년 5월 소비 분석 리포트</span>
+              </h3>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="ai-report-created-at" style="font-size: 0.8rem; color: var(--text-secondary);">생성일: 2026-06-02</span>
+                <button id="btn-copy-ai-report" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; font-size: 0.8rem;">
+                  <i data-lucide="copy" style="width: 14px; height: 14px;"></i> 복사
+                </button>
+              </div>
+            </div>
+            
+            <!-- 마크다운 본문 파싱 결과 영역 -->
+            <div id="ai-report-markdown-content" class="markdown-body" style="line-height: 1.7; font-size: 0.95rem; color: rgba(255, 255, 255, 0.85);">
+              <!-- Rendered HTML -->
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1501,26 +1655,15 @@
             <label for="test-text">분석할 알림 내용 (카드사 문자 복사/붙여넣기)</label>
             <textarea id="test-text" rows="3" placeholder="[Web발신] KB국민체크 05/22 14:30 12,500원 이마트 승인"></textarea>
           </div>
-          <div id="sequence-opts-container"
-            style="display: none; margin-bottom: 0.75rem; padding: 0.75rem; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed rgba(255,255,255,0.08);">
-            <div class="form-group" style="margin-bottom: 0;">
-              <label for="test-sequence" style="display:flex; justify-content:space-between; align-items:center;">
-                <span>패턴 분석 순서 (쉼표 구분)</span>
-                <span style="font-size:0.7rem; color:var(--text-secondary); font-weight:normal;">지원: 카드명/은행명, 시간, 날짜,
-                  금액, 사용처, 상태, 계좌번호, 잔액, 누적금액 등</span>
-              </label>
-              <input type="text" id="test-sequence" placeholder="예: 카드명/은행명, 시간, 금액, 사용처, 상태"
-                value="카드명/은행명, 시간, 금액, 사용처, 상태" style="font-size:0.85rem; padding: 0.4rem 0.6rem;">
-            </div>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <span id="toggle-sequence-opts"
-              style="font-size:0.75rem; color:var(--primary-color); cursor:pointer; display:flex; align-items:center; gap:0.25rem; user-select:none; font-weight:500;">
-              <i data-lucide="sliders" style="width: 14px; height: 14px;"></i> 수동 순서 조정 옵션
-            </span>
+          <input type="hidden" id="test-sequence" value="카드명/은행명, 시간, 금액, 사용처, 상태">
+          <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 1rem;">
             <button type="button" class="btn btn-secondary btn-sm" id="btn-auto-generate-pattern"
               style="font-weight: 500; font-size: 0.8rem; display: flex; align-items: center; gap: 0.25rem;">
               <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i> 패턴 자동 생성
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-ai-generate-pattern"
+              style="font-weight: 500; font-size: 0.8rem; display: flex; align-items: center; gap: 0.25rem; background: var(--accent-color); color: white; border: none;">
+              <i data-lucide="brain-circuit" style="width: 14px; height: 14px;"></i> AI 패턴 자동 생성
             </button>
           </div>
           <div class="form-group">
@@ -1776,14 +1919,15 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=1.9.83"></script>
-  <script src="./notifications.js?v=1.9.83"></script>
-  <script src="./dashboard.js?v=1.9.83"></script>
-  <script src="./transactions.js?v=1.9.83"></script>
-  <script src="./card_bank_view.js?v=1.9.83"></script>
-  <script src="./rules.js?v=1.9.83"></script>
-  <script src="./analytics.js?v=1.9.83"></script>
-  <script src="./settings.js?v=1.9.83"></script>
+  <script src="./app.js?v=1.9.94"></script>
+  <script src="./notifications.js?v=1.9.94"></script>
+  <script src="./dashboard.js?v=1.9.94"></script>
+  <script src="./transactions.js?v=1.9.94"></script>
+  <script src="./card_bank_view.js?v=1.9.94"></script>
+  <script src="./rules.js?v=1.9.94"></script>
+  <script src="./analytics.js?v=1.9.94"></script>
+  <script src="./ai_report.js?v=1.9.94"></script>
+  <script src="./settings.js?v=1.9.94"></script>
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {

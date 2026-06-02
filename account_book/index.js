@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const { initDB, getDB, getActiveUsers, updateHASensors, cleanupOrphanedHASensors, createInAppNotification, startBackupScheduler } = require('./database');
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 8124;
 
 // options.json 파일 읽기 및 설정 로드
@@ -61,7 +62,8 @@ const SENSITIVE_LIMIT = 10; // 1분당 로그인/웹훅 등 민감 API 최대 10
 
 const createRateLimiter = (limit, message) => {
   return (req, res, next) => {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const ip = typeof rawIp === 'string' ? rawIp.split(',')[0].trim() : rawIp;
     const now = Date.now();
     
     if (!rateLimitMap.has(ip)) {

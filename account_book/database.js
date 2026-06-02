@@ -203,6 +203,19 @@ async function initUserDB(username) {
       is_read INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS ai_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_type TEXT NOT NULL,
+      target_year INTEGER NOT NULL,
+      target_month INTEGER,
+      summary TEXT,
+      content TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_reports_unique 
+    ON ai_reports (report_type, target_year, target_month);
   `);
 
   await migrateCategoriesAndData(dbInstance, username);
@@ -216,6 +229,25 @@ async function initUserDB(username) {
  * (initUserDB 및 백업 복원 완료 시점에 실행하여 구버전 데이터 정합성을 보장합니다.)
  */
 async function migrateCategoriesAndData(dbInstance, username) {
+  // AI 소비 리포트 테이블 신설 마이그레이션
+  try {
+    await dbInstance.exec(`
+      CREATE TABLE IF NOT EXISTS ai_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        report_type TEXT NOT NULL,
+        target_year INTEGER NOT NULL,
+        target_month INTEGER,
+        summary TEXT,
+        content TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_reports_unique 
+      ON ai_reports (report_type, target_year, target_month);
+    `);
+  } catch (e) {
+    console.error('[DB 마이그레이션] ai_reports 테이블 마이그레이션 실패:', e);
+  }
+
   // 마이그레이션: 기존 DB에 컬럼이 없는 경우 동적 추가
   try {
     await dbInstance.exec("ALTER TABLE transactions ADD COLUMN type TEXT DEFAULT 'EXPENSE'");
@@ -467,6 +499,43 @@ async function migrateCategoriesAndData(dbInstance, username) {
     console.error('[DB 마이그레이션] 기부금 마이그레이션 실패:', e);
   }
 
+  // [체크카드 폐지 및 은행 연동 마이그레이션]
+  // 요약: 기존 체크카드 결제수단들을 각각 대응하는 시중은행 또는 '계좌이체' 결제수단으로 이관합니다.
+  // 의존성: default_rules.json의 pay_methods 정리 스크립트와 정합해야 합니다.
+  try {
+    const checkCardToBank = {
+      'KB국민체크카드': '국민은행',
+      '신한체크카드': '신한은행',
+      '하나체크카드': '하나은행',
+      '우리체크카드': '우리은행',
+      'NH농협체크카드': '농협은행',
+      '삼성체크카드': '계좌이체',
+      '현대체크카드': '계좌이체',
+      '롯데체크카드': '계좌이체',
+      'BC체크카드': '계좌이체'
+    };
+
+    for (const [card, bank] of Object.entries(checkCardToBank)) {
+      // 1. 거래내역 마이그레이션
+      await dbInstance.run(
+        "UPDATE transactions SET pay_method = ? WHERE pay_method = ?",
+        [bank, card]
+      );
+      // 2. 규칙 마이그레이션
+      await dbInstance.run(
+        "UPDATE rules SET pay_method = ? WHERE pay_method = ?",
+        [bank, card]
+      );
+      // 3. 패키지 결제수단 매핑 마이그레이션
+      await dbInstance.run(
+        "UPDATE package_pay_methods SET pay_method = ? WHERE pay_method = ?",
+        [bank, card]
+      );
+    }
+  } catch (e) {
+    console.error('[DB 마이그레이션] 체크카드 은행이관 마이그레이션 실패:', e);
+  }
+
   await seedDefaultData(dbInstance, username);
 }
 
@@ -565,6 +634,22 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       { key: 'network_backup_webdav_password', val: '' }
     ];
     for (const item of networkBackupKeys) {
+      const hasKey = await dbInstance.get("SELECT 1 FROM settings WHERE key=?", [item.key]);
+      if (!hasKey) {
+        await dbInstance.run("INSERT INTO settings (key, value) VALUES (?, ?)", [item.key, item.val]);
+      }
+    }
+
+    // [신규] AI 파싱 설정 추가 시드 데이터 주입
+    // 의존성: routes/settings.js의 사용자 설정 저장 API 및 public/settings.js의 UI 필드와 매핑됩니다.
+    const aiParsingKeys = [
+      { key: 'ai_parsing_enabled', val: 'false' },
+      { key: 'ai_provider', val: 'gemini' },
+      { key: 'ai_api_key', val: '' },
+      { key: 'ai_local_ip', val: '' },
+      { key: 'ai_local_model', val: '' }
+    ];
+    for (const item of aiParsingKeys) {
       const hasKey = await dbInstance.get("SELECT 1 FROM settings WHERE key=?", [item.key]);
       if (!hasKey) {
         await dbInstance.run("INSERT INTO settings (key, value) VALUES (?, ?)", [item.key, item.val]);

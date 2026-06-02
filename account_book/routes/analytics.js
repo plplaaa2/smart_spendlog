@@ -9,6 +9,8 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../database');
+const { generateConsumptionReportWithAI } = require('../parser');
+const cryptoHelper = require('../crypto_helper');
 
 // 통계 API (대시보드 메인 화면)
 router.get('/stats', async (req, res) => {
@@ -194,7 +196,7 @@ router.get('/stats', async (req, res) => {
         continue;
       }
       
-      const isCard = name.includes('카드') || name.includes('페이') || name.includes('머니'); // 카드, 페이, 머니류는 잔고 제외 (소비로 분류)
+      const isCard = name.includes('카드') || name.includes('페이') || name.includes('머니');
       // 카드가 아닌 모든 결제수단(계좌이체 제외)은 자산으로 유연하게 판정하여 누락 방지
       const isAsset = !isCard && name !== '계좌이체';
                       
@@ -431,7 +433,7 @@ router.get('/analytics/fixed', async (req, res) => {
 
     const isYearly = (month === 'all');
     const targetPattern = isYearly ? `${year}%` : `${year}-${String(month).padStart(2, '0')}%`;
-    const fixedCategories = ['구독', '보험', '공과금', '주거/통신', '대출상환']; // 대출상환 고정비 분석 추가. 의존성: default_rules.json, database.js의 카테고리 설정과 일치해야 합니다.
+    const fixedCategories = ['구독', '보험', '수도광열비', '주거', '통신비', '대출상환']; // 대출상환 고정비 분석 추가. 의존성: default_rules.json, database.js의 카테고리 설정과 일치해야 합니다.
     const placeholders = fixedCategories.map(() => '?').join(',');
 
     // 1. 해당 기간 총 지출액 (비율 계산용, 이체/송금 제외)
@@ -519,7 +521,7 @@ router.get('/analytics/general', async (req, res) => {
 
     const isYearly = (month === 'all');
     const targetPattern = isYearly ? `${year}%` : `${year}-${String(month).padStart(2, '0')}%`;
-    const fixedCategories = ['구독', '보험', '공과금', '주거/통신', '대출상환'];
+    const fixedCategories = ['구독', '보험', '수도광열비', '주거', '통신비', '대출상환'];
     const placeholders = fixedCategories.map(() => '?').join(',');
 
     // 1. 해당 기간 총 지출액 (비율 계산용, 이체/송금 제외)
@@ -675,6 +677,198 @@ router.get('/analytics/income', async (req, res) => {
       transactions: transactionRows,
       trend: monthlyTrend
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// AI 소비 리포트 관련 API
+// ==========================================
+
+// 1. AI 소비 리포트 조회 API
+// 요약: 특정 사용자명, 연도, 월 정보에 기반해 이미 데이터베이스에 구축된 AI 리포트가 있으면 반환합니다.
+// 의존성: database.js의 getDB를 활용해 유저 DB에 쿼리를 전송합니다.
+router.get('/analytics/ai-report', async (req, res) => {
+  try {
+    const db = await getDB(req.username);
+    const { year, month } = req.query;
+    if (!year || !month) {
+      return res.status(400).json({ error: '조회할 연도(year)와 월(month)을 지정해 주세요.' });
+    }
+
+    const reportType = (month === 'all') ? 'YEARLY' : 'MONTHLY';
+    const targetMonth = (month === 'all') ? 0 : parseInt(month, 10);
+    const targetYear = parseInt(year, 10);
+
+    const report = await db.get(
+      'SELECT summary, content, created_at FROM ai_reports WHERE report_type = ? AND target_year = ? AND target_month = ?',
+      [reportType, targetYear, targetMonth]
+    );
+
+    if (report) {
+      res.json({ success: true, report });
+    } else {
+      res.json({ success: false, message: '생성된 AI 소비 리포트가 없습니다.' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2. AI 소비 리포트 생성/재생성 API
+// 요약: 가계부 지출/수입 데이터와 예산 한도 등의 데이터를 수집하여 AI 프롬프트를 조립하고, 설정된 AI 모델(Gemini/OpenAI 등)을 연동해 가계 리포트를 작성 후 저장/반환합니다.
+// 의존성: parser.js의 generateConsumptionReportWithAI 및 crypto_helper.js 복호화를 연계합니다.
+router.post('/analytics/ai-report/generate', async (req, res) => {
+  try {
+    const db = await getDB(req.username);
+    const { year, month } = req.body;
+    if (!year || !month) {
+      return res.status(400).json({ error: '생성할 연도(year)와 월(month)을 지정해 주세요.' });
+    }
+
+    const isYearly = (month === 'all');
+    const targetYear = parseInt(year, 10);
+    const targetMonth = isYearly ? 0 : parseInt(month, 10);
+    const reportType = isYearly ? 'YEARLY' : 'MONTHLY';
+
+    // 1. AI 설정 조회 및 검증
+    const settingsList = await db.all(
+      "SELECT key, value FROM settings WHERE key IN ('ai_parsing_enabled', 'ai_provider', 'ai_api_key', 'ai_local_ip', 'ai_local_model')"
+    );
+    const settings = {};
+    settingsList.forEach(row => {
+      settings[row.key] = row.value;
+    });
+
+    if (settings.ai_parsing_enabled !== 'true') {
+      return res.status(400).json({ error: 'AI 설정이 비활성화 상태입니다. 설정 탭의 AI 설정에서 먼저 활성화해 주세요.' });
+    }
+
+    const provider = settings.ai_provider || 'gemini';
+    let apiKey = settings.ai_api_key;
+    if (apiKey && (provider === 'gemini' || provider === 'openai')) {
+      try {
+        apiKey = cryptoHelper.decrypt(apiKey);
+      } catch (decErr) {
+        console.error('[AI 리포트] API Key 복호화 실패:', decErr.message);
+      }
+    }
+
+    const aiConfig = {
+      provider,
+      apiKey,
+      localIp: settings.ai_local_ip,
+      localModel: settings.ai_local_model
+    };
+
+    // 2. 가계부 데이터 수집
+    let dataText = '';
+    const targetPattern = isYearly ? `${year}%` : `${year}-${String(month).padStart(2, '0')}%`;
+
+    // 총 수입액 (이체/입금 제외)
+    const incomeRow = await db.get(
+      "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'INCOME' AND category != '이체/입금'",
+      [targetPattern]
+    );
+    const totalIncome = incomeRow.total || 0;
+
+    // 총 지출액 (이체/송금 제외)
+    const expenseRow = await db.get(
+      "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
+      [targetPattern]
+    );
+    const totalExpense = expenseRow.total || 0;
+
+    // 카테고리별 지출 내역
+    const categories = await db.all(
+      "SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' GROUP BY category ORDER BY total DESC",
+      [targetPattern]
+    );
+
+    // 예산 설정값
+    const budgetKey = isYearly ? `budget_${year}` : `budget_${year}_${String(month).padStart(2, '0')}`;
+    const budgetRow = await db.get("SELECT value FROM settings WHERE key = ?", [budgetKey]);
+    const budget = budgetRow ? parseInt(budgetRow.value, 10) : 0;
+
+    // 월별/일자별 추이 데이터 집계 (프롬프트 간소화용 요약)
+    let trendText = '';
+    if (isYearly) {
+      // 월별 수입 및 지출
+      const monthlyData = await db.all(`
+        SELECT 
+          strftime('%m', datetime) as mm,
+          SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as inc,
+          SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as exp
+        FROM transactions 
+        WHERE datetime LIKE ? 
+        GROUP BY mm 
+        ORDER BY mm ASC
+      `, [targetPattern]);
+
+      trendText = monthlyData.map(m => `  - ${m.mm}월: 수입 ${m.inc.toLocaleString()}원, 지출 ${m.exp.toLocaleString()}원`).join('\n');
+      
+      dataText = `[${year}년 연간 가계 통계 데이터]
+- 총 수입: ${totalIncome.toLocaleString()}원 (이체/입금 제외)
+- 총 지출: ${totalExpense.toLocaleString()}원 (이체/송금 제외)
+- 순수익 (수입-지출): ${(totalIncome - totalExpense).toLocaleString()}원
+- 연간 총 예산: ${budget > 0 ? budget.toLocaleString() + '원' : '설정되지 않음'}
+- 카테고리별 지출 비중:
+${categories.map(c => `  - ${c.category}: ${c.total.toLocaleString()}원 (${((c.total / (totalExpense || 1)) * 100).toFixed(1)}%)`).join('\n')}
+- 월별 수입 및 지출 흐름:
+${trendText || '  (기록된 월별 데이터 없음)'}`;
+
+    } else {
+      // 일별 상위 지출 요약
+      const dailyExpenses = await db.all(`
+        SELECT 
+          strftime('%d', datetime) as dd,
+          SUM(amount) as total
+        FROM transactions 
+        WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'
+        GROUP BY dd 
+        ORDER BY total DESC 
+        LIMIT 5
+      `, [targetPattern]);
+
+      trendText = dailyExpenses.map(d => `  - ${d.dd}일 지출 합계: ${d.total.toLocaleString()}원`).join('\n');
+
+      dataText = `[${year}년 ${month}월 가계 통계 데이터]
+- 총 수입: ${totalIncome.toLocaleString()}원 (이체/입금 제외)
+- 총 지출: ${totalExpense.toLocaleString()}원 (이체/송금 제외)
+- 순수익 (수입-지출): ${(totalIncome - totalExpense).toLocaleString()}원
+- 이번 달 설정 예산: ${budget > 0 ? budget.toLocaleString() + '원' : '설정되지 않음'}
+- 예산 소진율: ${budget > 0 ? ((totalExpense / budget) * 100).toFixed(1) + '%' : 'N/A'}
+- 카테고리별 지출 비중:
+${categories.map(c => `  - ${c.category}: ${c.total.toLocaleString()}원 (${((c.total / (totalExpense || 1)) * 100).toFixed(1)}%)`).join('\n')}
+- 일자별 주요 지출 일(상위 5일):
+${trendText || '  (기록된 지출 없음)'}`;
+    }
+
+    // 3. AI 소비 리포트 작성 호출
+    const reportResult = await generateConsumptionReportWithAI(dataText, aiConfig);
+
+    if (!reportResult) {
+      return res.status(500).json({ error: 'AI 소비 리포트를 생성하는 도중 오류가 발생했습니다. AI 설정 정보를 확인해주세요.' });
+    }
+
+    // 4. DB에 저장
+    const now = Date.now();
+    await db.run(
+      `INSERT OR REPLACE INTO ai_reports (report_type, target_year, target_month, summary, content, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [reportType, targetYear, targetMonth, reportResult.summary, reportResult.content, now]
+    );
+
+    res.json({
+      success: true,
+      report: {
+        summary: reportResult.summary,
+        content: reportResult.content,
+        created_at: now
+      }
+    });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
