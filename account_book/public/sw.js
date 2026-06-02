@@ -19,6 +19,7 @@ const ASSETS_TO_CACHE = [
   './card_bank_view.js',
   './rules.js',
   './analytics.js',
+  './ai_report.js',
   './settings.js',
   './notifications.js',
   './icons/app_icon_192.png',

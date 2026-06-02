@@ -741,17 +741,26 @@ router.post('/analytics/ai-report/generate', async (req, res) => {
       settings[row.key] = row.value;
     });
 
-    if (settings.ai_parsing_enabled !== 'true') {
-      return res.status(400).json({ error: 'AI 설정이 비활성화 상태입니다. 설정 탭의 AI 설정에서 먼저 활성화해 주세요.' });
-    }
-
     const provider = settings.ai_provider || 'gemini';
     let apiKey = settings.ai_api_key;
-    if (apiKey && (provider === 'gemini' || provider === 'openai')) {
+
+    // AI 자동 파싱 활성화(ai_parsing_enabled) 여부와 상관없이 연동 정보(API Key 등)가 제대로 존재하면 리포트 생성을 허용합니다.
+    if (provider === 'gemini' || provider === 'openai') {
+      if (!apiKey) {
+        return res.status(400).json({ error: 'AI API Key가 설정되어 있지 않습니다. 설정 탭의 AI 설정에서 API Key를 입력 후 저장해 주세요.' });
+      }
       try {
         apiKey = cryptoHelper.decrypt(apiKey);
       } catch (decErr) {
         console.error('[AI 리포트] API Key 복호화 실패:', decErr.message);
+        return res.status(500).json({ error: `API Key 복호화 실패: ${decErr.message}` });
+      }
+      if (!apiKey || apiKey === '******') {
+        return res.status(400).json({ error: '유효한 AI API Key가 입력되지 않았습니다. API Key를 올바르게 입력했는지 확인해 주세요.' });
+      }
+    } else if (provider === 'local') {
+      if (!settings.ai_local_ip) {
+        return res.status(400).json({ error: '로컬 API 주소(IP)가 설정되어 있지 않습니다. 설정 탭의 AI 설정에서 로컬 API 주소를 입력해 주세요.' });
       }
     }
 
