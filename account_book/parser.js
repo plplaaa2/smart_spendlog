@@ -4,11 +4,14 @@
 function parseNotification(text, rules, fallbackDatetime = null) {
   if (!text) return null;
 
+  // Windows 스타일 줄바꿈(\r\n)을 Unix 스타일(\n)로 표준화하여 정규식 매칭 실패 방지
+  const normalizedText = text.replace(/\r\n/g, '\n');
+
   for (const rule of rules) {
     try {
-      // 정규식 컴파일 (amount 캡처 인덱스를 획득하기 위해 'd' 플래그 추가)
-      const regex = new RegExp(rule.pattern, 'd');
-      const match = regex.exec(text);
+      // 정규식 컴파일 (amount 캡처 인덱스 획득을 위해 'd', 줄바꿈 매칭 허용을 위해 's' 플래그 추가)
+      const regex = new RegExp(rule.pattern, 'ds');
+      const match = regex.exec(normalizedText);
 
       if (match) {
         const groups = match.groups || {};
@@ -43,7 +46,7 @@ function parseNotification(text, rules, fallbackDatetime = null) {
           let isDateTime = false;
           for (const dtRegex of dateTimeRegexes) {
             let dtMatch;
-            while ((dtMatch = dtRegex.exec(text)) !== null) {
+            while ((dtMatch = dtRegex.exec(normalizedText)) !== null) {
               const dtStart = dtMatch.index;
               const dtEnd = dtMatch.index + dtMatch[0].length;
               
@@ -57,7 +60,7 @@ function parseNotification(text, rules, fallbackDatetime = null) {
           }
           
           if (isDateTime) {
-            console.log(`[파서] 금액(${amount})이 날짜/시간 영역(${text.substring(amountStart, amountEnd)})에 속하므로 이중등록 및 오인매핑 방지를 위해 규칙 "${rule.name}" 매칭을 거부합니다.`);
+            console.log(`[파서] 금액(${amount})이 날짜/시간 영역(${normalizedText.substring(amountStart, amountEnd)})에 속하므로 이중등록 및 오인매핑 방지를 위해 규칙 "${rule.name}" 매칭을 거부합니다.`);
             continue;
           }
         }
@@ -103,7 +106,7 @@ function parseNotification(text, rules, fallbackDatetime = null) {
 
         // [체크카드 고도화 파싱] 본문에 '체크'가 포함되어 있거나, payMethod에 '체크'가 포함되어 있는 경우 은행 결제로 자동 변환
         // 의존성: routes/webhook.js의 최종 패키지 매핑 및 이중 등록 방지 예외 처리와 유기적으로 연동됩니다.
-        if (text.includes('체크') || payMethod.includes('체크')) {
+        if (normalizedText.includes('체크') || payMethod.includes('체크')) {
           const cardToBankMap = {
             'KB국민카드': '국민은행',
             '국민카드': '국민은행',
@@ -167,7 +170,7 @@ function parseNotification(text, rules, fallbackDatetime = null) {
           };
 
           for (const [hint, bankName] of Object.entries(bankHints)) {
-            if (text.includes(hint)) {
+            if (normalizedText.includes(hint)) {
               targetBank = bankName;
               break;
             }
@@ -193,7 +196,7 @@ function parseNotification(text, rules, fallbackDatetime = null) {
           const cleanPoint = groups.used_point.replace(/,/g, '');
           usedPoint = parseInt(cleanPoint, 10) || 0;
         } else {
-          const pointMatch = text.match(/(?:포인트|점수|P|마일리지|하트)\s*(\d{1,3}(?:,\d{3})*)\s*(?:원|점|P)?/i);
+          const pointMatch = normalizedText.match(/(?:포인트|점수|P|마일리지|하트)\s*(\d{1,3}(?:,\d{3})*)\s*(?:원|점|P)?/i);
           if (pointMatch) {
             const cleanPoint = pointMatch[1].replace(/,/g, '');
             usedPoint = parseInt(cleanPoint, 10) || 0;
@@ -544,8 +547,32 @@ function generatePatternFromText(text) {
 
   // 10. 최종 정규식 조립
   let finalRegex = '^';
+  if (text.includes('[Web발신]')) {
+    finalRegex += '(?:(?:\\[Web발신\\])?\\s*)?';
+  }
+
   let lastIndex = 0;
   const usedTypes = new Set();
+
+  // 갭 텍스트의 정적 문자(특수문자 포함)는 보존하고 공백은 정규식으로 유연화하는 헬퍼 함수
+  function formatGapToRegex(gapText) {
+    if (!gapText) return '';
+    let result = '';
+    let i = 0;
+    while (i < gapText.length) {
+      const char = gapText[i];
+      if (/\s/.test(char)) {
+        result += '\\s*';
+        while (i < gapText.length && /\s/.test(gapText[i])) {
+          i++;
+        }
+      } else {
+        result += escapeRegexChars(char);
+        i++;
+      }
+    }
+    return result;
+  }
 
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
@@ -556,7 +583,7 @@ function generatePatternFromText(text) {
       const hasNums = /\d/.test(prefixGap);
       finalRegex += hasNums ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*' : '\\s*(?<merchant>.+?)\\s*';
     } else {
-      finalRegex += escapeRegexChars(prefixGap);
+      finalRegex += formatGapToRegex(prefixGap);
     }
     
     let blockRegex = b.regex;
@@ -581,7 +608,7 @@ function generatePatternFromText(text) {
       finalRegex += hasNums ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?' : '\\s*(?<merchant>.+?)';
     }
   } else {
-    finalRegex += escapeRegexChars(suffixGap);
+    finalRegex += formatGapToRegex(suffixGap);
   }
 
   return finalRegex;
@@ -875,6 +902,9 @@ The regex pattern MUST extract the following values using NAMED CAPTURE GROUPS:
 - "balance" (e.g. (?<balance>[\\d,]+)): Extracts the remaining balance (optional).
 - "cumulative" (e.g. (?<cumulative>[\\d,]+)): Extracts the cumulative monthly spending (optional).
 - "used_point" (e.g. (?<used_point>[\\d,]+)): Extracts points/credits used (optional).
+
+CRITICAL RULE FOR NEWLINES/SPACES:
+DO NOT use raw newlines (\\n or \\r\\n) in the pattern. Instead, use \\\\s+ or \\\\s* to match line breaks and whitespaces to make the pattern platform-independent.
 
 The pattern MUST match the entire text or its major part. Escape bracket characters properly (e.g. \\[KB국민\\]).
 Notice that double backslashes should be used since it will be parsed as JSON.
