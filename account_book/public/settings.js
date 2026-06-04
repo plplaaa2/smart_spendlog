@@ -787,6 +787,7 @@ async function loadAISettings() {
     const settings = await fetch('api/settings').then(r => r.json());
 
     const aiEnabledEl = document.getElementById('settings-ai-enabled');
+    const aiParsingEnabledEl = document.getElementById('settings-ai-parsing-enabled');
     const aiProviderEl = document.getElementById('settings-ai-provider');
     const aiApiKeyEl = document.getElementById('settings-ai-api-key');
     const aiLocalIpEl = document.getElementById('settings-ai-local-ip');
@@ -796,9 +797,31 @@ async function loadAISettings() {
     const apiKeyGroup = document.getElementById('ai-api-key-group');
     const localGroup = document.getElementById('ai-local-group');
 
+    // 마스터 스위치 상태 변경 시 UI 제어 헬퍼
+    const updateAISubFieldsVisibility = () => {
+      const isMasterEnabled = aiEnabledEl && aiEnabledEl.checked;
+      if (aiParsingEnabledEl) {
+        aiParsingEnabledEl.disabled = !isMasterEnabled;
+        if (!isMasterEnabled) {
+          aiParsingEnabledEl.checked = false;
+        }
+      }
+      if (optionsContainer) {
+        optionsContainer.style.display = isMasterEnabled ? 'flex' : 'none';
+      }
+    };
+
     if (aiEnabledEl) {
-      aiEnabledEl.checked = settings.ai_parsing_enabled === 'true';
+      aiEnabledEl.checked = settings.ai_enabled === 'true';
+      aiEnabledEl.onchange = updateAISubFieldsVisibility;
     }
+
+    if (aiParsingEnabledEl) {
+      aiParsingEnabledEl.checked = settings.ai_parsing_enabled === 'true';
+    }
+
+    // 초기 상태 반영
+    updateAISubFieldsVisibility();
 
     if (aiProviderEl) {
       aiProviderEl.value = settings.ai_provider || 'gemini';
@@ -828,7 +851,8 @@ async function loadAISettings() {
         e.preventDefault();
         
         const payload = {
-          ai_parsing_enabled: aiEnabledEl ? aiEnabledEl.checked : false,
+          ai_enabled: aiEnabledEl ? aiEnabledEl.checked : false,
+          ai_parsing_enabled: aiParsingEnabledEl ? aiParsingEnabledEl.checked : false,
           ai_provider: aiProviderEl ? aiProviderEl.value : 'gemini',
           ai_api_key: aiApiKeyEl ? aiApiKeyEl.value : '',
           ai_local_ip: aiLocalIpEl ? aiLocalIpEl.value.trim() : '',
@@ -846,7 +870,7 @@ async function loadAISettings() {
           }).then(r => r.json());
 
           if (res.success) {
-            alert('AI 파싱 설정이 저장되었습니다.');
+            alert('AI 설정이 저장되었습니다.');
             loadAISettings(); // 마스킹 갱신 등을 위해 다시 불러오기
           } else {
             alert('설정 저장 실패: ' + (res.error || '알 수 없는 오류'));

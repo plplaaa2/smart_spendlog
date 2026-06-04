@@ -660,6 +660,7 @@ async function seedDefaultData(dbInstance, username = 'admin') {
     // [신규] AI 파싱 설정 추가 시드 데이터 주입
     // 의존성: routes/settings.js의 사용자 설정 저장 API 및 public/settings.js의 UI 필드와 매핑됩니다.
     const aiParsingKeys = [
+      { key: 'ai_enabled', val: 'false' },
       { key: 'ai_parsing_enabled', val: 'false' },
       { key: 'ai_provider', val: 'gemini' },
       { key: 'ai_api_key', val: '' },

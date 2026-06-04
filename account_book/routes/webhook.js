@@ -97,9 +97,10 @@ async function processIncomingNotification(newState, username) {
 
   // 정규식 매칭 실패 시 AI 파싱 시도
   if (!result) {
-    const aiEnabledRow = await db.get("SELECT value FROM settings WHERE key = 'ai_parsing_enabled'");
-    const isAiEnabled = aiEnabledRow && aiEnabledRow.value === 'true';
-    if (isAiEnabled) {
+    const aiMasterEnabledRow = await db.get("SELECT value FROM settings WHERE key = 'ai_enabled'");
+    const aiParsingEnabledRow = await db.get("SELECT value FROM settings WHERE key = 'ai_parsing_enabled'");
+    const isAiParsingEnabled = (aiMasterEnabledRow && aiMasterEnabledRow.value === 'true') && (aiParsingEnabledRow && aiParsingEnabledRow.value === 'true');
+    if (isAiParsingEnabled) {
       const aiProviderRow = await db.get("SELECT value FROM settings WHERE key = 'ai_provider'");
       const aiApiKeyRow = await db.get("SELECT value FROM settings WHERE key = 'ai_api_key'");
       const aiLocalIpRow = await db.get("SELECT value FROM settings WHERE key = 'ai_local_ip'");

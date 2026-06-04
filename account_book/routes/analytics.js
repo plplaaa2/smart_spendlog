@@ -734,12 +734,16 @@ router.post('/analytics/ai-report/generate', async (req, res) => {
 
     // 1. AI 설정 조회 및 검증
     const settingsList = await db.all(
-      "SELECT key, value FROM settings WHERE key IN ('ai_parsing_enabled', 'ai_provider', 'ai_api_key', 'ai_local_ip', 'ai_local_model')"
+      "SELECT key, value FROM settings WHERE key IN ('ai_enabled', 'ai_parsing_enabled', 'ai_provider', 'ai_api_key', 'ai_local_ip', 'ai_local_model')"
     );
     const settings = {};
     settingsList.forEach(row => {
       settings[row.key] = row.value;
     });
+
+    if (settings.ai_enabled !== 'true') {
+      return res.status(400).json({ error: 'AI 기능이 비활성화 상태입니다. 설정 탭의 AI 설정에서 먼저 활성화해 주세요.' });
+    }
 
     const provider = settings.ai_provider || 'gemini';
     let apiKey = settings.ai_api_key;

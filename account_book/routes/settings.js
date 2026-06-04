@@ -151,7 +151,7 @@ router.post('/settings', async (req, res) => {
       network_backup_enabled, network_backup_type, network_backup_path, 
       network_backup_path_username, network_backup_path_password,
       network_backup_webdav_url, network_backup_webdav_username, network_backup_webdav_password,
-      ai_parsing_enabled, ai_provider, ai_api_key, ai_local_ip, ai_local_model
+      ai_enabled, ai_parsing_enabled, ai_provider, ai_api_key, ai_local_ip, ai_local_model
     } = req.body;
 
     if (ws_sensor_entity !== undefined) {
@@ -227,6 +227,9 @@ router.post('/settings', async (req, res) => {
     }
 
     // [신규] AI 파싱 설정 개별 업데이트
+    if (ai_enabled !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ai_enabled', ?)", [String(ai_enabled)]);
+    }
     if (ai_parsing_enabled !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ai_parsing_enabled', ?)", [String(ai_parsing_enabled)]);
     }
