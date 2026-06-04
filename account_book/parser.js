@@ -67,28 +67,14 @@ function parseNotification(text, rules, fallbackDatetime = null) {
 
         // 2. 사용처(merchant) 파싱
         let merchant = groups.merchant || groups.usage || '알수없음';
-        merchant = merchant.trim();
+        merchant = cleanMerchantName(merchant); // 가맹점명 법인격 및 특수문자 정제
         merchant = addKoreanBrandName(merchant); // 영문 브랜드 한글명 추가 (예: VIPS -> VIPS(빕스))
 
         // 3. 결제 일시(datetime) 파싱
-        let datetimeStr = '';
         const now = new Date();
         const currentYear = now.getFullYear();
-
         const timeStr = groups.time || groups.datetime || groups.date;
-        if (timeStr) {
-          // 다양한 포맷 시도 (예: MM/DD HH:mm, MM-DD HH:mm, YYYY-MM-DD HH:mm 등)
-          const dateMatch = timeStr.match(/(?:(\d{4})[-/.])?(\d{1,2})[-/.](\d{1,2})\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
-          if (dateMatch) {
-            const year = dateMatch[1] ? parseInt(dateMatch[1], 10) : currentYear;
-            const month = dateMatch[2].padStart(2, '0');
-            const day = dateMatch[3].padStart(2, '0');
-            const hour = dateMatch[4].padStart(2, '0');
-            const minute = dateMatch[5].padStart(2, '0');
-            const second = dateMatch[6] ? dateMatch[6].padStart(2, '0') : '00';
-            datetimeStr = `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-          }
-        }
+        let datetimeStr = parseFlexibleDatetime(timeStr, currentYear);
 
         // 일시 파싱 실패 시 현재 시간 또는 fallbackDatetime 적용
         if (!datetimeStr) {
@@ -208,7 +194,53 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         if (groups.account) memoParts.push(`계좌: ${groups.account.trim()}`);
         if (groups.balance) memoParts.push(`잔액: ${groups.balance.trim()}`);
         if (groups.cumulative) memoParts.push(`누적: ${groups.cumulative.trim()}`);
-        const memo = memoParts.join(' | ');
+
+        // [수입/지출 및 취소 감지 고도화]
+        let transactionType = rule.type || 'EXPENSE';
+        let customMemo = '';
+        
+        // 1순위: 정규식 Named Group 중 status 또는 type_text 값 검사
+        const matchedStatus = groups.status || groups.type_text;
+        if (matchedStatus) {
+          const cleanStatus = matchedStatus.trim();
+          if (/입금|수입|저축|환불|입금완료/.test(cleanStatus)) {
+            transactionType = 'INCOME';
+          } else if (/출금|송금|지출|결제|승인|사용/.test(cleanStatus)) {
+            transactionType = 'EXPENSE';
+          }
+          
+          if (/취소|반품/.test(cleanStatus)) {
+            if (/입금취소|입금\s*취소|수입취소/.test(normalizedText)) {
+              transactionType = 'EXPENSE';
+              customMemo = '[입금취소] ';
+            } else {
+              transactionType = 'INCOME';
+              customMemo = '[승인취소] ';
+            }
+          }
+        } else {
+          // 2순위: 캡처 그룹이 없을 때 본문 키워드 전체 검사
+          const isDeposit = /입금|환불|입금완료|수입/.test(normalizedText);
+          const isWithdrawal = /출금|송금|지출|결제|승인/.test(normalizedText);
+          
+          if (isDeposit && !isWithdrawal) {
+            transactionType = 'INCOME';
+          } else if (isWithdrawal && !isDeposit) {
+            transactionType = 'EXPENSE';
+          }
+          
+          if (/취소|승인취소|반품/.test(normalizedText)) {
+            if (/입금취소|입금\s*취소|수입취소/.test(normalizedText)) {
+              transactionType = 'EXPENSE';
+              customMemo = '[입금취소] ';
+            } else {
+              transactionType = 'INCOME';
+              customMemo = '[승인취소] ';
+            }
+          }
+        }
+
+        const memo = customMemo + memoParts.join(' | ');
 
         return {
           amount,
@@ -216,7 +248,7 @@ function parseNotification(text, rules, fallbackDatetime = null) {
           datetime: datetimeStr,
           pay_method: payMethod,
           category,
-          type: rule.type || 'EXPENSE',
+          type: transactionType,
           rule_id: rule.id,
           rule_name: rule.name,
           used_point: usedPoint,
@@ -693,6 +725,104 @@ function addKoreanBrandName(merchant) {
 }
 
 /**
+ * 가맹점명 앞뒤의 법인격 표시 및 불필요한 특수 기호를 정리하여 매핑 정합성을 높입니다.
+ */
+function cleanMerchantName(merchant) {
+  if (!merchant) return '알수없음';
+  let cleaned = merchant.trim();
+  
+  // 법인격 표시 제거 (예: (주)이마트, 주식회사 스타벅스, 롯데쇼핑(주))
+  cleaned = cleaned.replace(/^\((주|합|유|재|사)\)|^\(주식회사\)/g, '');
+  cleaned = cleaned.replace(/\((주|합|유|재|사)\)$|\(주식회사\)$/g, '');
+  cleaned = cleaned.replace(/^주식회사\s+|\s+주식회사$/g, '');
+  
+  // 주변 불필요 특수문자 및 공백 제거
+  cleaned = cleaned.replace(/^[\s,.\-_#@*&()\[\]{}]+|[\s,.\-_#@*&()\[\]{}]+$/g, '');
+  return cleaned.trim() || '알수없음';
+}
+
+/**
+ * 요일 한글 괄호 제거, 오전/오후 24시간제 반영 및 한글 월/일/시/분 등을 유연하게 파싱합니다.
+ */
+function parseFlexibleDatetime(timeStr, currentYear) {
+  if (!timeStr) return '';
+  
+  // 1. 요일 표시 제거 (예: (목), (화요일), [금] 등)
+  let cleanStr = timeStr.replace(/\([가-힣a-zA-Z]{1,3}\)/g, '').replace(/\[[가-힣a-zA-Z]{1,3}\]/g, '').trim();
+  
+  // 2. 오전/오후 감지 및 변환
+  let isPM = false;
+  if (/오후|PM/i.test(cleanStr)) {
+    isPM = true;
+  }
+  // 오전/오후/AM/PM 문자열 제거
+  cleanStr = cleanStr.replace(/오전|오후|AM|PM/ig, '').replace(/\s+/g, ' ').trim();
+  
+  // 3. 다양한 포맷 매칭 시도
+  // 후보 1: 표준 YYYY-MM-DD HH:mm:ss 또는 MM/DD HH:mm
+  const stdMatch = cleanStr.match(/(?:(\d{4})[-/.])?(\d{1,2})[-/.](\d{1,2})\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  if (stdMatch) {
+    const year = stdMatch[1] ? parseInt(stdMatch[1], 10) : currentYear;
+    const month = stdMatch[2].padStart(2, '0');
+    const day = stdMatch[3].padStart(2, '0');
+    let hour = parseInt(stdMatch[4], 10);
+    if (isPM && hour < 12) hour += 12;
+    if (!isPM && hour === 12) hour = 0; // 오전 12시는 0시
+    const minute = stdMatch[5].padStart(2, '0');
+    const second = stdMatch[6] ? stdMatch[6].padStart(2, '0') : '00';
+    return `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${minute}:${second}`;
+  }
+  
+  // 후보 2: 한국식 'MM월 DD일 HH시 mm분' (연도 생략 또는 포함)
+  const krMatch = cleanStr.match(/(?:(\d{4})년\s*)?(\d{1,2})월\s*(\d{1,2})일\s*(\d{1,2})시\s*(\d{1,2})분(?:\s*(\d{1,2})초)?/);
+  if (krMatch) {
+    const year = krMatch[1] ? parseInt(krMatch[1], 10) : currentYear;
+    const month = krMatch[2].padStart(2, '0');
+    const day = krMatch[3].padStart(2, '0');
+    let hour = parseInt(krMatch[4], 10);
+    if (isPM && hour < 12) hour += 12;
+    if (!isPM && hour === 12) hour = 0;
+    const minute = krMatch[5].padStart(2, '0');
+    const second = krMatch[6] ? krMatch[6].padStart(2, '0') : '00';
+    return `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${minute}:${second}`;
+  }
+
+  // 후보 3: 구분 기호 없이 연속된 숫자 형태 (예: 260604171500)
+  const digitMatch = cleanStr.match(/^\b(\d{8}|\d{12}|\d{14})\b$/);
+  if (digitMatch) {
+    const val = digitMatch[1];
+    if (val.length === 8) {
+      const month = val.slice(0, 2);
+      const day = val.slice(2, 4);
+      let hour = parseInt(val.slice(4, 6), 10);
+      if (isPM && hour < 12) hour += 12;
+      const minute = val.slice(6, 8);
+      return `${currentYear}-${month}-${day} ${String(hour).padStart(2, '0')}:${minute}:00`;
+    } else if (val.length === 12) {
+      const year = '20' + val.slice(0, 2);
+      const month = val.slice(2, 4);
+      const day = val.slice(4, 6);
+      let hour = parseInt(val.slice(6, 8), 10);
+      if (isPM && hour < 12) hour += 12;
+      const minute = val.slice(8, 10);
+      const second = val.slice(10, 12);
+      return `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${minute}:${second}`;
+    } else if (val.length === 14) {
+      const year = val.slice(0, 4);
+      const month = val.slice(4, 6);
+      const day = val.slice(6, 8);
+      let hour = parseInt(val.slice(8, 10), 10);
+      if (isPM && hour < 12) hour += 12;
+      const minute = val.slice(10, 12);
+      const second = val.slice(12, 14);
+      return `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${minute}:${second}`;
+    }
+  }
+
+  return '';
+}
+
+/**
  * AI API를 이용하여 알림 텍스트를 파싱합니다.
  * @param {string} text 알림 본문 텍스트
  * @param {object} config AI 설정 ({ provider, apiKey, localIp, localModel })
@@ -1094,8 +1224,8 @@ ${dataText}
 
 예시 출력 형식:
 {
-  "summary": "온라인 쇼핑이 급증했으나 식비를 아껴 전체 예산을 방어했습니다.",
-  "content": "## 📊 가계부 종합 요약\\n이번 달 총 지출은...\\n\\n## 🔍 주요 소비 카테고리 분석\\n- **식비**: 지난 달 대비...\\n"
+  "summary": "온라인 쇼핑이 급증했으나 외식비를 아껴 전체 예산을 방어했습니다.",
+  "content": "## 📊 가계부 종합 요약\\n이번 달 총 지출은...\\n\\n## 🔍 주요 소비 카테고리 분석\\n- **외식비**: 지난 달 대비...\\n"
 }
 `;
 
