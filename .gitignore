@@ -5,3 +5,27 @@ changelog.jsonl
 caution.jsonl
 antigravity_backup_*/
 
+# Node & Development
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# SQLite databases
+*.db
+*.db-journal
+*.db-wal
