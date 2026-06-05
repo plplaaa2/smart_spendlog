@@ -499,6 +499,23 @@ async function migrateCategoriesAndData(dbInstance, username) {
     console.error('[DB 마이그레이션] 기부금 마이그레이션 실패:', e);
   }
 
+  // 식비 -> 외식비 카테고리 변경 마이그레이션 및 기존 데이터 업데이트
+  try {
+    const hasDiningOut = await dbInstance.get("SELECT 1 FROM categories WHERE name = '외식비'");
+    if (hasDiningOut) {
+      await dbInstance.run("DELETE FROM categories WHERE name = '식비'");
+    } else {
+      await dbInstance.run("UPDATE categories SET name = '외식비' WHERE name = '식비'");
+    }
+    await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('외식비', '#ff6b6b', 'utensils', 'EXPENSE')");
+    await dbInstance.run("UPDATE transactions SET category = '외식비' WHERE category = '식비'");
+    await dbInstance.run("UPDATE rules SET category = '외식비' WHERE category = '식비'");
+    await dbInstance.run("UPDATE merchant_categories SET category = '외식비' WHERE category = '식비'");
+    await dbInstance.run("DELETE FROM categories WHERE name = '식비'");
+  } catch (e) {
+    console.error('[DB 마이그레이션] 식비 -> 외식비 카테고리 변경 마이그레이션 실패:', e);
+  }
+
   // [체크카드 폐지 및 은행 연동 마이그레이션]
   // 요약: 기존 체크카드 결제수단들을 각각 대응하는 시중은행 또는 '계좌이체' 결제수단으로 이관합니다.
   // 의존성: default_rules.json의 pay_methods 정리 스크립트와 정합해야 합니다.
@@ -643,6 +660,7 @@ async function seedDefaultData(dbInstance, username = 'admin') {
     // [신규] AI 파싱 설정 추가 시드 데이터 주입
     // 의존성: routes/settings.js의 사용자 설정 저장 API 및 public/settings.js의 UI 필드와 매핑됩니다.
     const aiParsingKeys = [
+      { key: 'ai_enabled', val: 'false' },
       { key: 'ai_parsing_enabled', val: 'false' },
       { key: 'ai_provider', val: 'gemini' },
       { key: 'ai_api_key', val: '' },
@@ -884,17 +902,17 @@ async function seedFranchisePresets(db, force = false) {
   if (force) {
     for (const preset of FRANCHISE_PRESETS) {
       if (['편의점', '음료/카페', '배달음식', '디저트', '패션/의류', '병원/약국', '해외직구', '구독', '렌탈', '세금', '수도광열비', '주거', '통신비', '연금', '지원금/환급금', '기부금'].includes(preset.category)) {
-        let sourceCategories = ["식비"];
+        let sourceCategories = ["식비", "외식비"];
         if (preset.category === '패션/의류') {
-          sourceCategories = ["식비", "온라인쇼핑", "생활/마트"];
+          sourceCategories = ["식비", "외식비", "온라인쇼핑", "생활/마트"];
         } else if (preset.category === '해외직구') {
-          sourceCategories = ["식비", "온라인쇼핑", "생활/마트"];
+          sourceCategories = ["식비", "외식비", "온라인쇼핑", "생활/마트"];
         } else if (preset.category === '병원/약국') {
-          sourceCategories = ["식비", "기타", "의료/건강"];
+          sourceCategories = ["식비", "외식비", "기타", "의료/건강"];
         } else if (preset.category === '구독') {
-          sourceCategories = ["식비", "온라인쇼핑", "문화/여가", "기타"];
+          sourceCategories = ["식비", "외식비", "온라인쇼핑", "문화/여가", "기타"];
         } else if (preset.category === '렌탈') {
-          sourceCategories = ["식비", "온라인쇼핑", "생활/마트", "기타"];
+          sourceCategories = ["식비", "외식비", "온라인쇼핑", "생활/마트", "기타"];
         } else if (preset.category === '세금') {
           sourceCategories = ["수도광열비", "공과금", "주거/통신", "기타"];
         } else if (preset.category === '수도광열비') {

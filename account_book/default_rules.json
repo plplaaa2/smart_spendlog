@@ -1,7 +1,7 @@
 {
     "categories": [
         {
-            "name": "식비",
+            "name": "외식비",
             "color": "#ff6b6b",
             "icon": "utensils",
             "type": "EXPENSE"
@@ -264,7 +264,7 @@
         {
             "name": "카드 승인 예제 규칙",
             "pattern": "\\\\[(?<card>[^\\\\\\]]+)\\\\]\\\\s*(?<time>\\\\d{2}/\\\\d{2}\\\\s+\\\\d{2}:\\\\d{2})\\\\s+(?<amount>[\\\\d,]+)원\\\\s+(?<merchant>.+?)\\\\s+승인",
-            "category": "식비",
+            "category": "외식비",
             "pay_method": "KB국민카드",
             "merchant_template": "${merchant}",
             "type": "EXPENSE"

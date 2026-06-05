@@ -48,6 +48,12 @@ router.post('/rules', async (req, res) => {
       return res.status(400).json({ error: '규칙 이름과 정규식 패턴은 필수 값입니다.' });
     }
 
+    try {
+      new RegExp(pattern, 'ds');
+    } catch (regexErr) {
+      return res.status(400).json({ error: `올바르지 않은 정규식 패턴 형식입니다: ${regexErr.message}` });
+    }
+
     const ruleType = type || 'EXPENSE';
     const ruleCategory = category || '_AUTO_MAPPING_';
 
@@ -110,6 +116,12 @@ router.post('/pass_rules', async (req, res) => {
 
     if (!name || !pattern) {
       return res.status(400).json({ error: '패스규칙 이름과 정규식 패턴은 필수 값입니다.' });
+    }
+
+    try {
+      new RegExp(pattern);
+    } catch (regexErr) {
+      return res.status(400).json({ error: `올바르지 않은 정규식 패턴 형식입니다: ${regexErr.message}` });
     }
 
     if (id) {
@@ -260,14 +272,14 @@ router.post('/rules/ai-generate', async (req, res) => {
     }
     
     const db = await getDB(req.username);
-    const settingsList = await db.all("SELECT key, value FROM settings WHERE key IN ('ai_parsing_enabled', 'ai_provider', 'ai_api_key', 'ai_local_ip', 'ai_local_model')");
+    const settingsList = await db.all("SELECT key, value FROM settings WHERE key IN ('ai_enabled', 'ai_parsing_enabled', 'ai_provider', 'ai_api_key', 'ai_local_ip', 'ai_local_model')");
     const settings = {};
     settingsList.forEach(row => {
       settings[row.key] = row.value;
     });
     
-    if (settings.ai_parsing_enabled !== 'true') {
-      return res.status(400).json({ error: 'AI 파싱 설정이 비활성화 상태입니다. 설정 탭의 AI 설정에서 먼저 활성화해 주세요.' });
+    if (settings.ai_enabled !== 'true') {
+      return res.status(400).json({ error: 'AI 기능이 비활성화 상태입니다. 설정 탭의 AI 설정에서 먼저 활성화해 주세요.' });
     }
     
     const provider = settings.ai_provider || 'gemini';
@@ -382,16 +394,20 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
       const matchedCategory = await findCategoryByMerchant(db, result.merchant);
       let finalCategory = matchedCategory;
       if (!finalCategory) {
-        const lowerMerchant = result.merchant.toLowerCase();
-        const isPayCharge = lowerMerchant.includes('페이충전') || 
-                             lowerMerchant.includes('페이 충전') || 
-                             lowerMerchant.includes('페이머니') || 
-                             lowerMerchant.includes('네이버페이') || 
-                             lowerMerchant.includes('카카오페이') || 
-                             lowerMerchant.includes('토스페이') || 
-                             lowerMerchant.includes('토스머니');
-        const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
-        finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
+        if (result.type === 'INCOME') {
+          finalCategory = '기타수입';
+        } else {
+          const lowerMerchant = result.merchant.toLowerCase();
+          const isPayCharge = lowerMerchant.includes('페이충전') || 
+                               lowerMerchant.includes('페이 충전') || 
+                               lowerMerchant.includes('페이머니') || 
+                               lowerMerchant.includes('네이버페이') || 
+                               lowerMerchant.includes('카카오페이') || 
+                               lowerMerchant.includes('토스페이') || 
+                               lowerMerchant.includes('토스머니');
+          const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
+          finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
+        }
       }
 
       // 통장 이동(자산 이동) 감지 및 강제 카테고리 매핑

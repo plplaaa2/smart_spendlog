@@ -23,7 +23,7 @@ function safeCompare(a, b) {
   }
   return crypto.timingSafeEqual(bufA, bufB);
 }
-const { parseNotification, generatePatternFromText, parseNotificationWithAI } = require('../parser');
+const { parseNotification, generatePatternFromText, parseNotificationWithAI, generatePatternWithAI } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 
 // 현재 한국 시간(KST, UTC+9) 문자열을 YYYY-MM-DD HH:mm:ss 포맷으로 반환하는 헬퍼 함수
@@ -97,9 +97,10 @@ async function processIncomingNotification(newState, username) {
 
   // 정규식 매칭 실패 시 AI 파싱 시도
   if (!result) {
-    const aiEnabledRow = await db.get("SELECT value FROM settings WHERE key = 'ai_parsing_enabled'");
-    const isAiEnabled = aiEnabledRow && aiEnabledRow.value === 'true';
-    if (isAiEnabled) {
+    const aiMasterEnabledRow = await db.get("SELECT value FROM settings WHERE key = 'ai_enabled'");
+    const aiParsingEnabledRow = await db.get("SELECT value FROM settings WHERE key = 'ai_parsing_enabled'");
+    const isAiParsingEnabled = (aiMasterEnabledRow && aiMasterEnabledRow.value === 'true') && (aiParsingEnabledRow && aiParsingEnabledRow.value === 'true');
+    if (isAiParsingEnabled) {
       const aiProviderRow = await db.get("SELECT value FROM settings WHERE key = 'ai_provider'");
       const aiApiKeyRow = await db.get("SELECT value FROM settings WHERE key = 'ai_api_key'");
       const aiLocalIpRow = await db.get("SELECT value FROM settings WHERE key = 'ai_local_ip'");
@@ -127,6 +128,33 @@ async function processIncomingNotification(newState, username) {
       }, fallbackKST);
       if (result) {
         parsedStatus = 'SUCCESS';
+        
+        // AI 피드백 루프: 성공한 경우 정규식을 자동으로 생성하여 DB 규칙으로 등록 (캐싱)
+        try {
+          console.log(`[웹훅][${targetUser}] AI 파싱 성공. 정규식 캐싱 등록 시도...`);
+          const generatedPattern = await generatePatternWithAI(rawText, {
+            provider,
+            apiKey,
+            localIp,
+            localModel
+          });
+          
+          if (generatedPattern) {
+            const ruleName = `${result.merchant} (AI 자동 생성)`;
+            const insertRes = await adminDb.run(
+              "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
+              [ruleName, generatedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
+            );
+            if (insertRes.changes > 0) {
+              console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}" (패턴: ${generatedPattern})`);
+              matchedRuleId = insertRes.lastID;
+              result.rule_id = insertRes.lastID;
+              result.rule_name = ruleName;
+            }
+          }
+        } catch (cacheErr) {
+          console.warn(`[웹훅][${targetUser}] AI 정규식 캐싱 규칙 등록 중 예외 발생:`, cacheErr.message);
+        }
       }
     }
   }
@@ -209,16 +237,20 @@ async function processIncomingNotification(newState, username) {
     const matchedCategory = await findCategoryByMerchant(db, result.merchant);
     let finalCategory = matchedCategory;
     if (!finalCategory) {
-      const lowerMerchant = result.merchant.toLowerCase();
-      const isPayCharge = lowerMerchant.includes('페이충전') || 
-                           lowerMerchant.includes('페이 충전') || 
-                           lowerMerchant.includes('페이머니') || 
-                           lowerMerchant.includes('네이버페이') || 
-                           lowerMerchant.includes('카카오페이') || 
-                           lowerMerchant.includes('토스페이') || 
-                           lowerMerchant.includes('토스머니');
-      const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
-      finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
+      if (result.type === 'INCOME') {
+        finalCategory = '기타수입';
+      } else {
+        const lowerMerchant = result.merchant.toLowerCase();
+        const isPayCharge = lowerMerchant.includes('페이충전') || 
+                             lowerMerchant.includes('페이 충전') || 
+                             lowerMerchant.includes('페이머니') || 
+                             lowerMerchant.includes('네이버페이') || 
+                             lowerMerchant.includes('카카오페이') || 
+                             lowerMerchant.includes('토스페이') || 
+                             lowerMerchant.includes('토스머니');
+        const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
+        finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
+      }
     }
 
     // 통장 이동(자산 이동) 감지 및 강제 카테고리 변경
@@ -446,6 +478,33 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
         }, fallbackKST);
         if (result) {
           parsedStatus = 'SUCCESS';
+          
+          // AI 피드백 루프: 성공한 경우 정규식을 자동으로 생성하여 DB 규칙으로 등록 (캐싱)
+          try {
+            console.log(`[웹훅][${targetUser}] AI 파싱 성공. 정규식 캐싱 등록 시도...`);
+            const generatedPattern = await generatePatternWithAI(finalRawText, {
+              provider,
+              apiKey,
+              localIp,
+              localModel
+            });
+            
+            if (generatedPattern) {
+              const ruleName = `${result.merchant} (AI 자동 생성)`;
+              const insertRes = await adminDb.run(
+                "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
+                [ruleName, generatedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
+              );
+              if (insertRes.changes > 0) {
+                console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}" (패턴: ${generatedPattern})`);
+                matchedRuleId = insertRes.lastID;
+                result.rule_id = insertRes.lastID;
+                result.rule_name = ruleName;
+              }
+            }
+          } catch (cacheErr) {
+            console.warn(`[웹훅][${targetUser}] AI 정규식 캐싱 규칙 등록 중 예외 발생:`, cacheErr.message);
+          }
         }
       }
     }
@@ -527,16 +586,20 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
       const matchedCategory = await findCategoryByMerchant(db, result.merchant);
       let finalCategory = matchedCategory;
       if (!finalCategory) {
-        const lowerMerchant = result.merchant.toLowerCase();
-        const isPayCharge = lowerMerchant.includes('페이충전') || 
-                             lowerMerchant.includes('페이 충전') || 
-                             lowerMerchant.includes('페이머니') || 
-                             lowerMerchant.includes('네이버페이') || 
-                             lowerMerchant.includes('카카오페이') || 
-                             lowerMerchant.includes('토스페이') || 
-                             lowerMerchant.includes('토스머니');
-        const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
-        finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
+        if (result.type === 'INCOME') {
+          finalCategory = '기타수입';
+        } else {
+          const lowerMerchant = result.merchant.toLowerCase();
+          const isPayCharge = lowerMerchant.includes('페이충전') || 
+                               lowerMerchant.includes('페이 충전') || 
+                               lowerMerchant.includes('페이머니') || 
+                               lowerMerchant.includes('네이버페이') || 
+                               lowerMerchant.includes('카카오페이') || 
+                               lowerMerchant.includes('토스페이') || 
+                               lowerMerchant.includes('토스머니');
+          const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
+          finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
+        }
       }
 
       // 통장 이동(자산 이동) 감지 및 강제 카테고리 매핑
