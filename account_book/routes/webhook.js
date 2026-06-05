@@ -140,16 +140,30 @@ async function processIncomingNotification(newState, username) {
           });
           
           if (generatedPattern) {
-            const ruleName = `${result.merchant} (AI 자동 생성)`;
-            const insertRes = await adminDb.run(
-              "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
-              [ruleName, generatedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
-            );
-            if (insertRes.changes > 0) {
-              console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}" (패턴: ${generatedPattern})`);
-              matchedRuleId = insertRes.lastID;
-              result.rule_id = insertRes.lastID;
-              result.rule_name = ruleName;
+            let isPatternValid = false;
+            try {
+              new RegExp(generatedPattern, 'ds');
+              if (generatedPattern.includes('(?<amount>') && generatedPattern.includes('(?<merchant>')) {
+                isPatternValid = true;
+              } else {
+                console.warn(`[웹훅][${targetUser}] AI 생성 정규식에 필수 그룹(?<amount> 또는 (?<merchant>)이 누락되어 캐싱을 제외합니다: "${generatedPattern}"`);
+              }
+            } catch (regErr) {
+              console.warn(`[웹훅][${targetUser}] AI 생성 정규식이 올바르지 않은 문법입니다:`, regErr.message);
+            }
+
+            if (isPatternValid) {
+              const ruleName = `${result.merchant} (AI 자동 생성)`;
+              const insertRes = await adminDb.run(
+                "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
+                [ruleName, generatedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
+              );
+              if (insertRes.changes > 0) {
+                console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}" (패턴: ${generatedPattern})`);
+                matchedRuleId = insertRes.lastID;
+                result.rule_id = insertRes.lastID;
+                result.rule_name = ruleName;
+              }
             }
           }
         } catch (cacheErr) {
@@ -166,7 +180,7 @@ async function processIncomingNotification(newState, username) {
     if (isAutoRuleEnabled) {
       const generatedPattern = generatePatternFromText(rawText);
       if (generatedPattern) {
-        const isIncome = /입금|저축|환불|입금완료|수입/.test(rawText);
+        const isIncome = /입금|환불|입금완료|수입|저축/.test(rawText) && !/출금|송금|지출|결제|승인|사용|신용|체크/.test(rawText);
         const resultType = isIncome ? 'INCOME' : 'EXPENSE';
         
         const dummyRule = { 
@@ -490,16 +504,30 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
             });
             
             if (generatedPattern) {
-              const ruleName = `${result.merchant} (AI 자동 생성)`;
-              const insertRes = await adminDb.run(
-                "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
-                [ruleName, generatedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
-              );
-              if (insertRes.changes > 0) {
-                console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}" (패턴: ${generatedPattern})`);
-                matchedRuleId = insertRes.lastID;
-                result.rule_id = insertRes.lastID;
-                result.rule_name = ruleName;
+              let isPatternValid = false;
+              try {
+                new RegExp(generatedPattern, 'ds');
+                if (generatedPattern.includes('(?<amount>') && generatedPattern.includes('(?<merchant>')) {
+                  isPatternValid = true;
+                } else {
+                  console.warn(`[웹훅][${targetUser}] AI 생성 정규식에 필수 그룹(?<amount> 또는 (?<merchant>)이 누락되어 캐싱을 제외합니다: "${generatedPattern}"`);
+                }
+              } catch (regErr) {
+                console.warn(`[웹훅][${targetUser}] AI 생성 정규식이 올바르지 않은 문법입니다:`, regErr.message);
+              }
+
+              if (isPatternValid) {
+                const ruleName = `${result.merchant} (AI 자동 생성)`;
+                const insertRes = await adminDb.run(
+                  "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
+                  [ruleName, generatedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
+                );
+                if (insertRes.changes > 0) {
+                  console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}" (패턴: ${generatedPattern})`);
+                  matchedRuleId = insertRes.lastID;
+                  result.rule_id = insertRes.lastID;
+                  result.rule_name = ruleName;
+                }
               }
             }
           } catch (cacheErr) {
@@ -516,7 +544,7 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
       if (isAutoRuleEnabled) {
         const generatedPattern = generatePatternFromText(finalRawText);
         if (generatedPattern) {
-          const isIncome = /입금|저축|환불|입금완료|수입/.test(finalRawText);
+          const isIncome = /입금|환불|입금완료|수입|저축/.test(finalRawText) && !/출금|송금|지출|결제|승인|사용|신용|체크/.test(finalRawText);
           const resultType = isIncome ? 'INCOME' : 'EXPENSE';
           
           const dummyRule = { 

@@ -712,6 +712,22 @@ async function seedDefaultData(dbInstance, username = 'admin') {
         [mapping.package, mapping.pay_method]
       );
     }
+
+    // 7. 기본 패스 규칙 (pass_rules) 자동 시딩 (결제 실패 및 시스템 알림 필터링 보강)
+    if (username === 'admin') {
+      const defaultPassRules = [
+        { name: '잔액부족 거절', pattern: '잔액\\s*부족|잔액\\s*초과' },
+        { name: '한도초과 거절', pattern: '한도\\s*초과' },
+        { name: '승인거절 및 오류', pattern: '승인\\s*거절|출금\\s*거절|결제\\s*실패|오류' },
+        { name: '인증번호 알림', pattern: '인증\\s*번호|본인\\s*확인' }
+      ];
+      for (const rule of defaultPassRules) {
+        await dbInstance.run(
+          'INSERT OR IGNORE INTO pass_rules (name, pattern) VALUES (?, ?)',
+          [rule.name, rule.pattern]
+        );
+      }
+    }
   } catch (err) {
     console.error('[DB Seed] 기본 데이터 시딩 실패:', err);
   }

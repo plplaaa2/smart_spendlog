@@ -7,6 +7,8 @@ function parseNotification(text, rules, fallbackDatetime = null) {
   // Windows 스타일 줄바꿈(\r\n)을 Unix 스타일(\n)로 표준화하여 정규식 매칭 실패 방지
   const normalizedText = text.replace(/\r\n/g, '\n');
 
+
+
   for (const rule of rules) {
     try {
       // 정규식 컴파일 (amount 캡처 인덱스 획득을 위해 'd', 줄바꿈 매칭 허용을 위해 's' 플래그 추가)
@@ -195,47 +197,76 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         if (groups.balance) memoParts.push(`잔액: ${groups.balance.trim()}`);
         if (groups.cumulative) memoParts.push(`누적: ${groups.cumulative.trim()}`);
 
+        // [수입/지출 선제 판정 (3단계)]
+        // 입금/출금/신용/체크 키워드를 기반으로 거래 유형을 미리 결정하여 오파싱을 방지합니다.
+        const isDeposit = /입금|환불|입금완료|수입|저축/.test(normalizedText);
+        const isWithdrawal = /출금|송금|지출|결제|승인|사용|신용|체크/.test(normalizedText);
+        const isCancel = /취소|반품/.test(normalizedText);
+
+        let preemptiveType = null;
+        if (isCancel) {
+          if (/입금취소|입금\s*취소|수입취소/.test(normalizedText)) {
+            preemptiveType = 'EXPENSE';
+          } else {
+            preemptiveType = 'INCOME';
+          }
+        } else if (isDeposit && !isWithdrawal) {
+          preemptiveType = 'INCOME';
+        } else if (isWithdrawal && !isDeposit) {
+          preemptiveType = 'EXPENSE';
+        }
+
         // [수입/지출 및 취소 감지 고도화]
-        let transactionType = rule.type || 'EXPENSE';
+        let transactionType = preemptiveType || rule.type || 'EXPENSE';
         let customMemo = '';
         
-        // 1순위: 정규식 Named Group 중 status 또는 type_text 값 검사
-        const matchedStatus = groups.status || groups.type_text;
-        if (matchedStatus) {
-          const cleanStatus = matchedStatus.trim();
-          if (/입금|수입|저축|환불|입금완료/.test(cleanStatus)) {
-            transactionType = 'INCOME';
-          } else if (/출금|송금|지출|결제|승인|사용/.test(cleanStatus)) {
-            transactionType = 'EXPENSE';
-          }
-          
-          if (/취소|반품/.test(cleanStatus)) {
+        if (preemptiveType) {
+          if (isCancel) {
             if (/입금취소|입금\s*취소|수입취소/.test(normalizedText)) {
-              transactionType = 'EXPENSE';
               customMemo = '[입금취소] ';
             } else {
-              transactionType = 'INCOME';
               customMemo = '[승인취소] ';
             }
           }
         } else {
-          // 2순위: 캡처 그룹이 없을 때 본문 키워드 전체 검사
-          const isDeposit = /입금|환불|입금완료|수입/.test(normalizedText);
-          const isWithdrawal = /출금|송금|지출|결제|승인/.test(normalizedText);
-          
-          if (isDeposit && !isWithdrawal) {
-            transactionType = 'INCOME';
-          } else if (isWithdrawal && !isDeposit) {
-            transactionType = 'EXPENSE';
-          }
-          
-          if (/취소|승인취소|반품/.test(normalizedText)) {
-            if (/입금취소|입금\s*취소|수입취소/.test(normalizedText)) {
-              transactionType = 'EXPENSE';
-              customMemo = '[입금취소] ';
-            } else {
+          // 1순위: 정규식 Named Group 중 status 또는 type_text 값 검사
+          const matchedStatus = groups.status || groups.type_text;
+          if (matchedStatus) {
+            const cleanStatus = matchedStatus.trim();
+            if (/입금|수입|저축|환불|입금완료/.test(cleanStatus)) {
               transactionType = 'INCOME';
-              customMemo = '[승인취소] ';
+            } else if (/출금|송금|지출|결제|승인|사용|신용|체크/.test(cleanStatus)) {
+              transactionType = 'EXPENSE';
+            }
+            
+            if (/취소|반품/.test(cleanStatus)) {
+              if (/입금취소|입금\s*취소|수입취소/.test(normalizedText)) {
+                transactionType = 'EXPENSE';
+                customMemo = '[입금취소] ';
+              } else {
+                transactionType = 'INCOME';
+                customMemo = '[승인취소] ';
+              }
+            }
+          } else {
+            // 2순위: 캡처 그룹이 없을 때 본문 키워드 전체 검사
+            const isDep = /입금|환불|입금완료|수입|저축/.test(normalizedText);
+            const isWith = /출금|송금|지출|결제|승인|사용|신용|체크/.test(normalizedText);
+            
+            if (isDep && !isWith) {
+              transactionType = 'INCOME';
+            } else if (isWith && !isDep) {
+              transactionType = 'EXPENSE';
+            }
+            
+            if (/취소|승인취소|반품/.test(normalizedText)) {
+              if (/입금취소|입금\s*취소|수입취소/.test(normalizedText)) {
+                transactionType = 'EXPENSE';
+                customMemo = '[입금취소] ';
+              } else {
+                transactionType = 'INCOME';
+                customMemo = '[승인취소] ';
+              }
             }
           }
         }
