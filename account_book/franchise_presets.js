@@ -18,6 +18,7 @@ const categoryFiles = {
   'utilities.json': '수도광열비',
   'tax.json': '세금',
   'culture.json': '문화/여가',
+  'travel.json': '문화/여가',
   'education.json': '교육/학습',
   'insurance.json': '보험',
   'rental.json': '렌탈',
