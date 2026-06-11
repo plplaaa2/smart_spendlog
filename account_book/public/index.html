@@ -535,7 +535,7 @@
                 </form>
                 <div
                   style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
-                  <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                  <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                     <thead>
                       <tr
                         style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; background: rgba(255,255,255,0.02);">
@@ -577,7 +577,7 @@
                 </form>
                 <div
                   style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
-                  <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                  <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                     <thead>
                       <tr
                         style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; background: rgba(255,255,255,0.02);">
@@ -1629,7 +1629,7 @@
                 required>
             </div>
             <div class="form-row">
-              <div class="form-group" style="display: none;">
+              <div class="form-group" id="rule-category-group">
                 <label for="rule-category">지정 카테고리</label>
                 <select id="rule-category">
                   <!-- Dynamic -->
@@ -1871,32 +1871,48 @@
     </div>
   </div>
 
-  <nav class="mobile-bottom-nav">
-    <button class="mobile-nav-item active" data-tab="dashboard">
-      <i data-lucide="layout-dashboard"></i>
-      <span>대시보드</span>
-    </button>
-    <button class="mobile-nav-item" data-tab="analytics">
-      <i data-lucide="bar-chart-3"></i>
-      <span>소비분석</span>
-    </button>
-    <button class="mobile-nav-item" data-tab="income">
-      <i data-lucide="trending-up"></i>
-      <span>소득분석</span>
-    </button>
-    <button class="mobile-nav-item" data-tab="transactions">
-      <i data-lucide="receipt"></i>
-      <span>내역</span>
-    </button>
-    <button class="mobile-nav-item" data-tab="logs">
-      <i data-lucide="history"></i>
-      <span>알림 로그</span>
-    </button>
-    <button class="mobile-nav-item" data-tab="settings">
-      <i data-lucide="settings"></i>
-      <span>설정</span>
-    </button>
-  </nav>
+  <div class="mobile-nav-container">
+    <div class="liquid-nav-bg-wrapper">
+      <div class="liquid-nav-bg"></div>
+      <div class="liquid-nav-bubble"></div>
+    </div>
+    <nav class="mobile-bottom-nav">
+      <button class="mobile-nav-item active" data-tab="dashboard">
+        <i data-lucide="layout-dashboard"></i>
+        <span>대시보드</span>
+      </button>
+      <button class="mobile-nav-item" data-tab="analytics">
+        <i data-lucide="bar-chart-3"></i>
+        <span>소비분석</span>
+      </button>
+      <button class="mobile-nav-item" data-tab="income">
+        <i data-lucide="trending-up"></i>
+        <span>소득분석</span>
+      </button>
+      <button class="mobile-nav-item" data-tab="transactions">
+        <i data-lucide="receipt"></i>
+        <span>내역</span>
+      </button>
+      <button class="mobile-nav-item" data-tab="logs">
+        <i data-lucide="history"></i>
+        <span>알림 로그</span>
+      </button>
+      <button class="mobile-nav-item" data-tab="settings">
+        <i data-lucide="settings"></i>
+        <span>설정</span>
+      </button>
+    </nav>
+  </div>
+
+  <svg xmlns="http://www.w3.org/2000/svg" version="1.1" style="display:none; width: 0; height: 0;">
+    <defs>
+      <filter id="liquid-goo">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
+        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10" result="goo" />
+        <feBlend in="SourceGraphic" in2="goo" />
+      </filter>
+    </defs>
+  </svg>
 
   <!-- In-app Notification Drawer -->
   <div id="notification-drawer" class="notification-drawer">
@@ -1934,6 +1950,9 @@
   <script src="./card_bank_view.js?v=2.1.0"></script>
   <script src="./rules.js?v=2.1.0"></script>
   <script src="./analytics.js?v=2.1.0"></script>
+  <script src="./analytics_general.js?v=2.1.0"></script>
+  <script src="./analytics_fixed.js?v=2.1.0"></script>
+  <script src="./analytics_income.js?v=2.1.0"></script>
   <script src="./ai_report.js?v=2.1.0"></script>
   <script src="./settings.js?v=2.1.0"></script>
   <!-- PWA Service Worker Registration -->

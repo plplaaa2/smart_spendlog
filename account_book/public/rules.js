@@ -147,6 +147,10 @@ function loadRuleToEditor(rule) {
     payMethodSelect.style.opacity = '1';
     payMethodSelect.style.cursor = 'default';
   }
+  const categoryGroup = document.getElementById('rule-category-group');
+  if (categoryGroup) {
+    categoryGroup.style.display = 'block';
+  }
 
   // 실시간 테스터에도 자동으로 패턴 채워주기
   if (rule) {
@@ -368,7 +372,14 @@ function createTransactionFromLog(log) {
   openAddTransactionModal();
   const rawTextEl = document.getElementById('tx-raw-text');
   if (rawTextEl) rawTextEl.value = log.raw_text;
-  
+
+  // 알림 텍스트를 분석하여 수입 여부 감지
+  const isIncome = /입금|환불|입금완료|수입|저축|급여|이자/.test(log.raw_text) && !/출금|송금|지출|결제|승인|사용|신용|체크/.test(log.raw_text);
+  const type = isIncome ? 'INCOME' : 'EXPENSE';
+  document.getElementById('tx-type').value = type;
+  document.getElementById('transaction-modal-title').textContent = type === 'INCOME' ? '수동 수입 추가' : '수동 지출 추가';
+  updateCategorySelect('#tx-category', type);
+
   const amountMatch = log.raw_text.replace(/,/g, '').match(/\d{3,}/);
   const amountEl = document.getElementById('tx-amount');
   if (amountMatch && amountEl) {

@@ -458,14 +458,20 @@ function switchTab(tabId) {
     }
   });
 
-  // 모바일 하단 네비게이션 버튼 클래스 토글
-  document.querySelectorAll('.mobile-nav-item').forEach(btn => {
+  // 모바일 하단 네비게이션 버튼 클래스 토글 & 액티브 인덱스 변수 갱신
+  let activeIndex = 0;
+  document.querySelectorAll('.mobile-nav-item').forEach((btn, index) => {
     if (btn.dataset.tab === tabId) {
       btn.classList.add('active');
+      activeIndex = index;
     } else {
       btn.classList.remove('active');
     }
   });
+  const navContainer = document.querySelector('.mobile-nav-container');
+  if (navContainer) {
+    navContainer.style.setProperty('--active-index', activeIndex);
+  }
 
   // 콘텐츠 전환
   document.querySelectorAll('.tab-content').forEach(content => {
@@ -696,9 +702,14 @@ function initEventListeners() {
   document.getElementById('transaction-modal-close').addEventListener('click', closeModal);
   document.getElementById('tx-modal-cancel').addEventListener('click', closeModal);
 
-  // 수동 거래 구분(타입) 변경에 따른 카테고리 업데이트
+  // 수동 거래 구분(타입) 변경에 따른 카테고리 업데이트 및 모달 타이틀 변경
   document.getElementById('tx-type').addEventListener('change', (e) => {
-    updateCategorySelect('#tx-category', e.target.value);
+    const type = e.target.value;
+    updateCategorySelect('#tx-category', type);
+    const titleEl = document.getElementById('transaction-modal-title');
+    if (titleEl) {
+      titleEl.textContent = type === 'INCOME' ? '수동 수입 추가' : '수동 지출 추가';
+    }
   });
 
   // 규칙 거래 구분(타입) 변경에 따른 카테고리 업데이트
@@ -824,15 +835,24 @@ function initEventListeners() {
   if (ruleActionSelect) {
     ruleActionSelect.addEventListener('change', () => {
       const payMethodSelect = document.getElementById('rule-pay-method');
-      if (payMethodSelect) {
-        if (ruleActionSelect.value === 'PASS') {
+      const categoryGroup = document.getElementById('rule-category-group');
+      if (ruleActionSelect.value === 'PASS') {
+        if (payMethodSelect) {
           payMethodSelect.disabled = true;
           payMethodSelect.style.opacity = '0.5';
           payMethodSelect.style.cursor = 'not-allowed';
-        } else {
+        }
+        if (categoryGroup) {
+          categoryGroup.style.display = 'none';
+        }
+      } else {
+        if (payMethodSelect) {
           payMethodSelect.disabled = false;
           payMethodSelect.style.opacity = '1';
           payMethodSelect.style.cursor = 'default';
+        }
+        if (categoryGroup) {
+          categoryGroup.style.display = 'block';
         }
       }
     });

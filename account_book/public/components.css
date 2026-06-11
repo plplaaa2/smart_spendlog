@@ -902,3 +902,137 @@ select option {
   color: var(--text-secondary);
   line-height: 1.3;
 }
+
+/* 스마트폰/모바일 반응형 (768px 이하) */
+@media (max-width: 768px) {
+  .card {
+    padding: 1rem; /* 모바일 카드 내부 패딩 완화 */
+  }
+
+  .table-card .card-header {
+    padding: 1rem 1rem 0.5rem 1rem;
+  }
+
+  .control-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .search-filters {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .search-box {
+    flex: 1;
+    max-width: none;
+  }
+
+  .select-filter {
+    padding: 0.75rem 1.75rem 0.75rem 0.75rem;
+    font-size: 0.85rem;
+    width: auto;
+    flex: 0 0 135px;
+    min-width: 130px;
+  }
+
+  .btn:not(.btn-sm) {
+    width: 100%;
+  }
+  .btn-sm {
+    width: auto !important;
+  }
+
+  /* 테이블을 반응형 카드 뷰로 변환 */
+  .table-responsive {
+    border: none;
+    overflow-x: visible;
+  }
+
+  .table, 
+  .table thead, 
+  .table tbody, 
+  .table th, 
+  .table td, 
+  .table tr {
+    display: block;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tr {
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  }
+
+  .table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    padding: 0.6rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: right;
+    font-size: 0.9rem;
+    width: 100% !important;
+  }
+
+  .table td:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+    justify-content: flex-end;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    float: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: left;
+    padding-right: 1rem;
+    font-size: 0.85rem;
+  }
+
+  .table td.text-right {
+    text-align: right;
+  }
+
+  /* 모달 팝업 모바일 최적화 */
+  .modal-content {
+    width: 95%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 1.25rem;
+    border-radius: 12px;
+  }
+  .modal-content::-webkit-scrollbar {
+    width: 4px;
+  }
+  .modal-content::-webkit-scrollbar-thumb {
+    background-color: var(--glass-border);
+    border-radius: 2px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .modal-footer {
+    margin-top: 1.25rem;
+  }
+
+  /* 로그인 화면 */
+  .login-box {
+    padding: 24px;
+    width: 92%;
+  }
+}

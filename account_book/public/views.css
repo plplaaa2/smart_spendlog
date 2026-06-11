@@ -733,3 +733,194 @@
   100% { transform: rotate(360deg); }
 }
 
+/* 태블릿 반응형 (1024px) */
+@media (max-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .analytics-double-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 태블릿/소형 브라우저 반응형 (900px) */
+@media (max-width: 900px) {
+  .default-settings-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 스마트폰/모바일 반응형 (768px 이하) */
+@media (max-width: 768px) {
+  /* stats-grid 모바일 2열 레이아웃 */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    padding: 1rem;
+    border-radius: 12px;
+    gap: 0.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+  }
+
+  .stat-icon-wrapper {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .stat-icon-wrapper i,
+  .stat-icon-wrapper svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* 소비 분석 차트 & 레이아웃 모바일 최적화 */
+  .charts-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .chart-container {
+    height: 220px;
+  }
+
+  .analytics-double-layout {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .settings-layout {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .settings-nav-tabs,
+  .logs-nav-tabs,
+  .analytics-nav-tabs,
+  .transactions-sub-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.25rem !important;
+  }
+
+  .settings-nav-tabs::-webkit-scrollbar,
+  .logs-nav-tabs::-webkit-scrollbar,
+  .analytics-nav-tabs::-webkit-scrollbar,
+  .transactions-sub-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-tab-btn,
+  .logs-tab-btn,
+  .analytics-tab-btn,
+  .tx-subtab-btn {
+    padding: 0.5rem 0.85rem !important;
+    font-size: 0.85rem !important;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .rules-layout {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  /* 잔액 및 포인트 설정 내 개별 행 모바일 레이아웃 */
+  #settings-initial-balances-container > div,
+  #settings-initial-points-container > div,
+  #settings-card-performance-goals-container > div {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+    padding: 0.75rem 0 !important;
+  }
+
+  #settings-initial-balances-container input,
+  #settings-initial-points-container input {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  #settings-card-performance-goals-container > div > div:last-child {
+    display: flex !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  /* AI 소비 리포트 컨트롤 바 & 결과 헤더 반응형 개선 */
+  .analytics-control-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .analytics-control-bar > div {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    gap: 0.75rem !important;
+  }
+  
+  .analytics-control-bar .select-filter {
+    width: 100% !important;
+  }
+  
+  #ai-report-result-view .card > div:first-child {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+  }
+  
+  #ai-report-result-view .card > div:first-child > div {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+  
+  #ai-report-empty-view,
+  #ai-report-loading-view {
+    padding: 1.5rem !important;
+  }
+}
+
+/* 초소형 모바일 반응형 (480px 이하) */
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important; /* 1열 카드뷰로 전환하여 숫자 잘림 예방 */
+  }
+
+  /* 최근 지출 내역 가맹점명 말줄임 및 카드 패딩 조정 */
+  .tx-compact-item {
+    padding: 0.65rem 0.75rem !important;
+    gap: 0.5rem !important;
+  }
+  
+  .tx-merchant {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .tx-pay-method {
+    font-size: 0.7rem !important;
+    padding: 0.15rem 0.35rem !important;
+  }
+  
+  .tx-amount {
+    font-size: 0.95rem !important;
+  }
+}
+

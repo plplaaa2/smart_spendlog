@@ -27,6 +27,20 @@ function convertUTCToKSTString(utcStr) {
   return `${kstDate.getUTCFullYear()}-${pad(kstDate.getUTCMonth() + 1)}-${pad(kstDate.getUTCDate())} ${pad(kstDate.getUTCHours())}:${pad(kstDate.getUTCMinutes())}:${pad(kstDate.getUTCSeconds())}`;
 }
 
+// 규칙 테이블의 name UNIQUE 제약 조건 충돌 방지를 위해 중복 시 숫자를 붙여 유니크한 규칙 이름을 만드는 헬퍼 함수
+async function getUniqueRuleName(db, baseName) {
+  let name = baseName;
+  let counter = 1;
+  while (true) {
+    const row = await db.get('SELECT id FROM rules WHERE name = ?', [name]);
+    if (!row) {
+      return name;
+    }
+    counter++;
+    name = `${baseName} (${counter})`;
+  }
+}
+
 // 규칙 조회 (모든 사용자가 admin의 규칙을 공유하여 동일하게 적용)
 router.get('/rules', async (req, res) => {
   try {
@@ -358,15 +372,27 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
             name: '임시' 
           };
           const tempParsed = parseNotification(rawText, [dummyRule]);
-          const merchantName = (tempParsed && tempParsed.merchant) ? tempParsed.merchant : '자동 생성 규칙';
+          const parsedMerchant = (tempParsed && tempParsed.merchant) ? tempParsed.merchant : '자동 생성 규칙';
+          let suffix = '지출';
+          if (resultType === 'INCOME') {
+            suffix = '수입';
+          } else {
+            if (rawText.includes('체크')) {
+              suffix = '체크';
+            } else if (rawText.includes('신용') || rawText.includes('카드')) {
+              suffix = '신용';
+            }
+          }
+          const baseRuleName = `${parsedMerchant} ${suffix}`;
+          const ruleName = await getUniqueRuleName(adminDb, baseRuleName);
           
           const insertRes = await adminDb.run(
             "INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
-            [merchantName, generatedPattern, '_AUTO_MAPPING_', '_AUTO_MAPPING_', '${merchant}', resultType]
+            [ruleName, generatedPattern, '_AUTO_MAPPING_', '_AUTO_MAPPING_', '${merchant}', resultType]
           );
           matchedRuleId = insertRes.lastID;
           
-          console.log(`[로그재시도][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${merchantName}" (ID: ${matchedRuleId})`);
+          console.log(`[로그재시도][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${ruleName}" (ID: ${matchedRuleId})`);
           
           const updatedRules = await adminDb.all('SELECT * FROM rules');
           result = parseNotification(rawText, updatedRules, logKSTTime);

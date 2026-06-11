@@ -268,6 +268,98 @@
             "pay_method": "KB국민카드",
             "merchant_template": "${merchant}",
             "type": "EXPENSE"
+        },
+        {
+            "name": "핀테크 간편결제",
+            "pattern": "\\[₩(?<amount>[\\d,]+)\\s*결제\\s*완료\\]\\s*(?<merchant>.+)",
+            "category": "기타",
+            "pay_method": "토스",
+            "merchant_template": "${merchant}",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "하나카드 다중행 승인",
+            "pattern": "\\[하나카드\\]\\s*\\[Web발신\\](?:\\(광고\\))?\\s*금액\\s*(?<amount>[\\d,]+)원.+?카드\\s*(?<pay_method>[^\\n]+).+?사용처\\s*(?<merchant>[^\\n]+).+?거래시간\\s*(?<time>\\d{2}/\\d{2}\\s+\\d{2}:\\d{2})",
+            "category": "기타",
+            "pay_method": "하나카드",
+            "merchant_template": "${merchant}",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "하나은행 다중행 거래",
+            "pattern": "\\[하나은행\\]\\s*\\[Web발신\\]\\s*하나[ ,](?<time>\\d{2}/\\d{2}[, ]\\d{2}:\\d{2})\\n(?<account>[\\d*]+)\\n(?<type_text>출금|입금)\\s*(?<amount>[\\d,]+)원\\n(?<merchant>[^\\n]+)\\n잔액\\s*(?<balance>[\\d,]+)원",
+            "category": "기타",
+            "pay_method": "하나은행",
+            "merchant_template": "${merchant}",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "하나카드 지원금 차감",
+            "pattern": "\\[하나카드\\].+?고유가\\s*피해지원금.+?지원금\\s*사용금액:\\s*(?<amount>[\\d,]+)원.+?사용일자:\\s*(?<time>\\d{4}\\.\\d{2}\\.\\d{2}\\s+\\d{2}:\\d{2}).+?사용처:\\s*(?<merchant>[^\\n]+)",
+            "category": "지원금/환급금",
+            "pay_method": "하나카드",
+            "merchant_template": "${merchant}",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "계좌 입출금 알림",
+            "pattern": "\\[(?<type_text>입금|출금)\\s*(?<amount>[\\d,]+)원\\].+?(?<time>\\d{2}/\\d{2}\\s+\\d{2}:\\d{2})\\s+(?<account>[\\d*-]+)\\s+(?<merchant>[^\\s]+)\\s+(?:스마트폰출금|전자금융입금|전자금융|계좌이체|창구송금)?\\s*[\\d,]+\\s+잔액(?<balance>[\\d,]+)",
+            "category": "기타",
+            "pay_method": "계좌이체",
+            "merchant_template": "${merchant}",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "일반 계좌 입출금 단독",
+            "pattern": "(?<type_text>출금|입금)\\s*(?<amount>[\\d,]+)원\\s*(?<merchant>[^\\n\\s]+)\\s+잔액\\s*(?<balance>[\\d,]+)원\\n(?<time>\\d{2}/\\d{2}\\s+\\d{2}:\\d{2})\\s+(?<account>[\\d*\\-(구)]+)",
+            "category": "기타",
+            "pay_method": "계좌이체",
+            "merchant_template": "${merchant}",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "괄호결제 승인 알림",
+            "pattern": "\\(결제\\)\\s*(?<amount>[\\d,]+)원\\s*(?<merchant>[^/\\n]+?)\\s*/\\s*(?<pay_method>[^\\(]+)\\((?<pay_type>[^\\)]+)\\)\\s*/\\s*(?<time>\\d{2}\\.\\d{2}\\s+\\d{2}:\\d{2})(?:\\s*/\\s*누적.+)?",
+            "category": "기타",
+            "pay_method": "카드",
+            "merchant_template": "${merchant}",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "결제대금 출금 알림",
+            "pattern": "\\[결제일\\s*출금내역\\s*안내\\]\\s*(?<merchant>[가-힣*]+)\\s*님\\s*(?<time>\\d{2}월\\s*\\d{2}일)\\s*결제대금\\s*(?<amount>[\\d,]+)원이\\s*(?<type_text>출금)되었습니다",
+            "category": "대출상환",
+            "pay_method": "계좌이체",
+            "merchant_template": "카드대금 결제",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "카드 선결제 알림",
+            "pattern": "\\[선결제\\s*알림\\]\\s*(?<user>[가-힣*]+)\\s*님\\s*(?<time>\\d{2}월\\s*\\d{2}일)\\s*(?<pay_method>[^\\s\\(]+)(?:\\([^\\)]+\\))?\\s*계좌에서\\s*(?<amount>[\\d,]+)원이\\s*(?<type_text>선결제)\\s*되었습니다",
+            "category": "대출상환",
+            "pay_method": "계좌이체",
+            "merchant_template": "카드 선결제",
+            "type": "EXPENSE"
+        },
+        {
+            "name": "서울아리수본부 수도요금 자동납부",
+            "pattern": "\\[서울아리수본부\\].+?(?<merchant>수도요금)\\s*(?<amount>[\\d,]+)원이\\s*(?<pay_method>[^\\(]+)\\(.+?출금되었습니다.+?\\[\\s*출금일자\\s*:\\s*(?<time>\\d{4}년\\s*\\d{2}월\\s*\\d{2}일)\\s*\\]",
+            "category": "수도광열비",
+            "pay_method": "계좌이체",
+            "merchant_template": "서울아리수본부 수도요금",
+            "type": "EXPENSE"
         }
+    ],
+    "pass_rules": [
+        { "name": "잔액부족 거절", "pattern": "잔액\\s*부족|잔액\\s*초과" },
+        { "name": "한도초과 거절", "pattern": "한도\\s*초과" },
+        { "name": "승인거절 및 오류", "pattern": "승인\\s*거절|출금\\s*거절|결제\\s*실패|오류" },
+        { "name": "인증번호 알림", "pattern": "인증\\s*번호|본인\\s*확인" },
+        { "name": "광고/스팸", "pattern": "\\(광고\\)|\\[광고\\]" },
+        { "name": "투자/주식 체결 알림", "pattern": "한국투자증권 체결안내|결산분배금 입금|퇴직연금 ETF|ETF 결산분배금|채권이자 입금|디폴트옵션|구매 성공|구매했어요|자동매수체결" },
+        { "name": "선거/스팸", "pattern": "선거운동정보|후보" },
+        { "name": "청구 요금 알림", "pattern": "이용요금알리미|명세서|이용요금\\s*안내" },
+        { "name": "안내 및 고지서", "pattern": "카드대금\\s*[\\d,]+원|안내사항|하락\\s*마감하였습니다|자동이체\\s*등록\\s*안내|자동납부\\s*요금\\s*정상승인\\s*안내" },
+        { "name": "패키지명 단독", "pattern": "^[a-zA-Z0-9\\.]+$" }
     ]
 }
