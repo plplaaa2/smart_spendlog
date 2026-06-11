@@ -12,11 +12,11 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=1.9.83"><!-- 캐시 무효화 버전 갱신 (쇼핑 카테고리 세분화 및 고도화 반영) -->
+  <link rel="stylesheet" href="./style.css?v=2.1.6"><!-- 캐시 무효화 버전 갱신 (모바일 플로팅 메뉴 및 반응형 개선) -->
   <!-- Chart.js Local -->
-  <script src="./chart.js?v=1.9.83"></script>
+  <script src="./chart.js?v=2.1.6"></script>
   <!-- Lucide Icons Local -->
-  <script src="./lucide.min.js?v=1.9.83"></script>
+  <script src="./lucide.min.js?v=2.1.6"></script>
   <!-- PWA Settings -->
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#0f172a">
@@ -1871,48 +1871,32 @@
     </div>
   </div>
 
-  <div class="mobile-nav-container">
-    <div class="liquid-nav-bg-wrapper">
-      <div class="liquid-nav-bg"></div>
-      <div class="liquid-nav-bubble"></div>
-    </div>
-    <nav class="mobile-bottom-nav">
-      <button class="mobile-nav-item active" data-tab="dashboard">
-        <i data-lucide="layout-dashboard"></i>
-        <span>대시보드</span>
-      </button>
-      <button class="mobile-nav-item" data-tab="analytics">
-        <i data-lucide="bar-chart-3"></i>
-        <span>소비분석</span>
-      </button>
-      <button class="mobile-nav-item" data-tab="income">
-        <i data-lucide="trending-up"></i>
-        <span>소득분석</span>
-      </button>
-      <button class="mobile-nav-item" data-tab="transactions">
-        <i data-lucide="receipt"></i>
-        <span>내역</span>
-      </button>
-      <button class="mobile-nav-item" data-tab="logs">
-        <i data-lucide="history"></i>
-        <span>알림 로그</span>
-      </button>
-      <button class="mobile-nav-item" data-tab="settings">
-        <i data-lucide="settings"></i>
-        <span>설정</span>
-      </button>
-    </nav>
-  </div>
-
-  <svg xmlns="http://www.w3.org/2000/svg" version="1.1" style="display:none; width: 0; height: 0;">
-    <defs>
-      <filter id="liquid-goo">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur" />
-        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10" result="goo" />
-        <feBlend in="SourceGraphic" in2="goo" />
-      </filter>
-    </defs>
-  </svg>
+  <nav class="mobile-bottom-nav">
+    <button class="mobile-nav-item active" data-tab="dashboard">
+      <i data-lucide="layout-dashboard"></i>
+      <span>대시보드</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="analytics">
+      <i data-lucide="bar-chart-3"></i>
+      <span>소비분석</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="income">
+      <i data-lucide="trending-up"></i>
+      <span>소득분석</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="transactions">
+      <i data-lucide="receipt"></i>
+      <span>내역</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="logs">
+      <i data-lucide="history"></i>
+      <span>알림 로그</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="settings">
+      <i data-lucide="settings"></i>
+      <span>설정</span>
+    </button>
+  </nav>
 
   <!-- In-app Notification Drawer -->
   <div id="notification-drawer" class="notification-drawer">
@@ -1943,19 +1927,19 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- JavaScript files -->
-  <script src="./auth.js?v=2.1.0"></script>
-  <script src="./app.js?v=2.1.0"></script>
-  <script src="./notifications.js?v=2.1.0"></script>
-  <script src="./dashboard.js?v=2.1.0"></script>
-  <script src="./transactions.js?v=2.1.0"></script>
-  <script src="./card_bank_view.js?v=2.1.0"></script>
-  <script src="./rules.js?v=2.1.0"></script>
-  <script src="./analytics.js?v=2.1.0"></script>
-  <script src="./analytics_general.js?v=2.1.0"></script>
-  <script src="./analytics_fixed.js?v=2.1.0"></script>
-  <script src="./analytics_income.js?v=2.1.0"></script>
-  <script src="./ai_report.js?v=2.1.0"></script>
-  <script src="./settings.js?v=2.1.0"></script>
+  <script src="./auth.js?v=2.1.6"></script>
+  <script src="./app.js?v=2.1.6"></script>
+  <script src="./notifications.js?v=2.1.6"></script>
+  <script src="./dashboard.js?v=2.1.6"></script>
+  <script src="./transactions.js?v=2.1.6"></script>
+  <script src="./card_bank_view.js?v=2.1.6"></script>
+  <script src="./rules.js?v=2.1.6"></script>
+  <script src="./analytics.js?v=2.1.6"></script>
+  <script src="./analytics_general.js?v=2.1.6"></script>
+  <script src="./analytics_fixed.js?v=2.1.6"></script>
+  <script src="./analytics_income.js?v=2.1.6"></script>
+  <script src="./ai_report.js?v=2.1.6"></script>
+  <script src="./settings.js?v=2.1.6"></script>
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {

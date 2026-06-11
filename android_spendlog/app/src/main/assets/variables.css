@@ -1,0 +1,128 @@
+/* ==========================================
+   HA Account Book - Core Variables & Reset
+   요약: 가계부 서비스의 핵심 테마(글래스모피즘), 색상 팔레트, 폰트 및 공통 유틸리티 텍스트/스크롤바 스타일을 선언합니다.
+   의존성: 모든 다른 CSS 모듈 및 public/index.html의 기본 렌더링에 적용됩니다.
+   ========================================== */
+
+:root {
+  /* Color Palette */
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #0f172a;
+  --accent-color: #6366f1; /* Indigo */
+  --accent-glow: rgba(99, 102, 241, 0.15);
+  --success-color: #10b981; /* Emerald */
+  --warning-color: #f59e0b; /* Amber */
+  --danger-color: #ef4444; /* Rose */
+  
+  /* Text Colors */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  /* Glassmorphism Elements */
+  --glass-bg: rgba(15, 23, 42, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-hover: rgba(255, 255, 255, 0.03);
+  --glass-shadow: rgba(0, 0, 0, 0.3);
+  
+  /* Layout Options */
+  --sidebar-width: 260px;
+  --sidebar-width-collapsed: 72px;
+  --transition-speed: 0.3s;
+  --border-radius: 16px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--bg-primary);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* App Container Layout */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Common Utility Classes */
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-bold {
+  font-weight: 600;
+}
+
+.text-primary {
+  color: var(--accent-color);
+}
+
+.w-full {
+  width: 100%;
+}
+
+.text-sm {
+  font-size: 0.85rem;
+}
+
+.text-income {
+  color: var(--success-color) !important;
+}
+
+.text-expense {
+  color: #f8fafc !important;
+}
+
+.text-up {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+.text-down {
+  color: var(--danger-color);
+  font-weight: 600;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.font-mono {
+  font-family: monospace;
+}
+
+.category-badge {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Scrollbars styling */
+.table-responsive::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 3px;
+}

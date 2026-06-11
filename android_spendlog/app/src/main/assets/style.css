@@ -1,0 +1,11 @@
+/* ==========================================
+   HA Account Book - Modular Stylesheet Entry
+   요약: 가계부 서비스의 통합 스타일 진입점으로, 기능별로 분리된 스타일 시트를 로드합니다.
+   의존성: public/index.html에서 메인 CSS 파일로 호출되며, 하위 모듈들을 상대 경로로 결합합니다.
+   ========================================== */
+
+@import url("./variables.css");
+@import url("./navigation.css");
+@import url("./components.css");
+@import url("./views.css");
+@import url("./responsive.css");

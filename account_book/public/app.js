@@ -302,20 +302,14 @@ function switchTab(tabId) {
     }
   });
 
-  // 모바일 하단 네비게이션 버튼 클래스 토글 & 액티브 인덱스 변수 갱신
-  let activeIndex = 0;
-  document.querySelectorAll('.mobile-nav-item').forEach((btn, index) => {
+  // 모바일 하단 네비게이션 버튼 클래스 토글
+  document.querySelectorAll('.mobile-nav-item').forEach(btn => {
     if (btn.dataset.tab === tabId) {
       btn.classList.add('active');
-      activeIndex = index;
     } else {
       btn.classList.remove('active');
     }
   });
-  const navContainer = document.querySelector('.mobile-nav-container');
-  if (navContainer) {
-    navContainer.style.setProperty('--active-index', activeIndex);
-  }
 
   // 콘텐츠 전환
   document.querySelectorAll('.tab-content').forEach(content => {
