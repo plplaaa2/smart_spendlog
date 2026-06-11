@@ -1,6 +1,7 @@
 package com.spendlog.android.parser
 
 import java.util.regex.Pattern
+import kotlinx.serialization.json.*
 
 /**
  * [ParserUtils.kt]
@@ -52,5 +53,41 @@ object ParserUtils {
      */
     fun escapeRegexChars(str: String): String {
         return str.replace(Regex("[\\-\\/\\\\\\^\\$\\*\\+\\?\\.\\(\\)\\|\\[\\]\\{\\}]"), "\\\\$0")
+    }
+}
+
+/**
+ * JSON 데이터 타입 불일치 해결을 위한 확장 유틸리티
+ */
+fun JsonElement?.asLongOrNull(): Long? {
+    return when {
+        this is JsonPrimitive -> {
+            val content = contentOrNull
+            content?.toLongOrNull() ?: this.jsonPrimitive.longOrNull
+        }
+        else -> null
+    }
+}
+
+fun JsonElement?.asBooleanOrNull(): Boolean? {
+    return when {
+        this is JsonPrimitive -> {
+            val content = contentOrNull
+            when {
+                content != null && (content.equals("true", ignoreCase = true) || content == "1") -> true
+                content != null && (content.equals("false", ignoreCase = true) || content == "0") -> false
+                else -> this.jsonPrimitive.booleanOrNull
+            }
+        }
+        else -> null
+    }
+}
+
+fun JsonElement?.asStringOrNull(): String? {
+    return when {
+        this is JsonObject -> this.toString()
+        this is JsonArray -> this.toString()
+        this is JsonPrimitive -> contentOrNull
+        else -> null
     }
 }
