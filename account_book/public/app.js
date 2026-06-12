@@ -15,6 +15,7 @@ let state = {
   rules: [],
   settings: {},
   categoryMap: {}, // name -> {color, icon}
+  franchisePresets: [], // 가맹점 프리셋 가중치 계산용
 };
 
 // Chart.js 객체 참조용
@@ -83,15 +84,17 @@ function changeMonth(offset) {
 // 메타데이터 로드 (카테고리, 결제수단, 규칙, 설정)
 async function loadMetadata() {
   try {
-    const [categories, payMethods, settings] = await Promise.all([
+    const [categories, payMethods, settings, presets] = await Promise.all([
       fetch('api/categories').then(r => r.json()),
       fetch('api/pay_methods').then(r => r.json()),
-      fetch('api/settings').then(r => r.json())
+      fetch('api/settings').then(r => r.json()),
+      fetch('api/rules/presets').then(r => r.json()).catch(() => [])
     ]);
 
     state.categories = categories;
     state.payMethods = payMethods;
     state.settings = settings;
+    state.franchisePresets = presets;
 
     // 카테고리 맵 생성
     state.categoryMap = {};
@@ -406,14 +409,33 @@ function refreshCurrentTabData() {
       if (typeof loadIncomeAnalytics === 'function') loadIncomeAnalytics();
       break;
     case 'logs':
+      // 요약: 서브 탭 유지 상태에서 데이터 새로고침 및 설정/로그 서브탭 데이터 갱신 분기 처리.
+      // 의존성: account_book/public/settings.js, account_book/public/rules.js
       initLogsSubTabs();
-      switchLogsSubTab('logs-list');
+      if (state.currentLogsSubTab === 'logs-list') {
+        if (typeof loadLogs === 'function') loadLogs();
+      } else if (state.currentLogsSubTab === 'rules') {
+        if (typeof loadRules === 'function') loadRules();
+      } else if (state.currentLogsSubTab === 'pass-rules') {
+        if (typeof loadPassRules === 'function') loadPassRules();
+      } else if (state.currentLogsSubTab === 'merchant') {
+        if (typeof loadMerchantCategories === 'function') loadMerchantCategories();
+      }
       break;
     case 'ai-report':
       if (typeof initAiReportTab === 'function') initAiReportTab();
       break;
     case 'settings':
-      loadSettingsTab();
+      initSettingsSubTabs();
+      if (state.currentSettingsSubTab === 'default') {
+        loadSettingsTab();
+      } else if (state.currentSettingsSubTab === 'balance') {
+        if (typeof loadBalanceSettings === 'function') loadBalanceSettings();
+      } else if (state.currentSettingsSubTab === 'ai') {
+        if (typeof loadAISettings === 'function') loadAISettings();
+      } else if (state.currentSettingsSubTab === 'data') {
+        if (typeof loadDataSettings === 'function') loadDataSettings();
+      }
       break;
   }
 }

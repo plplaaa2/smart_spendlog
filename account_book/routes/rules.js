@@ -41,6 +41,16 @@ async function getUniqueRuleName(db, baseName) {
   }
 }
 
+// 프랜차이즈 프리셋 데이터 조회 (규칙 패턴 자동 생성 시 가중치 계산용)
+router.get('/rules/presets', async (req, res) => {
+  try {
+    const presets = require('../franchise_presets').FRANCHISE_PRESETS || [];
+    res.json(presets);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 규칙 조회 (모든 사용자가 admin의 규칙을 공유하여 동일하게 적용)
 router.get('/rules', async (req, res) => {
   try {

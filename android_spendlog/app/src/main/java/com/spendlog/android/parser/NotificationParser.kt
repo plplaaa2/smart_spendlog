@@ -117,7 +117,11 @@ object NotificationParser {
                     }
 
                     // 4. 결제수단(Pay Method) 설정
-                    var payMethod = try { matcher.group("pay_method") ?: rule.payMethod } catch (e: Exception) { rule.payMethod }
+                    var payMethod = try {
+                        matcher.group("payMethod") ?: matcher.group("pay_method") ?: rule.payMethod
+                    } catch (e: Exception) {
+                        try { matcher.group("pay_method") ?: rule.payMethod } catch (e2: Exception) { rule.payMethod }
+                    }
                     payMethod = payMethod.trim()
 
                     if (payMethod == "_AUTO_MAPPING_") {
@@ -137,7 +141,11 @@ object NotificationParser {
                     }
 
                     // 6. 사용 포인트(Used Point) 추출
-                    val usedPointStr = try { matcher.group("used_point") } catch (e: Exception) { null }
+                    val usedPointStr = try {
+                        matcher.group("usedPoint") ?: matcher.group("used_point")
+                    } catch (e: Exception) {
+                        try { matcher.group("used_point") } catch (e2: Exception) { null }
+                    }
                     var usedPoint = usedPointStr?.replace(",", "")?.toLongOrNull() ?: 0L
                     if (usedPoint == 0L) {
                         val pointMatch = Pattern.compile("(?:포인트|점수|P|마일리지|하트)\\s*([\\d,]+)", Pattern.CASE_INSENSITIVE).matcher(normalizedText)
@@ -245,7 +253,7 @@ object NotificationParser {
 
         // 1. 카드명/은행명 감지
         val cardRegex = Pattern.compile("\\[(.*?)\\]")
-        val fallbackCardRegex = Pattern.compile("(NH농협|국민체크|신한체크|신한카드|삼성카드|현대카드|롯데카드|우리카드|하나카드|카카오뱅크|토스뱅크|신한은행|국민은행|우리은행|하나은행|농협은행|IBK|기업은행|우체국)")
+        val fallbackCardRegex = Pattern.compile("(NH농협|신한카드|삼성카드|현대카드|롯데카드|우리카드|하나카드|국민카드|농협카드|비씨카드|BC카드|카카오뱅크|토스뱅크|케이뱅크|신한은행|국민은행|우리은행|하나은행|농협은행|기업은행|IBK|우체국|새마을금고|새마을|신협|수협은행|수협|씨티은행|씨티|SC제일은행|SC제일|산업은행|저축은행|광주은행|제주은행|전북은행|대구은행|부산은행|경남은행|증권|카카오페이|네이버페이)")
         
         var cardMatcher = cardRegex.matcher(cleanText)
         var cardFound = cardMatcher.find()
@@ -347,20 +355,15 @@ object NotificationParser {
             }
         }
 
-        // 3. 금액 감지 ("원"이 붙어있는 금액 우선, ₩/$ 기호 매칭 지원)
-        val amountWithWonRegex = Pattern.compile("([\\d,]+)\\s*원|([₩\\\\$])\\s*([\\d,]+)")
+        // 3. 금액 감지 ("원"이 붙어있는 금액 우선)
+        val amountWithWonRegex = Pattern.compile("([\\d,]+)\\s*원")
         val awMatcher = amountWithWonRegex.matcher(cleanText)
         var amountDetected = false
         while (awMatcher.find()) {
             val start = awMatcher.start()
             val end = awMatcher.end()
             if (!isOverlapping(start, end)) {
-                val symbol = try { awMatcher.group(2) } catch(e: Exception) { null }
-                val regexStr = if (symbol != null) {
-                    "${ParserUtils.escapeRegexChars(symbol)}\\s*(?<amount>[\\d,]+)"
-                } else {
-                    "(?<amount>[\\d,]+)원"
-                }
+                val regexStr = "(?<amount>[\\d,]+)원"
                 blocks.add(ParserUtils.Block("금액", start, end, regexStr, awMatcher.group()))
                 amountDetected = true
                 break
@@ -650,8 +653,17 @@ object NotificationParser {
             val prefixGap = cleanText.substring(lastIndex, b.start)
 
             if (i == bestGapIndex && maxCleanLen > 0) {
-                val hasNums = prefixGap.any { it.isDigit() }
-                finalRegex += if (hasNums) "\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*" else "\\s*(?<merchant>.+?)\\s*"
+                // [사용처 구분자 분리] 가맹점 영역 뒤에 슬래시(/)가 존재할 경우 강제 분리 처리 (연결 파일: pattern_generator.js, rules.js)
+                val slashRegex = Regex("^(.*?)\\s*/\\s*$")
+                val slashMatch = slashRegex.find(prefixGap)
+                if (slashMatch != null) {
+                    val merchantPart = slashMatch.groupValues[1]
+                    val hasNums = merchantPart.any { it.isDigit() }
+                    finalRegex += if (hasNums) "\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*/\\s*" else "\\s*(?<merchant>.+?)\\s*/\\s*"
+                } else {
+                    val hasNums = prefixGap.any { it.isDigit() }
+                    finalRegex += if (hasNums) "\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*" else "\\s*(?<merchant>.+?)\\s*"
+                }
             } else {
                 finalRegex += formatGapToRegex(prefixGap)
             }

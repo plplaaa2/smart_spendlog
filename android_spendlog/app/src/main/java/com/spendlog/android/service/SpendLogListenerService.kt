@@ -55,6 +55,14 @@ class SpendLogListenerService : NotificationListenerService() {
         serviceScope.launch {
             val db = SpendLogDatabase.getDatabase(applicationContext)
             
+            // 중복 수신 알림 필터링 (최근 3초 이내 동일 rawText 존재 시 스킵)
+            val threshold = System.currentTimeMillis() - 3000
+            val duplicateCount = db.notificationLogDao().countDuplicateLogs(rawText, threshold)
+            if (duplicateCount > 0) {
+                Log.d(TAG, "Duplicate notification skip: $rawText")
+                return@launch
+            }
+            
             // 1. Check Pass Rules
             val passRules = db.passRuleDao().getAllPassRules()
             if (NotificationParser.checkPassRules(rawText, passRules)) {
@@ -68,7 +76,7 @@ class SpendLogListenerService : NotificationListenerService() {
                 )
                 db.notificationLogDao().insertLog(log)
                 Log.d(TAG, "Notification passed: $rawText")
-                // com.spendlog.android.MainActivity.refreshUI()
+                com.spendlog.android.MainActivity.refreshUI()
                 return@launch
             }
 
@@ -100,9 +108,30 @@ class SpendLogListenerService : NotificationListenerService() {
                     rawText = rawText,
                     usedPoint = result.usedPoint
                 )
-                db.transactionDao().insertTransaction(transaction)
-                Log.d(TAG, "Transaction saved: ${result.merchant} - ${result.amount}")
-                // com.spendlog.android.MainActivity.refreshUI()
+                
+                // 1분 이내 동일 가맹점+금액 거래 중복 차단 검사
+                var isDuplicateTx = false
+                try {
+                    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+                    val parsedDate = sdf.parse(result.datetime)
+                    if (parsedDate != null) {
+                        val minTime = parsedDate.time - 60000 // 1분 전
+                        val minDatetimeStr = sdf.format(Date(minTime))
+                        val dupCount = db.transactionDao().countDuplicateNear(result.amount, result.merchant, minDatetimeStr)
+                        if (dupCount > 0) {
+                            isDuplicateTx = true
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error checking duplicate transaction", e)
+                }
+
+                if (isDuplicateTx) {
+                    Log.d(TAG, "Duplicate transaction skip: ${result.merchant} - ${result.amount}")
+                } else {
+                    db.transactionDao().insertTransaction(transaction)
+                    Log.d(TAG, "Transaction saved: ${result.merchant} - ${result.amount}")
+                }
             } else {
                 parsedStatus = "FAILED"
                 Log.d(TAG, "Parsing failed for: $rawText (also tried body: $text)")
@@ -118,6 +147,7 @@ class SpendLogListenerService : NotificationListenerService() {
                 matchedRuleId = matchedRuleId
             )
             db.notificationLogDao().insertLog(log)
+            com.spendlog.android.MainActivity.refreshUI()
         }
     }
 }

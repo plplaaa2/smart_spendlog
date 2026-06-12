@@ -11,7 +11,7 @@ function generatePatternFromText(text) {
     return blocks.some(b => Math.max(start, b.start) < Math.min(end, b.end));
   };
 
-  const cardMatch = cleanText.match(/\[(.*?)\]/) || cleanText.match(/(NH농협|국민체크|신한체크|우리체크|하나체크|농협체크|카카오체크|토스체크|신한카드|삼성카드|현대카드|롯데카드|우리카드|하나카드|국민카드|농협카드|카카오뱅크|토스뱅크|신한은행|국민은행|우리은행|하나은행|농협은행|IBK|기업은행|우체국)/);
+  const cardMatch = cleanText.match(/\[(.*?)\]/) || cleanText.match(/(NH농협|신한카드|삼성카드|현대카드|롯데카드|우리카드|하나카드|국민카드|농협카드|비씨카드|BC카드|카카오뱅크|토스뱅크|케이뱅크|신한은행|국민은행|우리은행|하나은행|농협은행|기업은행|IBK|우체국|새마을금고|새마을|신협|수협은행|수협|씨티은행|씨티|SC제일은행|SC제일|산업은행|저축은행|광주은행|제주은행|전북은행|대구은행|부산은행|경남은행|증권|카카오페이|네이버페이)/);
   if (cardMatch) {
     const value = cardMatch[1] || cardMatch[0];
     const isBracket = cardMatch[0].startsWith('[');
@@ -90,7 +90,7 @@ function generatePatternFromText(text) {
     }
   }
 
-  const amountWithWonRegex = /([\d,]+)\s*원|([₩\\$])\s*([\d,]+)/g;
+  const amountWithWonRegex = /([\d,]+)\s*원/g;
   let m;
   let amountDetected = false;
   while ((m = amountWithWonRegex.exec(cleanText)) !== null) {
@@ -98,9 +98,6 @@ function generatePatternFromText(text) {
     const len = m[0].length;
     if (!isOverlapping(idx, idx + len)) {
       let regexStr = '(?<amount>[\\d,]+)원';
-      if (m[2]) {
-        regexStr = `${escapeRegexChars(m[2])}\\s*(?<amount>[\\d,]+)`;
-      }
       blocks.push({
         type: '금액',
         start: idx,
@@ -182,7 +179,7 @@ function generatePatternFromText(text) {
         type: '포인트차감',
         start: idx,
         end: idx + len,
-        regex: '(?:포인트|P)\\s*(?<used_point>[\\d,]+)\\s*(?:원|점|P)?',
+        regex: '(?:포인트|P)\\s*(?<usedPoint>[\\d,]+)\\s*(?:원|점|P)?',
         value: pm[0]
       });
       break;
@@ -214,7 +211,7 @@ function generatePatternFromText(text) {
         type: '결제방식',
         start: idx,
         end: idx + len,
-        regex: '(?<pay_method>[^\\s/]+)',
+        regex: '(?<payMethod>[^\\s/]+)',
         value: payMethodMatch[0]
       });
     }
@@ -399,8 +396,18 @@ function generatePatternFromText(text) {
     const prefixGap = cleanText.substring(lastIndex, b.start);
     
     if (i === bestGapIndex && maxCleanLen > 0) {
-      const hasNums = /\d/.test(prefixGap);
-      finalRegex += hasNums ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*' : '\\s*(?<merchant>.+?)\\s*';
+      // [사용처 구분자 분리] 가맹점 영역 뒤에 슬래시(/)가 존재할 경우 강제 분리 처리 (연결 파일: public/rules.js, assets/rules.js, NotificationParser.kt)
+      const slashMatch = prefixGap.match(/^(.*?)\s*\/\s*$/);
+      if (slashMatch) {
+        const merchantPart = slashMatch[1];
+        const hasNums = /\d/.test(merchantPart);
+        finalRegex += hasNums 
+          ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*\\/\\s*' 
+          : '\\s*(?<merchant>.+?)\\s*\\/\\s*';
+      } else {
+        const hasNums = /\d/.test(prefixGap);
+        finalRegex += hasNums ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*' : '\\s*(?<merchant>.+?)\\s*';
+      }
     } else {
       finalRegex += formatGapToRegex(prefixGap);
     }

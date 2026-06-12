@@ -448,20 +448,18 @@ function autoGeneratePattern(silent = false) {
     return;
   }
 
-  let cleanText = text.replace(/\[Web발신\]\s*/i, '');
+  let cleanText = text.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').replace(/\[Web발신\]\s*/i, '');
   const blocks = [];
 
-  // 안전한 겹침 검사 헬퍼 (구간이 단 1글자라도 겹치면 true)
   const isOverlapping = (start, end) => {
     return blocks.some(b => Math.max(start, b.start) < Math.min(end, b.end));
   };
 
   // 1. 카드명/은행명 감지
-  const cardMatch = cleanText.match(/\[(.*?)\]/) || cleanText.match(/(NH농협|국민체크|신한체크|신한카드|삼성카드|현대카드|롯데카드|우리카드|하나카드|카카오뱅크|토스뱅크|신한은행|국민은행|우리은행|하나은행|농협은행|IBK|기업은행|우체국)/);
+  const cardMatch = cleanText.match(/\[(.*?)\]/) || cleanText.match(/(NH농협|신한카드|삼성카드|현대카드|롯데카드|우리카드|하나카드|국민카드|농협카드|비씨카드|BC카드|카카오뱅크|토스뱅크|케이뱅크|신한은행|국민은행|우리은행|하나은행|농협은행|기업은행|IBK|우체국|새마을금고|새마을|신협|수협은행|수협|씨티은행|씨티|SC제일은행|SC제일|산업은행|저축은행|광주은행|제주은행|전북은행|대구은행|부산은행|경남은행|증권|카카오페이|네이버페이)/);
   if (cardMatch) {
     const value = cardMatch[1] || cardMatch[0];
     const isBracket = cardMatch[0].startsWith('[');
-    // [입금], [출금] 같은 짧은 상태 문구이거나 숫자가 포함된 경우만 스킵 (입출금알림 같은 헤더성 문구는 카드명/은행명 블록으로 인정)
     const isDepositOrWithdraw = isBracket && ((value.length <= 5 && /출금|입금/.test(value)) || /\d/.test(value));
     
     if (!isDepositOrWithdraw) {
@@ -479,7 +477,7 @@ function autoGeneratePattern(silent = false) {
     }
   }
 
-  // 2. 시간/일시 감지 (금액 감지보다 먼저 처리하여 연도/날짜가 금액으로 오인되는 것을 방지합니다)
+  // 2. 시간/일시 감지
   const timeMatch = cleanText.match(/\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}(?::\d{2})?/) || 
                     cleanText.match(/\d{2}[/\-.]\d{1,2}[/\-.]\d{1,2}\s+\d{2}:\d{2}(?::\d{2})?/) || 
                     cleanText.match(/\d{1,2}월\s*\d{1,2}일\s*\d{2}:\d{2}(?::\d{2})?/) || 
@@ -546,11 +544,12 @@ function autoGeneratePattern(silent = false) {
     const idx = m.index;
     const len = m[0].length;
     if (!isOverlapping(idx, idx + len)) {
+      let regexStr = '(?<amount>[\\d,]+)원';
       blocks.push({
         type: '금액',
         start: idx,
         end: idx + len,
-        regex: '(?<amount>[\\d,]+)원',
+        regex: regexStr,
         value: m[0]
       });
       amountDetected = true;
@@ -631,14 +630,14 @@ function autoGeneratePattern(silent = false) {
         type: '포인트차감',
         start: idx,
         end: idx + len,
-        regex: '(?:포인트|P)\\s*(?<used_point>[\\d,]+)\\s*(?:원|점|P)?',
+        regex: '(?:포인트|P)\\s*(?<usedPoint>[\\d,]+)\\s*(?:원|점|P)?',
         value: pm[0]
       });
       break;
     }
   }
 
-  // 7. 상태 감지 (승인, 사용, 취소, 출금, 입금 등) - 다중 감지하여 중복되지 않는 모든 상태 수집
+  // 7. 상태 감지 (승인, 사용, 취소, 출금, 입금 등)
   const statusRegex = /(승인|사용|취소|출금|입금|결제)/g;
   let sm;
   while ((sm = statusRegex.exec(cleanText)) !== null) {
@@ -665,26 +664,24 @@ function autoGeneratePattern(silent = false) {
         type: '결제방식',
         start: idx,
         end: idx + len,
-        regex: '(?<pay_method>[^\\s/]+)',
+        regex: '(?<payMethod>[^\\s/]+)',
         value: payMethodMatch[0]
       });
     }
   }
 
-  // 9. 계좌번호 감지 (마스킹 문자 '*'가 포함된 계좌번호 패턴 최우선 감지 및 다중 탐색)
+  // 9. 계좌번호 감지
   const accountRegexes = [
     /\d{3,}\*+[-\d*]*/g,
     /[-\d*]*\*+[-\d*]*/g,
     /\d{3,}[-\d*]{2,}/g,
     /[\d*-]{5,}/g
   ];
-
   for (const acRegex of accountRegexes) {
     let am;
     while ((am = acRegex.exec(cleanText)) !== null) {
       const val = am[0];
       if (val.includes('/') || val.includes(':') || val.includes('원')) continue;
-      // 숫자나 하이픈이 전혀 없고 오직 별표(*)만 있는 문자열은 계좌번호에서 제외 (이름 마스킹 오인 차단)
       if (!/[\d-]/.test(val)) continue;
       
       const start = am.index;
@@ -720,86 +717,114 @@ function autoGeneratePattern(silent = false) {
   // 감지된 고유 블록 정렬
   blocks.sort((a, b) => a.start - b.start);
 
-  // 11. 사용처(merchant) 감지 (블록들 사이에 빈 공간 중 가장 상점명다운 문자열 추출)
-  let bestGapIndex = -1;
-  let maxCleanLen = -1;
+  if (blocks.length === 0) {
+    const resultPattern = '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*';
+    applySuggestedPattern(resultPattern, text, blocks, silent);
+    return;
+  }
 
+  // Gap 계산 및 가장 적합한 가맹점 영역 점수 평가
   const gaps = [];
-  gaps.push({ start: 0, end: blocks[0] ? blocks[0].start : cleanText.length, index: 0 });
+  gaps.push({ start: 0, end: blocks[0].start, index: 0 });
   for (let i = 1; i < blocks.length; i++) {
     gaps.push({ start: blocks[i-1].end, end: blocks[i].start, index: i });
   }
-  if (blocks.length > 0) {
-    gaps.push({ start: blocks[blocks.length-1].end, end: cleanText.length, index: blocks.length });
-  }
+  gaps.push({ start: blocks[blocks.length-1].end, end: cleanText.length, index: blocks.length });
+
+  let bestGapIndex = -1;
+  let maxScore = -Infinity;
+  let maxCleanLen = -1;
 
   gaps.forEach(g => {
     const txt = cleanText.substring(g.start, g.end);
-    // 잔액, 잔고, 누적 등 가맹점명이 될 수 없는 지시어를 제외한 클린 텍스트 추출 (입금/출금 등 브라켓과 지시용어 제외)
     const cleanTxt = txt.replace(/\[?(입금|출금|잔액|잔고|누적|결제)\]?/g, '').trim();
-    
-    // 한글이나 영문이 최소 1글자 이상 포함되어 있지 않은 gap은 제외 (숫자, 특수문자, 마스킹만 있는 경우 방지)
     const cleanLetters = cleanTxt.replace(/[^가-힣a-zA-Z]/g, '');
-    if (cleanLetters.length === 0) return;
+    const len = cleanLetters.length;
+    if (len === 0) return;
 
-    if (cleanLetters.length > maxCleanLen) {
-      maxCleanLen = cleanLetters.length;
+    if (len > maxCleanLen) {
+      maxCleanLen = len;
+    }
+
+    let score = 0;
+    if (len >= 2 && len <= 8) {
+      score += 15;
+    } else if (len > 8 && len <= 12) {
+      score += 10;
+    } else if (len === 1) {
+      score += 2;
+    } else {
+      score -= (len - 12) * 1.5;
+    }
+
+    let minAmtDist = Infinity;
+    let minStatusDist = Infinity;
+
+    blocks.forEach(b => {
+      if (b.type === '금액') {
+        const dist = Math.min(Math.abs(g.start - b.end), Math.abs(b.start - g.end));
+        if (dist < minAmtDist) minAmtDist = dist;
+      }
+      if (b.type === '상태') {
+        const dist = Math.min(Math.abs(g.start - b.end), Math.abs(b.start - g.end));
+        if (dist < minStatusDist) minStatusDist = dist;
+      }
+    });
+
+    if (minAmtDist <= 3) {
+      score += 10;
+    } else if (minAmtDist <= 10) {
+      score += 5;
+    }
+
+    if (minStatusDist <= 3) {
+      score += 8;
+    } else if (minStatusDist <= 10) {
+      score += 4;
+    }
+
+    const systemKeywords = [
+      /타행이체/i, /즉시이체/i, /계좌이체/i, /모바일/i, /뱅킹/i,
+      /인터넷/i, /수수료/i, /이자/i, /안내/i, /공지/i, /고객/i,
+      /인증/i, /보안/i, /점검/i, /대기/i, /완료/i, /감사/i, /이용/i,
+      /확인/i, /등록/i, /성공/i, /실패/i, /[가-힣]{2,4}\s*님/
+    ];
+    let hasSystemKeyword = false;
+    systemKeywords.forEach(kw => {
+      if (kw.test(txt)) {
+        hasSystemKeyword = true;
+      }
+    });
+    if (hasSystemKeyword) {
+      score -= 30;
+    }
+
+    let matchesFranchise = false;
+    const presets = state.franchisePresets || [];
+    for (const preset of presets) {
+      if (preset.keyword && preset.keyword.length >= 2 && txt.includes(preset.keyword)) {
+        matchesFranchise = true;
+        break;
+      }
+    }
+    if (matchesFranchise) {
+      score += 20;
+    }
+
+    if (score > maxScore) {
+      maxScore = score;
       bestGapIndex = g.index;
     }
   });
 
-  let merchantBlock = null;
-  if (bestGapIndex !== -1 && maxCleanLen > 0) {
-    const targetGap = gaps.find(g => g.index === bestGapIndex);
-    const rawGap = cleanText.substring(targetGap.start, targetGap.end);
-    
-    const leadTrim = rawGap.match(/^[\s\-/\\:*]+/);
-    const leadLen = leadTrim ? leadTrim[0].length : 0;
-    const trailTrim = rawGap.match(/[\s\-/\\:*]+$/);
-    const trailLen = trailTrim ? trailTrim[0].length : 0;
-    const gapText = rawGap.substring(leadLen, rawGap.length - trailLen).trim();
-
-    if (gapText.length > 0) {
-      const mStart = targetGap.start + leadLen + (rawGap.substring(leadLen).length - rawGap.substring(leadLen).trimStart().length);
-      const mEnd = mStart + gapText.length;
-      const hasNums = /\d/.test(gapText);
-      merchantBlock = {
-        type: '사용처',
-        start: mStart,
-        end: mEnd,
-        regex: hasNums ? '(?<merchant>.+?)(?:\\s+[\\d,]+)?' : '(?<merchant>.+?)',
-        value: gapText
-      };
-    }
-  }
-
-  if (merchantBlock) {
-    blocks.push(merchantBlock);
-    blocks.sort((a, b) => a.start - b.start);
-  } else {
-    blocks.push({
-      type: '사용처',
-      start: cleanText.length,
-      end: cleanText.length,
-      regex: '(?<merchant>.+?)',
-      value: ''
-    });
-  }
-
-  // 화면 필드에 추출 순서 채우기
-  const inferredSequence = blocks.map(b => b.type).join(', ');
-  const sequenceInput = document.getElementById('test-sequence');
-  if (sequenceInput) {
-    sequenceInput.value = inferredSequence;
-  }
-
-  // 정규식 조립
-  let suggested = '';
+  let finalRegex = '^';
   if (text.includes('[Web발신]')) {
-    suggested += '(?:(?:\\[Web발신\\])?\\s*)?';
+    finalRegex += '(?:(?:\\[Web발신\\])?\\s*)?';
   }
 
-  // 갭 텍스트의 정적 문자(특수문자 포함)는 보존하고 공백은 정규식으로 유연화하는 헬퍼 함수
+  let lastIndex = 0;
+  const usedTypes = new Set();
+
   function formatGapToRegex(gapText) {
     if (!gapText) return '';
     let result = '';
@@ -819,64 +844,59 @@ function autoGeneratePattern(silent = false) {
     return result;
   }
 
-  // 1. 첫 블록 전 갭 처리
-  if (blocks.length > 0 && blocks[0].start > 0) {
-    const frontGap = cleanText.substring(0, blocks[0].start);
-    suggested += formatGapToRegex(frontGap);
-  }
-
-  const usedTypes = new Set();
-
-  // 2. 블록과 블록 사이 갭 정밀 결합
   for (let i = 0; i < blocks.length; i++) {
-    let blockRegex = blocks[i].regex;
-    if (blocks[i].type === '사용처' && i === blocks.length - 1) {
-      blockRegex = '(?<merchant>.+)(?:\\s+[\\d,]+)?';
-    }
+    const b = blocks[i];
+    const prefixGap = cleanText.substring(lastIndex, b.start);
     
-    if (blocks[i].type !== '사용처') {
-      if (usedTypes.has(blocks[i].type)) {
-        blockRegex = blockRegex.replace(/\(\?<[a-zA-Z0-9_]+>/g, '(?:');
+    if (i === bestGapIndex && maxCleanLen > 0) {
+      // [사용처 구분자 분리] 가맹점 영역 뒤에 슬래시(/)가 존재할 경우 강제 분리 처리 (연결 파일: parser/pattern_generator.js, assets/rules.js, NotificationParser.kt)
+      const slashMatch = prefixGap.match(/^(.*?)\s*\/\s*$/);
+      if (slashMatch) {
+        const merchantPart = slashMatch[1];
+        const hasNums = /\d/.test(merchantPart);
+        finalRegex += hasNums 
+          ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*\\/\\s*' 
+          : '\\s*(?<merchant>.+?)\\s*\\/\\s*';
       } else {
-        usedTypes.add(blocks[i].type);
+        const hasNums = /\d/.test(prefixGap);
+        finalRegex += hasNums ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*' : '\\s*(?<merchant>.+?)\\s*';
       }
+    } else {
+      finalRegex += formatGapToRegex(prefixGap);
     }
     
-    suggested += blockRegex;
-    if (i < blocks.length - 1) {
-      const gapText = cleanText.substring(blocks[i].end, blocks[i+1].start);
-      suggested += formatGapToRegex(gapText);
+    let blockRegex = b.regex;
+    if (usedTypes.has(b.type)) {
+      blockRegex = blockRegex.replace(/\(\?<[a-zA-Z0-9_]+>/g, '(?:');
+    } else {
+      usedTypes.add(b.type);
     }
+    
+    finalRegex += blockRegex;
+    lastIndex = b.end;
   }
 
-  // 3. 마지막 블록 뒤 갭 처리
-  if (blocks.length > 0 && blocks[blocks.length - 1].end < cleanText.length) {
-    const backGap = cleanText.substring(blocks[blocks.length - 1].end);
-    suggested += formatGapToRegex(backGap);
+  const suffixGap = cleanText.substring(lastIndex);
+  if (blocks.length === bestGapIndex && maxCleanLen > 0) {
+    const slashMatch = suffixGap.match(/^\s*\/\s*(.+)/);
+    const hasNums = /\d/.test(suffixGap);
+    if (slashMatch) {
+      finalRegex += hasNums ? '\\s*\\/\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?$' : '\\s*\\/\\s*(?<merchant>.+)$';
+    } else {
+      finalRegex += hasNums ? '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?$' : '\\s*(?<merchant>.+)$';
+    }
+  } else {
+    finalRegex += formatGapToRegex(suffixGap) + '$';
   }
 
+  applySuggestedPattern(finalRegex, text, blocks, silent);
+}
+
+function applySuggestedPattern(suggested, text, blocks, silent) {
   const patternInput = document.getElementById('test-pattern');
   const rulePatternInput = document.getElementById('rule-pattern');
   if (patternInput) patternInput.value = suggested;
   if (rulePatternInput) rulePatternInput.value = suggested;
-
-  // 카드/은행명이 있으면 규칙 이름도 자동 추천 (비어있는 경우에만 추천하거나 더 우선순위 높은 정보로 갱신)
-  const cardBlock = blocks.find(b => b.type === '카드명/은행명');
-  const ruleNameEl = document.getElementById('rule-name');
-  if (ruleNameEl) {
-    if (cardBlock && cardBlock.value) {
-      ruleNameEl.value = `${cardBlock.value} 규칙`;
-    } else if (!ruleNameEl.value) {
-      ruleNameEl.value = '자동 생성 규칙';
-    }
-  }
-
-  // 규칙 생성 카드창이 안 열려있으면 강제로 활성화
-  const formCard = document.getElementById('rule-form-card');
-  if (formCard && formCard.style.display === 'none') {
-    loadRuleToEditor(null);
-    if (patternInput) rulePatternInput.value = patternInput.value;
-  }
 
   // 본문 텍스트 내용을 기반으로 거래 유형(수입/지출) 감지 및 연계 카테고리 갱신
   let autoType = 'EXPENSE';
@@ -886,10 +906,63 @@ function autoGeneratePattern(silent = false) {
     autoType = 'EXPENSE';
   }
 
+  // 카드/은행명이 있으면 규칙 이름도 자동 추천 및 지불 방식(수입/체크/신용/결제/지출) 자동 조합
+  const cardBlock = blocks.find(b => b.type === '카드명/은행명');
+  const payMethodBlock = blocks.find(b => b.type === '결제방식');
+  const ruleNameEl = document.getElementById('rule-name');
+  if (ruleNameEl) {
+    let baseName = '';
+
+    // 카드/은행명 블록 값 우선 사용 (사용처 자동 추출 배제)
+    if (cardBlock && cardBlock.value) {
+      baseName = cardBlock.value;
+    }
+
+    // 기존에 입력된 이름이 있다면 접미사를 제외하고 사용
+    if (!baseName && ruleNameEl.value && ruleNameEl.value !== '자동 생성 규칙') {
+      baseName = ruleNameEl.value.replace(/\s*(수입|체크|신용|결제|지출)?\s*규칙$/, '').trim();
+    }
+
+    if (!baseName) {
+      baseName = '자동 생성';
+    }
+
+    // 수식어 결정 (수입, 체크, 신용, 결제, 지출)
+    let modifier = '결제';
+    if (autoType === 'INCOME') {
+      modifier = '수입';
+    } else {
+      const isCheck = text.includes('체크') || (cardBlock && cardBlock.value && cardBlock.value.includes('체크')) || (payMethodBlock && payMethodBlock.value && payMethodBlock.value.includes('체크'));
+      const isCredit = text.includes('신용') || text.includes('카드') || (cardBlock && cardBlock.value && (cardBlock.value.includes('카드') || cardBlock.value.includes('신용'))) || (payMethodBlock && payMethodBlock.value && (payMethodBlock.value.includes('카드') || payMethodBlock.value.includes('신용')));
+
+      if (isCheck) {
+        modifier = '체크';
+      } else if (isCredit) {
+        modifier = '신용';
+      } else if (text.includes('결제') || text.includes('승인') || text.includes('사용') || text.includes('페이')) {
+        modifier = '결제';
+      } else {
+        modifier = '지출';
+      }
+    }
+
+    let finalRuleName = `${baseName} ${modifier} 규칙`;
+    if (baseName.includes(modifier)) {
+      finalRuleName = `${baseName} 규칙`;
+    }
+    ruleNameEl.value = finalRuleName;
+  }
+
+  // 규칙 생성 카드창이 안 열려있으면 강제로 활성화
+  const formCard = document.getElementById('rule-form-card');
+  if (formCard && formCard.style.display === 'none') {
+    loadRuleToEditor(null);
+    if (patternInput) rulePatternInput.value = patternInput.value;
+  }
+
   const ruleTypeSelect = document.getElementById('rule-type');
   if (ruleTypeSelect) {
     ruleTypeSelect.value = autoType;
-    // 카테고리 셀렉트 갱신
     if (typeof updateCategorySelect === 'function') {
       updateCategorySelect('#rule-category', autoType, '');
     }

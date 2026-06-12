@@ -160,6 +160,20 @@ test('determineTransactionType - Unified transaction type detection', () => {
   }
 });
 
+test('generatePatternFromText - merchant slash separation', () => {
+  const text = '(결제) 8,500원 버거킹박석고개SK점(주)비케이 / 신용(일시불,8*9*) / 06.12 18:51 / 누적이용금액 82,566원';
+  const pattern = textParser.generatePatternFromText(text);
+  
+  const rules = [{ name: 'Test Rule', pattern, category: '기타' }];
+  const parsed = textParser.parseNotification(text, rules);
+  if (!parsed) {
+    throw new Error(`Failed to parse notification with pattern: ${pattern}`);
+  }
+  if (parsed.merchant !== '버거킹박석고개SK점(주)비케이') {
+    throw new Error(`Expected merchant "버거킹박석고개SK점(주)비케이", but got "${parsed.merchant}"\nPattern: ${pattern}`);
+  }
+});
+
 // Run all tests
 let passedCount = 0;
 let failedCount = 0;

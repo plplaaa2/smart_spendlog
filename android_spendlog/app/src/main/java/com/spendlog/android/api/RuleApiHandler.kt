@@ -9,8 +9,11 @@ import com.spendlog.android.parser.NotificationParser
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import kotlinx.serialization.decodeFromString
+import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.regex.Pattern
+import java.util.regex.Matcher
 
 /**
  * @file RuleApiHandler.kt
@@ -97,6 +100,38 @@ object RuleApiHandler {
                 val payMethod = jsonObject["pay_method"]?.jsonPrimitive?.content ?: ""
                 val type = jsonObject["type"]?.jsonPrimitive?.contentOrNull ?: "EXPENSE"
                 
+                Log.i("SpendLog_Debug", "[parse-test] Text: '$text'")
+                Log.i("SpendLog_Debug", "[parse-test] Pattern: '$pattern'")
+                
+                var parseErrorMsg = "정규식 패턴이 본문과 매칭되지 않거나, 필수 그룹(?<amount>, (?<merchant> 등)이 누락되었습니다."
+                
+                // 상세 진단 실행
+                try {
+                    val p = Pattern.compile(pattern, Pattern.DOTALL)
+                    val normalizedText = text.replace(Regex("[\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069]"), "").replace("\r\n", "\n")
+                    val m = p.matcher(normalizedText)
+                    if (!m.find()) {
+                        parseErrorMsg = "매칭 실패: 정규식이 본문 텍스트와 매칭되지 않습니다."
+                        Log.w("SpendLog_Debug", "[parse-test] Regex match failed for text: '$normalizedText' with pattern: '$pattern'")
+                    } else {
+                        val amountStr = try { m.group("amount") } catch (e: Exception) { null }
+                        val merchantStr = try { m.group("merchant") ?: m.group("usage") } catch (e: Exception) { null }
+                        
+                        if (amountStr == null) {
+                            parseErrorMsg = "매칭 실패: 금액 그룹(?<amount>)이 매칭되지 않았거나 누락되었습니다."
+                            Log.w("SpendLog_Debug", "[parse-test] 'amount' group not found in matcher.")
+                        } else if (merchantStr == null) {
+                            parseErrorMsg = "매칭 실패: 상호명 그룹(?<merchant> 또는 ?<usage>)이 매칭되지 않았거나 누락되었습니다."
+                            Log.w("SpendLog_Debug", "[parse-test] 'merchant' or 'usage' group not found in matcher.")
+                        } else {
+                            parseErrorMsg = "매칭은 성공했으나, 날짜/시간 또는 금액 처리 도중 예외가 발생했습니다."
+                        }
+                    }
+                } catch (e: Exception) {
+                    parseErrorMsg = "정규식 문법 오류: ${e.message}"
+                    Log.e("SpendLog_Debug", "[parse-test] Regex compile error", e)
+                }
+
                 val dummyRule = Rule(
                     id = 9999,
                     name = "임시 테스트 규칙",
@@ -130,7 +165,7 @@ object RuleApiHandler {
                 } else {
                     ApiResponse(body = buildJsonObject {
                         put("success", false)
-                        put("message", "정규식 패턴이 본문과 매칭되지 않거나, 필수 그룹(?<amount>, (?<merchant> 등)이 누락되었습니다.")
+                        put("message", parseErrorMsg)
                     })
                 }
             }

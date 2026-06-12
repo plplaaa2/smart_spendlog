@@ -236,20 +236,92 @@ object AndroidApiHandler {
                     }
                 }
                 path.startsWith("notification_logs") -> {
-                    val logs = db.notificationLogDao().getRecentLogs()
-                    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-                    val jsonLogs = logs.map { log ->
-                        buildJsonObject {
-                            put("id", log.id)
-                            put("sender", log.sender)
-                            put("raw_text", log.rawText)
-                            put("title", log.title)
-                            put("text", log.text)
-                            put("parsed_status", log.parsedStatus)
-                            put("created_at", sdf.format(Date(log.timestamp)))
+                    if (method == "POST" && path.endsWith("/retry")) {
+                        val segments = path.split("/")
+                        val logId = segments.getOrNull(1)?.toLongOrNull()
+                        if (logId == null) {
+                            ApiResponse(status = 400, body = buildJsonObject { put("error", "잘못된 로그 ID입니다.") })
+                        } else {
+                            val log = db.notificationLogDao().getLogById(logId)
+                            if (log == null) {
+                                ApiResponse(status = 404, body = buildJsonObject { put("error", "해당 알림 로그를 찾을 수 없습니다.") })
+                            } else {
+                                db.transactionDao().deleteTransactionsByRawText(log.rawText)
+                                val rules = db.ruleDao().getAllRules()
+                                
+                                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+                                sdf.timeZone = TimeZone.getTimeZone("Asia/Seoul")
+                                val logKSTTime = sdf.format(Date(log.timestamp))
+                                
+                                var result = com.spendlog.android.parser.NotificationParser.parseNotification(
+                                    text = log.rawText,
+                                    rules = rules,
+                                    db = db,
+                                    packageName = log.sender
+                                )
+                                
+                                if (result == null && log.text.isNotEmpty()) {
+                                    result = com.spendlog.android.parser.NotificationParser.parseNotification(
+                                        text = log.text,
+                                        rules = rules,
+                                        db = db,
+                                        packageName = log.sender
+                                    )
+                                }
+                                
+                                if (result != null) {
+                                    val transaction = Transaction(
+                                        type = result.type,
+                                        amount = result.amount,
+                                        merchant = result.merchant,
+                                        category = result.category,
+                                        payMethod = result.payMethod,
+                                        datetime = result.datetime,
+                                        memo = result.memo,
+                                        rawText = log.rawText,
+                                        usedPoint = result.usedPoint
+                                    )
+                                    db.transactionDao().insertTransaction(transaction)
+                                    
+                                    val updatedLog = log.copy(
+                                        parsedStatus = "SUCCESS",
+                                        matchedRuleId = result.ruleId
+                                    )
+                                    db.notificationLogDao().updateLog(updatedLog)
+                                    MainActivity.refreshUI()
+                                    
+                                    ApiResponse(body = buildJsonObject {
+                                        put("success", true)
+                                        put("message", "알림 재시도 및 가계부 등록 완료")
+                                        put("transaction", buildJsonObject {
+                                            put("merchant", result.merchant)
+                                            put("amount", result.amount)
+                                        })
+                                    })
+                                } else {
+                                    ApiResponse(status = 400, body = buildJsonObject {
+                                        put("success", false)
+                                        put("error", "여전히 알림을 분석할 수 있는 매칭 규칙이 없습니다.")
+                                    })
+                                }
+                            }
                         }
+                    } else {
+                        val logs = db.notificationLogDao().getRecentLogs()
+                        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+                        val jsonLogs = logs.map { log ->
+                            buildJsonObject {
+                                put("id", log.id)
+                                put("sender", log.sender)
+                                put("raw_text", log.rawText)
+                                put("title", log.title)
+                                put("text", log.text)
+                                put("parsed_status", log.parsedStatus)
+                                put("created_at", sdf.format(Date(log.timestamp)))
+                            }
+                        }
+                        ApiResponse(body = JsonArray(jsonLogs))
                     }
-                    ApiResponse(body = JsonArray(jsonLogs))
                 }
                 path.startsWith("login") -> {
                     ApiResponse(body = buildJsonObject { 

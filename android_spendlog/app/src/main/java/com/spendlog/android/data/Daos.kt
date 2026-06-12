@@ -23,6 +23,9 @@ interface TransactionDao {
 
     @Update
     suspend fun updateTransaction(transaction: Transaction)
+
+    @Query("DELETE FROM transactions WHERE raw_text = :rawText")
+    suspend fun deleteTransactionsByRawText(rawText: String)
 }
 
 @Dao
@@ -90,8 +93,17 @@ interface NotificationLogDao {
     @Query("SELECT * FROM notification_logs ORDER BY timestamp DESC LIMIT 100")
     suspend fun getRecentLogs(): List<NotificationLog>
 
+    @Query("SELECT * FROM notification_logs WHERE id = :id LIMIT 1")
+    suspend fun getLogById(id: Long): NotificationLog?
+
+    @Query("SELECT COUNT(*) FROM notification_logs WHERE raw_text = :rawText AND timestamp >= :minTimestamp")
+    suspend fun countDuplicateLogs(rawText: String, minTimestamp: Long): Int
+
     @Insert
     suspend fun insertLog(log: NotificationLog): Long
+
+    @Update
+    suspend fun updateLog(log: NotificationLog)
 }
 
 @Dao
