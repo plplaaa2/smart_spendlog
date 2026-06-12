@@ -67,12 +67,20 @@ let incomeCategoryChartInstance = null;
 document.addEventListener('DOMContentLoaded', async () => {
   // 로컬 앱에서는 항상 로그인된 것으로 간주
   currentUser = 'admin';
-  await initApp();
+  if (window.AndroidBridge) {
+    await initApp();
+  } else {
+    console.log('[Init] AndroidBridge not ready at DOMContentLoaded, waiting for onPageFinished...');
+  }
 });
 
 // 초기화
 let isAppInitialized = false;
 async function initApp() {
+  if (!window.AndroidBridge) {
+    console.log('[Init] AndroidBridge is missing. Aborting initApp.');
+    return;
+  }
   if (isAppInitialized) return;
   isAppInitialized = true;
 
