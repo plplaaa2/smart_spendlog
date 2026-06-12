@@ -8,6 +8,7 @@ import com.spendlog.android.data.*
 import com.spendlog.android.parser.asLongOrNull
 import com.spendlog.android.parser.asBooleanOrNull
 import com.spendlog.android.parser.asStringOrNull
+import androidx.room.withTransaction
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.*
 import kotlinx.serialization.decodeFromString
@@ -98,9 +99,8 @@ object SettingsApiHandler {
                             var restoreError: String? = null
                             
                             try {
-                                db.runInTransaction {
-                                    runBlocking {
-                                        try {
+                                db.withTransaction {
+                                    try {
                                             db.openHelper.writableDatabase.let { sqlDb ->
                                                 sqlDb.execSQL("DELETE FROM categories")
                                                 sqlDb.execSQL("DELETE FROM pay_methods")
@@ -280,7 +280,6 @@ object SettingsApiHandler {
                                             restoreError = "설정(settings) 데이터 복원 실패: ${e.message}"
                                             throw e
                                         }
-                                    }
                                 }
                             } catch (transactionEx: Exception) {
                                 // Transaction 롤백됨
@@ -326,17 +325,15 @@ object SettingsApiHandler {
                     if (path == "settings/reset-all") {
                         Log.i("SettingsApiHandler", "Reset all request received.")
                         try {
-                            db.runInTransaction {
-                                runBlocking {
-                                    db.openHelper.writableDatabase.let { sqlDb ->
-                                        sqlDb.execSQL("DELETE FROM categories")
-                                        sqlDb.execSQL("DELETE FROM pay_methods")
-                                        sqlDb.execSQL("DELETE FROM rules")
-                                        sqlDb.execSQL("DELETE FROM transactions")
-                                        sqlDb.execSQL("DELETE FROM merchant_categories")
-                                        sqlDb.execSQL("DELETE FROM package_pay_methods")
-                                        sqlDb.execSQL("DELETE FROM pass_rules")
-                                    }
+                            db.withTransaction {
+                                db.openHelper.writableDatabase.let { sqlDb ->
+                                    sqlDb.execSQL("DELETE FROM categories")
+                                    sqlDb.execSQL("DELETE FROM pay_methods")
+                                    sqlDb.execSQL("DELETE FROM rules")
+                                    sqlDb.execSQL("DELETE FROM transactions")
+                                    sqlDb.execSQL("DELETE FROM merchant_categories")
+                                    sqlDb.execSQL("DELETE FROM package_pay_methods")
+                                    sqlDb.execSQL("DELETE FROM pass_rules")
                                 }
                             }
                             MainActivity.refreshUI()
