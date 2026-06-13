@@ -25,7 +25,7 @@ function generatePatternFromText(text) {
           type: '카드명/은행명',
           start,
           end,
-          regex: isBracket ? `\\[${escapeRegexChars(cardMatch[1])}\\]` : escapeRegexChars(cardMatch[0]),
+          regex: isBracket ? `\\[(?<payMethod>${escapeRegexChars(cardMatch[1])})\\]` : `(?<payMethod>${escapeRegexChars(cardMatch[0])})`,
           value: value
         });
       }
@@ -211,7 +211,7 @@ function generatePatternFromText(text) {
         type: '결제방식',
         start: idx,
         end: idx + len,
-        regex: '(?<payMethod>[^\\s/]+)',
+        regex: '(?<payType>[^\\s/]+)',
         value: payMethodMatch[0]
       });
     }

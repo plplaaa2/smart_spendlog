@@ -91,11 +91,18 @@ function parseNotification(text, rules, fallbackDatetime = null) {
           }
         }
 
-        let payMethod = groups.pay_method || rule.pay_method || '카드';
+        let payMethod = groups.payMethod || groups.pay_method || rule.pay_method || '카드';
         payMethod = payMethod.trim();
 
-        // 결제 방식 결정 (규칙에 지정된 pay_type이 있다면 우선 적용, 없거나 UNKNOWN 이면 텍스트로부터 판별)
-        let paymentType = rule.pay_type;
+        // 결제 방식 결정 (정규식 그룹 매칭이 우선, 다음으로 규칙에 지정된 pay_type, 없거나 UNKNOWN 이면 텍스트로부터 판별)
+        let paymentType = groups.payType || groups.pay_type || rule.pay_type;
+        if (paymentType) {
+          const cleanPt = paymentType.trim();
+          if (/체크/.test(cleanPt)) paymentType = 'CHECK';
+          else if (/이체|송금/.test(cleanPt)) paymentType = 'TRANSFER';
+          else if (/현금/.test(cleanPt)) paymentType = 'CASH';
+          else if (/신용|일시불|할부/.test(cleanPt)) paymentType = 'CREDIT';
+        }
         if (!paymentType || paymentType === 'UNKNOWN') {
           paymentType = parsePaymentType(normalizedText, payMethod);
           if (paymentType === 'BANK_TRANSFER') {

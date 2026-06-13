@@ -198,7 +198,8 @@ The regex pattern MUST extract the following values using NAMED CAPTURE GROUPS:
 - "balance" (e.g. (?<balance>[\\d,]+)): Extracts the remaining balance (optional).
 - "cumulative" (e.g. (?<cumulative>[\\d,]+)): Extracts the cumulative monthly spending (optional).
 - "usedPoint" (e.g. (?<usedPoint>[\\d,]+)): Extracts points/credits used (optional).
-- "payMethod" (e.g. (?<payMethod>[^\\s/]+)): Extracts payment method details like credit/checking type (optional).
+- "payMethod" (e.g. (?<payMethod>[^\\s/]+)): Extracts payment method/source such as bank or card brand name (optional).
+- "payType" (e.g. (?<payType>[^\\s/]+)): Extracts payment type such as credit, checking, transfer, or cash (optional).
 
 CRITICAL RULE FOR NEWLINES/SPACES:
 DO NOT use raw newlines (\\n or \\r\\n) in the pattern. Instead, use \\\\s+ or \\\\s* to match line breaks and whitespaces to make the pattern platform-independent.

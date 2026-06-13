@@ -129,8 +129,22 @@ object NotificationParser {
                         payMethod = db.packagePayMethodDao().getPackagePayMethodByPackage(packageName)?.pay_method ?: "기타"
                     }
 
-                    // 결제 방식 결정 (규칙에 지정된 pay_type이 있다면 우선 적용, 없거나 UNKNOWN 이면 텍스트로부터 판별)
-                    var paymentType = rule.payType
+                    // 결제 방식 결정 (정규식 그룹 매칭이 우선, 다음으로 규칙에 지정된 payType, 없거나 UNKNOWN 이면 텍스트로부터 판별)
+                    var paymentType = try {
+                        matcher.group("payType") ?: matcher.group("pay_type") ?: rule.payType
+                    } catch (e: Exception) {
+                        try { matcher.group("pay_type") ?: rule.payType } catch (e2: Exception) { rule.payType }
+                    }
+                    if (paymentType.isNotEmpty()) {
+                        val cleanPt = paymentType.trim()
+                        paymentType = when {
+                            cleanPt.contains("체크") -> "CHECK"
+                            cleanPt.contains("이체") || cleanPt.contains("송금") -> "TRANSFER"
+                            cleanPt.contains("현금") -> "CASH"
+                            cleanPt.contains("신용") || cleanPt.contains("일시불") || cleanPt.contains("할부") -> "CREDIT"
+                            else -> cleanPt
+                        }
+                    }
                     if (paymentType.isEmpty() || paymentType == "UNKNOWN") {
                         val detectedType = PaymentResolver.parsePaymentType(normalizedText, payMethod)
                         paymentType = if (detectedType == "BANK_TRANSFER") "TRANSFER" else detectedType
@@ -286,7 +300,7 @@ object NotificationParser {
             val isDepositOrWithdraw = isBracket && ((cardVal.length <= 5 && (cardVal.contains("출금") || cardVal.contains("입금"))) || cardVal.any { it.isDigit() })
             if (!isDepositOrWithdraw) {
                 if (!isOverlapping(startCard, endCard)) {
-                    val escRegex = if (isBracket) "\\[${ParserUtils.escapeRegexChars(cardVal)}\\]" else ParserUtils.escapeRegexChars(cardVal)
+                    val escRegex = if (isBracket) "\\[(?<payMethod>${ParserUtils.escapeRegexChars(cardVal)})\\]" else "(?<payMethod>${ParserUtils.escapeRegexChars(cardVal)})"
                     blocks.add(ParserUtils.Block("카드명/은행명", startCard, endCard, escRegex, cardVal))
                 }
             }
@@ -458,7 +472,7 @@ object NotificationParser {
                 val start = pmm.start()
                 val end = pmm.end()
                 if (!isOverlapping(start, end)) {
-                    blocks.add(ParserUtils.Block("결제방식", start, end, "(?<pay_method>[^\\s/]+)", pmm.group()))
+                    blocks.add(ParserUtils.Block("결제방식", start, end, "(?<payType>[^\\s/]+)", pmm.group()))
                     payMethodFound = true
                 }
                 break
