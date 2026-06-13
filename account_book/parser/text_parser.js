@@ -96,6 +96,15 @@ function parseNotification(text, rules, fallbackDatetime = null) {
 
         // 결제 방식 결정 (정규식 그룹 매칭이 우선, 다음으로 규칙에 지정된 pay_type, 없거나 UNKNOWN 이면 텍스트로부터 판별)
         let paymentType = groups.payType || groups.pay_type || rule.pay_type;
+
+        // 하위 호환성 보정: 만약 payMethod에 결제방식 관련 단어가 잘못 캡처된 경우 보정
+        if (/^(신용|체크|이체|송금|현금)$/.test(payMethod)) {
+          if (!paymentType || paymentType === 'UNKNOWN') {
+            paymentType = payMethod;
+          }
+          payMethod = rule.pay_method || '카드';
+        }
+
         if (paymentType) {
           const cleanPt = paymentType.trim();
           if (/체크/.test(cleanPt)) paymentType = 'CHECK';

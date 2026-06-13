@@ -135,6 +135,18 @@ object NotificationParser {
                     } catch (e: Exception) {
                         try { matcher.group("pay_type") ?: rule.payType } catch (e2: Exception) { rule.payType }
                     }
+
+                    // 하위 호환성 보정: 만약 payMethod에 결제방식 관련 단어가 잘못 캡처된 경우 보정
+                    if (payMethod == "신용" || payMethod == "체크" || payMethod == "이체" || payMethod == "송금" || payMethod == "현금") {
+                        if (paymentType.isEmpty() || paymentType == "UNKNOWN") {
+                            paymentType = payMethod
+                        }
+                        payMethod = rule.payMethod
+                    }
+                    if (payMethod.isEmpty()) {
+                        payMethod = "카드"
+                    }
+
                     if (paymentType.isNotEmpty()) {
                         val cleanPt = paymentType.trim()
                         paymentType = when {
