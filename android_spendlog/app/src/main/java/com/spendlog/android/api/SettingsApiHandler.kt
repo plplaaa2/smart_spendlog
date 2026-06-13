@@ -156,6 +156,7 @@ object SettingsApiHandler {
                                                         pattern = obj["pattern"]?.jsonPrimitive?.contentOrNull ?: "",
                                                         category = obj["category"]?.jsonPrimitive?.contentOrNull ?: "",
                                                         payMethod = obj["pay_method"]?.jsonPrimitive?.contentOrNull ?: "",
+                                                        payType = obj["pay_type"]?.jsonPrimitive?.contentOrNull ?: "CREDIT",
                                                         merchantTemplate = obj["merchant_template"]?.jsonPrimitive?.contentOrNull ?: "\${merchant}",
                                                         type = obj["type"]?.jsonPrimitive?.contentOrNull ?: "EXPENSE"
                                                     )
@@ -178,6 +179,7 @@ object SettingsApiHandler {
                                                         merchant = obj["merchant"]?.jsonPrimitive?.contentOrNull ?: "",
                                                         category = obj["category"]?.jsonPrimitive?.contentOrNull ?: "",
                                                         payMethod = obj["pay_method"]?.jsonPrimitive?.contentOrNull ?: "",
+                                                        payType = obj["pay_type"]?.jsonPrimitive?.contentOrNull ?: "CREDIT",
                                                         datetime = obj["datetime"]?.jsonPrimitive?.contentOrNull ?: "",
                                                         memo = obj["memo"]?.takeIf { it !is JsonNull }?.jsonPrimitive?.contentOrNull ?: "",
                                                         rawText = obj["raw_text"]?.takeIf { it !is JsonNull }?.jsonPrimitive?.contentOrNull ?: "",
@@ -283,6 +285,9 @@ object SettingsApiHandler {
                                 }
                             } catch (transactionEx: Exception) {
                                 // Transaction 롤백됨
+                                if (restoreError == null) {
+                                    restoreError = "데이터베이스 트랜잭션 오류: ${transactionEx.message}"
+                                }
                             }
 
                             if (restoreError != null) {

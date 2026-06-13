@@ -81,7 +81,7 @@ router.get('/transactions', async (req, res) => {
 router.post('/transactions', async (req, res) => {
   try {
     const db = await getDB(req.username);
-    const { id, type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point, package: packageVal } = req.body;
+    const { id, type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point, package: packageVal } = req.body;
 
     if (!amount || !merchant || !datetime) {
       return res.status(400).json({ error: '금액, 사용처, 일시는 필수 값입니다.' });
@@ -103,11 +103,13 @@ router.post('/transactions', async (req, res) => {
       finalPayMethod = '카드';
     }
 
+    const txPayType = pay_type || 'CREDIT';
+
     if (id) {
       // 수정
       await db.run(
-        'UPDATE transactions SET type = ?, amount = ?, merchant = ?, category = ?, pay_method = ?, datetime = ?, memo = ?, raw_text = ?, used_point = ? WHERE id = ?',
-        [txType, amount, merchant, category, finalPayMethod, datetime, memo, raw_text, txUsedPoint, id]
+        'UPDATE transactions SET type = ?, amount = ?, merchant = ?, category = ?, pay_method = ?, pay_type = ?, datetime = ?, memo = ?, raw_text = ?, used_point = ? WHERE id = ?',
+        [txType, amount, merchant, category, finalPayMethod, txPayType, datetime, memo, raw_text, txUsedPoint, id]
       );
 
       // 사용처별 카테고리 자동 학습/매핑 업데이트 (지출건만)
@@ -120,8 +122,8 @@ router.post('/transactions', async (req, res) => {
     } else {
       // 신규 등록
       const result = await db.run(
-        'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [txType, amount, merchant, category, finalPayMethod, datetime, memo, raw_text || '수동 입력', txUsedPoint]
+        'INSERT INTO transactions (type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [txType, amount, merchant, category, finalPayMethod, txPayType, datetime, memo, raw_text || '수동 입력', txUsedPoint]
       );
 
       // 사용처별 카테고리 자동 학습/매핑 업데이트 (지출건만)

@@ -90,6 +90,7 @@ Fallback Date: "$resolvedFallback"
             merchant = merchant,
             datetime = datetime,
             payMethod = payMethod,
+            payType = "CREDIT",
             category = "_AUTO_MAPPING_",
             type = type,
             ruleId = null,

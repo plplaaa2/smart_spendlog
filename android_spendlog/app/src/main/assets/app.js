@@ -2,39 +2,6 @@
 // HA Account Book - Frontend Application Core
 // ==========================================
 
-// 로그인 세션 상태 관리
-let currentUser = 'admin';
-let currentSession = null;
-
-// 전역 Fetch 인터셉터 (Android Bridge 연동)
-const originalFetch = window.fetch;
-window.fetch = async function (resource, options = {}) {
-  const urlStr = typeof resource === 'string' ? resource : resource.url;
-
-  // API 요청인 경우 Android Bridge로 전달
-  if (urlStr.includes('api/') && window.AndroidBridge) {
-    console.log(`[Bridge] API 호출: ${urlStr}`);
-    try {
-      const responseStr = await window.AndroidBridge.callApi(urlStr, JSON.stringify(options));
-      const res = JSON.parse(responseStr);
-      
-      return new Response(JSON.stringify(res.body), {
-        status: res.status || 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (e) {
-      console.error('[Bridge] API 호출 실패:', e);
-      return new Response(JSON.stringify({ success: false, error: e.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-
-  // 일반 요청은 기존 방식대로 처리
-  return originalFetch(resource, options);
-};
-
 // 글로벌 상태 관리
 let state = {
   currentTab: 'dashboard',
@@ -48,6 +15,7 @@ let state = {
   rules: [],
   settings: {},
   categoryMap: {}, // name -> {color, icon}
+  franchisePresets: [], // 가맹점 프리셋 가중치 계산용
 };
 
 // Chart.js 객체 참조용
@@ -65,25 +33,15 @@ let incomeCategoryChartInstance = null;
 
 // 초기화
 document.addEventListener('DOMContentLoaded', async () => {
-  // 로컬 앱에서는 항상 로그인된 것으로 간주
-  currentUser = 'admin';
-  if (window.AndroidBridge) {
-    await initApp();
-  } else {
-    console.log('[Init] AndroidBridge not ready at DOMContentLoaded, waiting for onPageFinished...');
-  }
-});
-
-// 초기화
-let isAppInitialized = false;
-async function initApp() {
-  if (!window.AndroidBridge) {
-    console.log('[Init] AndroidBridge is missing. Aborting initApp.');
+  if (!checkLogin()) {
+    // Lucide 아이콘 로드 (로그인 화면용)
+    lucide.createIcons();
     return;
   }
-  if (isAppInitialized) return;
-  isAppInitialized = true;
+  await initApp();
+});
 
+async function initApp() {
   initMonth();
   await loadMetadata();
   initEventListeners();
@@ -93,9 +51,6 @@ async function initApp() {
   lucide.createIcons();
 }
 
-function checkLogin() {
-  return true; // Always true for local app
-}
 
 // ==========================================
 // 공통 데이터 로드 & 포맷
@@ -129,17 +84,17 @@ function changeMonth(offset) {
 // 메타데이터 로드 (카테고리, 결제수단, 규칙, 설정)
 async function loadMetadata() {
   try {
-    const [categories, payMethods, settings, franchisePresets] = await Promise.all([
+    const [categories, payMethods, settings, presets] = await Promise.all([
       fetch('api/categories').then(r => r.json()),
       fetch('api/pay_methods').then(r => r.json()),
       fetch('api/settings').then(r => r.json()),
-      fetch('franchise_presets.json').then(r => r.json()).catch(() => [])
+      fetch('api/rules/presets').then(r => r.json()).catch(() => [])
     ]);
 
     state.categories = categories;
     state.payMethods = payMethods;
     state.settings = settings;
-    state.franchisePresets = franchisePresets;
+    state.franchisePresets = presets;
 
     // 카테고리 맵 생성
     state.categoryMap = {};
@@ -169,52 +124,7 @@ function populateSelects() {
     if (firstOption) el.add(firstOption);
 
     // 필터링 카테고리는 수입/지출 전체 표시
-    let categoriesToUse = [];
-    if (state && Array.isArray(state.categories) && state.categories.length > 0) {
-      categoriesToUse = state.categories;
-    } else {
-      categoriesToUse = [
-        { name: '외식비', type: 'EXPENSE' },
-        { name: '음료/카페', type: 'EXPENSE' },
-        { name: '배달음식', type: 'EXPENSE' },
-        { name: '마트/편의점', type: 'EXPENSE' },
-        { name: '디저트', type: 'EXPENSE' },
-        { name: '패션/의류', type: 'EXPENSE' },
-        { name: '온라인쇼핑', type: 'EXPENSE' },
-        { name: '해외직구', type: 'EXPENSE' },
-        { name: '교통/주유', type: 'EXPENSE' },
-        { name: '주거', type: 'EXPENSE' },
-        { name: '통신비', type: 'EXPENSE' },
-        { name: '수도광열비', type: 'EXPENSE' },
-        { name: '세금', type: 'EXPENSE' },
-        { name: '구독', type: 'EXPENSE' },
-        { name: '렌탈', type: 'EXPENSE' },
-        { name: '생활/잡화', type: 'EXPENSE' },
-        { name: '병원/약국', type: 'EXPENSE' },
-        { name: '문화/여가', type: 'EXPENSE' },
-        { name: '교육/학습', type: 'EXPENSE' },
-        { name: '경조사/용돈', type: 'EXPENSE' },
-        { name: '페이류', type: 'EXPENSE' },
-        { name: '이체/송금', type: 'EXPENSE' },
-        { name: '저축/투자', type: 'EXPENSE' },
-        { name: '투자', type: 'EXPENSE' },
-        { name: '보험', type: 'EXPENSE' },
-        { name: '대출상환', type: 'EXPENSE' },
-        { name: 'ATM/출금', type: 'EXPENSE' },
-        { name: '기부금', type: 'EXPENSE' },
-        { name: '기타', type: 'EXPENSE' },
-        { name: '월급', type: 'INCOME' },
-        { name: '부수입', type: 'INCOME' },
-        { name: '용돈(수입)', type: 'INCOME' },
-        { name: '이체/입금', type: 'INCOME' },
-        { name: 'ATM/입금', type: 'INCOME' },
-        { name: '기타수입', type: 'INCOME' },
-        { name: '연금', type: 'INCOME' },
-        { name: '지원금/환급금', type: 'INCOME' }
-      ];
-    }
-
-    categoriesToUse.forEach(c => {
+    state.categories.forEach(c => {
       if (sel === '#filter-category') {
         const opt = document.createElement('option');
         opt.value = c.name;
@@ -268,55 +178,7 @@ function updateCategorySelect(selector, type, selectedValue) {
     el.appendChild(opt);
   }
 
-  // 방어 코드: state.categories가 없거나 비어있는 경우 기본 카테고리 프리셋 적용
-  let categoriesToUse = [];
-  if (state && Array.isArray(state.categories) && state.categories.length > 0) {
-    categoriesToUse = state.categories;
-  } else {
-    categoriesToUse = [
-      { name: '외식비', type: 'EXPENSE' },
-      { name: '음료/카페', type: 'EXPENSE' },
-      { name: '배달음식', type: 'EXPENSE' },
-      { name: '마트/편의점', type: 'EXPENSE' },
-      { name: '디저트', type: 'EXPENSE' },
-      { name: '패션/의류', type: 'EXPENSE' },
-      { name: '온라인쇼핑', type: 'EXPENSE' },
-      { name: '해외직구', type: 'EXPENSE' },
-      { name: '교통/주유', type: 'EXPENSE' },
-      { name: '주거', type: 'EXPENSE' },
-      { name: '통신비', type: 'EXPENSE' },
-      { name: '수도광열비', type: 'EXPENSE' },
-      { name: '세금', type: 'EXPENSE' },
-      { name: '구독', type: 'EXPENSE' },
-      { name: '렌탈', type: 'EXPENSE' },
-      { name: '생활/잡화', type: 'EXPENSE' },
-      { name: '병원/약국', type: 'EXPENSE' },
-      { name: '문화/여가', type: 'EXPENSE' },
-      { name: '교육/학습', type: 'EXPENSE' },
-      { name: '경조사/용돈', type: 'EXPENSE' },
-      { name: '페이류', type: 'EXPENSE' },
-      { name: '이체/송금', type: 'EXPENSE' },
-      { name: '저축/투자', type: 'EXPENSE' },
-      { name: '투자', type: 'EXPENSE' },
-      { name: '보험', type: 'EXPENSE' },
-      { name: '대출상환', type: 'EXPENSE' },
-      { name: 'ATM/출금', type: 'EXPENSE' },
-      { name: '기부금', type: 'EXPENSE' },
-      { name: '기타', type: 'EXPENSE' },
-      { name: '월급', type: 'INCOME' },
-      { name: '부수입', type: 'INCOME' },
-      { name: '용돈(수입)', type: 'INCOME' },
-      { name: '이체/입금', type: 'INCOME' },
-      { name: 'ATM/입금', type: 'INCOME' },
-      { name: '기타수입', type: 'INCOME' },
-      { name: '연금', type: 'INCOME' },
-      { name: '지원금/환급금', type: 'INCOME' }
-    ];
-  }
-
-  // 방어 코드: type 필드가 누락된 경우 기본값 'EXPENSE'로 간주하여 필터링
-  // 의존성: com.spendlog.android.MainActivity 내 Kotlin Serialization encodeDefaults와 연동
-  const filtered = categoriesToUse.filter(c => (c.type || 'EXPENSE') === type);
+  const filtered = state.categories.filter(c => c.type === type);
   filtered.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.name;
@@ -335,7 +197,6 @@ function updateCategorySelect(selector, type, selectedValue) {
 
 // 화폐 포맷 (예: 12,500원)
 function formatCurrency(value) {
-  if (value === null || value === undefined || isNaN(value)) return '0원';
   return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' })
     .format(value)
     .replace('₩', '') + '원';
@@ -388,7 +249,7 @@ const subTabTitles = {
     fixed: ['소비 분석 - 고정지출 분석', '공과금/구독/보험/통신 등 매달 나가는 고정 비용 분석']
   },
   logs: {
-    'logs-list': ['알림 로그 - 수신 로그', '시스템에서 수신된 스마트폰 알림 원본 이력'],
+    'logs-list': ['알림 로그 - 수신 로그', '안드로이드 기기에서 수집된 스마트폰 알림 원본 이력'],
     rules: ['알림 로그 - 자동 분류규칙', '알림에서 금액/사용처를 추출하기 위한 정규식 설정'],
     'pass-rules': ['알림 로그 - 자동 패스규칙', '가계부 등록을 생략하고 패스할 알림 패턴 설정'],
     merchant: ['알림 로그 - 사용처 설정', '사용처(가맹점)별 자동 분류 카테고리 매핑 설정']
@@ -415,7 +276,7 @@ function updateHeaderTitle(mainTabId, subTabId) {
     analytics: ['소비 분석', '월별/연도별 자산 흐름 및 전년 대비 소비 비교'],
     income: ['소득 분석', '월별/연도별 수입 추이 및 카테고리별 비중 분석'],
     'ai-report': ['AI 소비 리포트', 'AI 모델 분석에 의한 월간 및 연간 종합 가계 피드백'],
-    logs: ['알림 로그', '시스템에서 수신된 스마트폰 알림 원본 이력'],
+    logs: ['알림 로그', '안드로이드 기기에서 수집된 스마트폰 알림 원본 이력'],
     settings: ['설정', '시스템 연동 정보 및 마스터 데이터 관리']
   };
 
@@ -549,7 +410,7 @@ function refreshCurrentTabData() {
       break;
     case 'logs':
       // 요약: 서브 탭 유지 상태에서 데이터 새로고침 및 설정/로그 서브탭 데이터 갱신 분기 처리.
-      // 의존성: android_spendlog/app/src/main/assets/settings.js, android_spendlog/app/src/main/assets/rules.js
+      // 의존성: account_book/public/settings.js, account_book/public/rules.js
       initLogsSubTabs();
       if (state.currentLogsSubTab === 'logs-list') {
         if (typeof loadLogs === 'function') loadLogs();
@@ -701,9 +562,14 @@ function initEventListeners() {
   document.getElementById('transaction-modal-close').addEventListener('click', closeModal);
   document.getElementById('tx-modal-cancel').addEventListener('click', closeModal);
 
-  // 수동 거래 구분(타입) 변경에 따른 카테고리 업데이트
+  // 수동 거래 구분(타입) 변경에 따른 카테고리 업데이트 및 모달 타이틀 변경
   document.getElementById('tx-type').addEventListener('change', (e) => {
-    updateCategorySelect('#tx-category', e.target.value);
+    const type = e.target.value;
+    updateCategorySelect('#tx-category', type);
+    const titleEl = document.getElementById('transaction-modal-title');
+    if (titleEl) {
+      titleEl.textContent = type === 'INCOME' ? '수동 수입 추가' : '수동 지출 추가';
+    }
   });
 
   // 규칙 거래 구분(타입) 변경에 따른 카테고리 업데이트
@@ -721,6 +587,7 @@ function initEventListeners() {
     const merchant = document.getElementById('tx-merchant').value;
     const category = document.getElementById('tx-category').value;
     const pay_method = document.getElementById('tx-pay-method').value;
+    const pay_type = document.getElementById('tx-pay-type').value;
     
     // YYYY-MM-DDTHH:mm -> YYYY-MM-DD HH:mm:00
     const rawDt = document.getElementById('tx-datetime').value;
@@ -737,7 +604,7 @@ function initEventListeners() {
       const res = await fetch('api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point, package: pkgName })
+        body: JSON.stringify({ id, type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point, package: pkgName })
       }).then(r => r.json());
 
       if (res.success) {
@@ -829,15 +696,35 @@ function initEventListeners() {
   if (ruleActionSelect) {
     ruleActionSelect.addEventListener('change', () => {
       const payMethodSelect = document.getElementById('rule-pay-method');
-      if (payMethodSelect) {
-        if (ruleActionSelect.value === 'PASS') {
+      const payTypeSelect = document.getElementById('rule-pay-type');
+      const categoryGroup = document.getElementById('rule-category-group');
+      if (ruleActionSelect.value === 'PASS') {
+        if (payMethodSelect) {
           payMethodSelect.disabled = true;
           payMethodSelect.style.opacity = '0.5';
           payMethodSelect.style.cursor = 'not-allowed';
-        } else {
+        }
+        if (payTypeSelect) {
+          payTypeSelect.disabled = true;
+          payTypeSelect.style.opacity = '0.5';
+          payTypeSelect.style.cursor = 'not-allowed';
+        }
+        if (categoryGroup) {
+          categoryGroup.style.display = 'none';
+        }
+      } else {
+        if (payMethodSelect) {
           payMethodSelect.disabled = false;
           payMethodSelect.style.opacity = '1';
           payMethodSelect.style.cursor = 'default';
+        }
+        if (payTypeSelect) {
+          payTypeSelect.disabled = false;
+          payTypeSelect.style.opacity = '1';
+          payTypeSelect.style.cursor = 'default';
+        }
+        if (categoryGroup) {
+          categoryGroup.style.display = 'block';
         }
       }
     });
@@ -852,6 +739,7 @@ function initEventListeners() {
     const pattern = document.getElementById('rule-pattern').value;
     const category = document.getElementById('rule-category').value;
     const pay_method = document.getElementById('rule-pay-method').value;
+    const pay_type = document.getElementById('rule-pay-type').value;
     const action = document.getElementById('rule-action') ? document.getElementById('rule-action').value : 'REGISTER';
 
     try {
@@ -859,7 +747,7 @@ function initEventListeners() {
       const url = isPass ? 'api/pass_rules' : 'api/rules';
       const bodyData = isPass 
         ? { id, name, pattern }
-        : { id, name, pattern, category, pay_method, merchant_template: '${merchant}', type };
+        : { id, name, pattern, category, pay_method, pay_type, merchant_template: '${merchant}', type };
 
       const res = await fetch(url, {
         method: 'POST',
@@ -970,27 +858,21 @@ function initEventListeners() {
         const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || '';
         const encryptEl = document.getElementById('settings-manual-encrypt');
         const isEncrypt = encryptEl ? encryptEl.checked : false;
-        
-        // 안드로이드 하이브리드 앱 대응: window.location.href 이동 시 다운로드 제한이 걸리므로 fetch 호출 후 공유 브릿지 타도록 수정
-        const res = await fetch(`api/settings/backup?token=${encodeURIComponent(token)}&encrypt=${isEncrypt}`).then(r => r.json());
-        
-        if (res && res.backupData) {
-          const backupStr = JSON.stringify(res.backupData, null, 2);
-          if (window.AndroidBridge && typeof window.AndroidBridge.shareText === 'function') {
-            window.AndroidBridge.shareText(backupStr, 'SpendLog 가계부 백업 데이터');
+
+        if (window.AndroidBridge && typeof window.AndroidBridge.callApi === 'function') {
+          const resStr = await window.AndroidBridge.callApi(`api/settings/backup?encrypt=${isEncrypt}`, JSON.stringify({ method: 'GET' }));
+          const res = JSON.parse(resStr);
+          if (res.body && res.body.success) {
+            const backupStr = JSON.stringify(res.body.backupData, null, 2);
+            window.AndroidBridge.shareText(backupStr, `account_book_backup_${new Date().toISOString().slice(0, 10)}.json`);
           } else {
-            // 브라우저 환경 다운로드 폴백
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(backupStr);
-            const dlAnchorElem = document.createElement('a');
-            dlAnchorElem.setAttribute("href",     dataStr     );
-            dlAnchorElem.setAttribute("download", `spendlog_backup_${new Date().toISOString().slice(0,10)}.json`);
-            dlAnchorElem.click();
+            alert('백업 생성 실패: ' + (res.body?.error || '알 수 없는 오류'));
           }
         } else {
-          alert('백업 데이터를 불러오지 못했습니다.');
+          window.location.href = `api/settings/backup?token=${encodeURIComponent(token)}&encrypt=${isEncrypt}`;
         }
       } catch (err) {
-        alert('백업 실패: ' + err.message);
+        alert('백업 다운로드 실패: ' + err.message);
       }
     });
   }
@@ -1029,11 +911,21 @@ function initEventListeners() {
             backupObj = { isEncrypted: true, rawBody: fileContent };
           }
           
-          const res = await fetch('api/settings/restore', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(backupObj)
-          }).then(r => r.json());
+          let res;
+          if (window.AndroidBridge && typeof window.AndroidBridge.callApi === 'function') {
+            const resStr = await window.AndroidBridge.callApi('api/settings/restore', JSON.stringify({
+              method: 'POST',
+              body: JSON.stringify(backupObj)
+            }));
+            const apiRes = JSON.parse(resStr);
+            res = apiRes.body;
+          } else {
+            res = await fetch('api/settings/restore', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(backupObj)
+            }).then(r => r.json());
+          }
 
           if (res.success) {
             alert('데이터가 성공적으로 복원되었습니다. 페이지를 새로고침합니다.');
@@ -1300,15 +1192,6 @@ function initEventListeners() {
   if (pkmClose) pkmClose.addEventListener('click', closePackageMappingModal);
   const pkmCancel = document.getElementById('pkm-modal-cancel');
   if (pkmCancel) pkmCancel.addEventListener('click', closePackageMappingModal);
-
-  // 구글 드라이브 백업 복원 모달 닫기
-  const googleRestoreClose = document.getElementById('google-restore-modal-close');
-  if (googleRestoreClose) {
-    googleRestoreClose.addEventListener('click', () => {
-      const modal = document.getElementById('google-restore-modal');
-      if (modal) modal.classList.remove('active');
-    });
-  }
 
   // 앱 패키지 매핑 모달 저장
   const pkmModalForm = document.getElementById('pkm-modal-form');

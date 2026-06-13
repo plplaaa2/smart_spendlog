@@ -587,6 +587,7 @@ function initEventListeners() {
     const merchant = document.getElementById('tx-merchant').value;
     const category = document.getElementById('tx-category').value;
     const pay_method = document.getElementById('tx-pay-method').value;
+    const pay_type = document.getElementById('tx-pay-type').value;
     
     // YYYY-MM-DDTHH:mm -> YYYY-MM-DD HH:mm:00
     const rawDt = document.getElementById('tx-datetime').value;
@@ -603,7 +604,7 @@ function initEventListeners() {
       const res = await fetch('api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point, package: pkgName })
+        body: JSON.stringify({ id, type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point, package: pkgName })
       }).then(r => r.json());
 
       if (res.success) {
@@ -695,12 +696,18 @@ function initEventListeners() {
   if (ruleActionSelect) {
     ruleActionSelect.addEventListener('change', () => {
       const payMethodSelect = document.getElementById('rule-pay-method');
+      const payTypeSelect = document.getElementById('rule-pay-type');
       const categoryGroup = document.getElementById('rule-category-group');
       if (ruleActionSelect.value === 'PASS') {
         if (payMethodSelect) {
           payMethodSelect.disabled = true;
           payMethodSelect.style.opacity = '0.5';
           payMethodSelect.style.cursor = 'not-allowed';
+        }
+        if (payTypeSelect) {
+          payTypeSelect.disabled = true;
+          payTypeSelect.style.opacity = '0.5';
+          payTypeSelect.style.cursor = 'not-allowed';
         }
         if (categoryGroup) {
           categoryGroup.style.display = 'none';
@@ -710,6 +717,11 @@ function initEventListeners() {
           payMethodSelect.disabled = false;
           payMethodSelect.style.opacity = '1';
           payMethodSelect.style.cursor = 'default';
+        }
+        if (payTypeSelect) {
+          payTypeSelect.disabled = false;
+          payTypeSelect.style.opacity = '1';
+          payTypeSelect.style.cursor = 'default';
         }
         if (categoryGroup) {
           categoryGroup.style.display = 'block';
@@ -727,6 +739,7 @@ function initEventListeners() {
     const pattern = document.getElementById('rule-pattern').value;
     const category = document.getElementById('rule-category').value;
     const pay_method = document.getElementById('rule-pay-method').value;
+    const pay_type = document.getElementById('rule-pay-type').value;
     const action = document.getElementById('rule-action') ? document.getElementById('rule-action').value : 'REGISTER';
 
     try {
@@ -734,7 +747,7 @@ function initEventListeners() {
       const url = isPass ? 'api/pass_rules' : 'api/rules';
       const bodyData = isPass 
         ? { id, name, pattern }
-        : { id, name, pattern, category, pay_method, merchant_template: '${merchant}', type };
+        : { id, name, pattern, category, pay_method, pay_type, merchant_template: '${merchant}', type };
 
       const res = await fetch(url, {
         method: 'POST',
@@ -851,7 +864,19 @@ function initEventListeners() {
         const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token') || '';
         const encryptEl = document.getElementById('settings-manual-encrypt');
         const isEncrypt = encryptEl ? encryptEl.checked : false;
-        window.location.href = `api/settings/backup?token=${encodeURIComponent(token)}&encrypt=${isEncrypt}`;
+
+        if (window.AndroidBridge && typeof window.AndroidBridge.callApi === 'function') {
+          const resStr = await window.AndroidBridge.callApi(`api/settings/backup?encrypt=${isEncrypt}`, JSON.stringify({ method: 'GET' }));
+          const res = JSON.parse(resStr);
+          if (res.body && res.body.success) {
+            const backupStr = JSON.stringify(res.body.backupData, null, 2);
+            window.AndroidBridge.shareText(backupStr, `account_book_backup_${new Date().toISOString().slice(0, 10)}.json`);
+          } else {
+            alert('백업 생성 실패: ' + (res.body?.error || '알 수 없는 오류'));
+          }
+        } else {
+          window.location.href = `api/settings/backup?token=${encodeURIComponent(token)}&encrypt=${isEncrypt}`;
+        }
       } catch (err) {
         alert('백업 다운로드 실패: ' + err.message);
       }
@@ -892,11 +917,21 @@ function initEventListeners() {
             backupObj = { isEncrypted: true, rawBody: fileContent };
           }
           
-          const res = await fetch('api/settings/restore', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(backupObj)
-          }).then(r => r.json());
+          let res;
+          if (window.AndroidBridge && typeof window.AndroidBridge.callApi === 'function') {
+            const resStr = await window.AndroidBridge.callApi('api/settings/restore', JSON.stringify({
+              method: 'POST',
+              body: JSON.stringify(backupObj)
+            }));
+            const apiRes = JSON.parse(resStr);
+            res = apiRes.body;
+          } else {
+            res = await fetch('api/settings/restore', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(backupObj)
+            }).then(r => r.json());
+          }
 
           if (res.success) {
             alert('데이터가 성공적으로 복원되었습니다. 페이지를 새로고침합니다.');

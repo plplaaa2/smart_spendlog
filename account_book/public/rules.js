@@ -136,6 +136,7 @@ function loadRuleToEditor(rule) {
   updateCategorySelect('#rule-category', type, rule ? rule.category : '');
   
   document.getElementById('rule-pay-method').value = rule ? rule.pay_method : '_AUTO_MAPPING_';
+  document.getElementById('rule-pay-type').value = rule ? (rule.pay_type || 'CREDIT') : 'CREDIT';
   
   const actionSelect = document.getElementById('rule-action');
   if (actionSelect) {
@@ -203,10 +204,12 @@ async function runRegexTest() {
   try {
     const type = document.getElementById('rule-type').value;
 
+    const payType = document.getElementById('rule-pay-type').value;
+
     const res = await fetch('api/parse-test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, pattern, category, pay_method: payMethod, type })
+      body: JSON.stringify({ text, pattern, category, pay_method: payMethod, pay_type: payType, type })
     }).then(r => r.json());
 
     if (res.success) {
@@ -223,6 +226,15 @@ async function runRegexTest() {
       document.getElementById('result-val-merchant').textContent = r.merchant;
       document.getElementById('result-val-datetime').textContent = r.datetime;
       document.getElementById('result-val-paymethod').textContent = r.pay_method === '_AUTO_MAPPING_' ? '🔄 자동 매핑' : r.pay_method;
+      
+      const payTypeMap = {
+        'CREDIT': '💳 신용',
+        'CHECK': '🏦 체크',
+        'TRANSFER': '💸 이체',
+        'CASH': '💵 현금'
+      };
+      document.getElementById('result-val-paytype').textContent = payTypeMap[r.payment_type] || r.payment_type || '--';
+      
       document.getElementById('result-val-category').textContent = r.category;
     } else {
       failBox.style.display = 'block';

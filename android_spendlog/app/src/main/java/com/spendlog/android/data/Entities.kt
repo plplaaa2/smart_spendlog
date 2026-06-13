@@ -15,6 +15,7 @@ data class Transaction(
     val merchant: String,
     val category: String,
     @SerialName("pay_method") @ColumnInfo(name = "pay_method") val payMethod: String,
+    @SerialName("pay_type") @ColumnInfo(name = "pay_type") val payType: String = "CREDIT",
     val datetime: String, // YYYY-MM-DD HH:mm:ss
     val memo: String = "",
     @SerialName("raw_text") @ColumnInfo(name = "raw_text") val rawText: String = "",
@@ -29,6 +30,7 @@ data class Rule(
     val pattern: String,
     val category: String,
     @SerialName("pay_method") @ColumnInfo(name = "pay_method") val payMethod: String,
+    @SerialName("pay_type") @ColumnInfo(name = "pay_type") val payType: String = "CREDIT",
     @SerialName("merchant_template") @ColumnInfo(name = "merchant_template") val merchantTemplate: String = "${"$"}{merchant}",
     val type: String = "EXPENSE"
 )

@@ -40,7 +40,10 @@ async function loadTransactions() {
             ${tx.category}
           </span>
         </td>
-        <td data-label="결제수단"><span class="tx-pay-method">${tx.pay_method}</span></td>
+        <td data-label="결제수단">
+          <span class="tx-pay-method">${tx.pay_method}</span>
+          <span style="font-size: 0.75rem; color: #888; margin-left: 4px;">(${tx.pay_type === 'CHECK' ? '체크' : tx.pay_type === 'TRANSFER' ? '이체' : tx.pay_type === 'CASH' ? '현금' : '신용'})</span>
+        </td>
         <td data-label="금액" class="text-bold text-right ${amtClass}">${amtPrefix}${formatCurrency(tx.amount)}</td>
         <td data-label="메모" class="text-secondary text-sm">${tx.memo || '-'}</td>
         <td data-label="관리">
@@ -100,6 +103,7 @@ function openAddTransactionModal() {
   document.getElementById('tx-type').value = 'EXPENSE';
   updateCategorySelect('#tx-category', 'EXPENSE');
   document.getElementById('tx-pay-method').value = '_AUTO_MAPPING_';
+  document.getElementById('tx-pay-type').value = 'CREDIT';
 
   modal.classList.add('active');
 }
@@ -124,6 +128,7 @@ function openEditTransactionModal(tx) {
   updateCategorySelect('#tx-category', tx.type || 'EXPENSE', tx.category);
 
   document.getElementById('tx-pay-method').value = tx.pay_method;
+  document.getElementById('tx-pay-type').value = tx.pay_type || 'CREDIT';
   document.getElementById('tx-memo').value = tx.memo || '';
   document.getElementById('tx-raw-text').value = tx.raw_text || '';
 

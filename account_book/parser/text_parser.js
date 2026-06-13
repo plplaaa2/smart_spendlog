@@ -94,9 +94,16 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         let payMethod = groups.pay_method || rule.pay_method || '카드';
         payMethod = payMethod.trim();
 
-        const paymentType = parsePaymentType(normalizedText, payMethod);
-        if (paymentType === 'CHECK') {
-          payMethod = resolveCheckCardToBank(normalizedText, payMethod);
+        // 결제 방식 결정 (규칙에 지정된 pay_type이 있다면 우선 적용, 없거나 UNKNOWN 이면 텍스트로부터 판별)
+        let paymentType = rule.pay_type;
+        if (!paymentType || paymentType === 'UNKNOWN') {
+          paymentType = parsePaymentType(normalizedText, payMethod);
+          if (paymentType === 'BANK_TRANSFER') {
+            paymentType = 'TRANSFER';
+          }
+        }
+        if (!paymentType || paymentType === 'UNKNOWN') {
+          paymentType = 'CREDIT'; // 기본값
         }
 
         let category = rule.category || '기타';

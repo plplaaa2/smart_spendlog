@@ -11,6 +11,7 @@ data class ParsedResult(
     val merchant: String,
     val datetime: String,
     val payMethod: String,
+    val payType: String,
     val category: String,
     val type: String,
     val ruleId: Int?,
@@ -128,10 +129,14 @@ object NotificationParser {
                         payMethod = db.packagePayMethodDao().getPackagePayMethodByPackage(packageName)?.pay_method ?: "기타"
                     }
 
-                    // 체크카드 변환 로직
-                    val paymentType = PaymentResolver.parsePaymentType(normalizedText, payMethod)
-                    if (paymentType == "CHECK") {
-                        payMethod = PaymentResolver.convertCardToBank(payMethod, normalizedText)
+                    // 결제 방식 결정 (규칙에 지정된 pay_type이 있다면 우선 적용, 없거나 UNKNOWN 이면 텍스트로부터 판별)
+                    var paymentType = rule.payType
+                    if (paymentType.isEmpty() || paymentType == "UNKNOWN") {
+                        val detectedType = PaymentResolver.parsePaymentType(normalizedText, payMethod)
+                        paymentType = if (detectedType == "BANK_TRANSFER") "TRANSFER" else detectedType
+                    }
+                    if (paymentType.isEmpty() || paymentType == "UNKNOWN") {
+                        paymentType = "CREDIT" // 기본값
                     }
 
                     // 5. 카테고리(Category) 자동 매핑
@@ -173,6 +178,7 @@ object NotificationParser {
                         merchant = merchant,
                         datetime = datetime,
                         payMethod = payMethod,
+                        payType = paymentType,
                         category = category,
                         type = txInfo.transactionType,
                         ruleId = rule.id,

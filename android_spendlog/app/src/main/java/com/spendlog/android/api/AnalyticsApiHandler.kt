@@ -117,22 +117,97 @@ object AnalyticsApiHandler {
                     buildJsonObject {}
                 }
                 
-                val allTimeRows = AndroidApiHandler.queryRaw(db,
-                    "SELECT pay_method, " +
+                val cardToBankMap = mapOf(
+                    "NH농협카드" to "NH농협은행",
+                    "농협카드" to "NH농협은행",
+                    "NH농협" to "NH농협은행",
+                    "농협" to "NH농협은행",
+                    "신한카드" to "신한은행",
+                    "신한" to "신한은행",
+                    "국민카드" to "KB국민은행",
+                    "KB국민카드" to "KB국민은행",
+                    "국민" to "KB국민은행",
+                    "KB국민" to "KB국민은행",
+                    "우리카드" to "우리은행",
+                    "우리" to "우리은행",
+                    "하나카드" to "하나은행",
+                    "하나" to "하나은행",
+                    "IBK기업은행" to "기업은행",
+                    "기업은행" to "기업은행",
+                    "기업" to "기업은행",
+                    "IBK" to "기업은행",
+                    "카카오뱅크" to "카카오뱅크",
+                    "토스뱅크" to "토스뱅크",
+                    "케이뱅크" to "케이뱅크",
+                    "우체국" to "우체국",
+                    "새마을금고" to "새마을금고",
+                    "신협" to "신협",
+                    "수협" to "수협은행"
+                )
+
+                val allTimeRowsRaw = AndroidApiHandler.queryRaw(db,
+                    "SELECT pay_method, pay_type, " +
                     "SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as total_income, " +
                     "SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as total_expense, " +
                     "SUM(COALESCE(used_point, 0)) as total_used_point " +
-                    "FROM transactions GROUP BY pay_method"
+                    "FROM transactions GROUP BY pay_method, pay_type"
                 )
-                val allTimeMap = allTimeRows.associateBy { it.jsonObject["pay_method"]?.jsonPrimitive?.contentOrNull ?: "" }
                 
-                val monthRows = AndroidApiHandler.queryRaw(db,
-                    "SELECT pay_method, " +
+                data class AggregatedRow(
+                    var totalIncome: Long = 0L,
+                    var totalExpense: Long = 0L,
+                    var totalUsedPoint: Long = 0L
+                )
+                val allTimeMap = mutableMapOf<String, AggregatedRow>()
+                for (row in allTimeRowsRaw) {
+                    val rowObj = row.jsonObject
+                    val rawPayMethod = rowObj["pay_method"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val payType = rowObj["pay_type"]?.jsonPrimitive?.contentOrNull ?: "CREDIT"
+                    val totalIncome = rowObj["total_income"]?.jsonPrimitive?.longOrNull ?: 0L
+                    val totalExpense = rowObj["total_expense"]?.jsonPrimitive?.longOrNull ?: 0L
+                    val totalUsedPoint = rowObj["total_used_point"]?.jsonPrimitive?.longOrNull ?: 0L
+                    
+                    val resolvedPayMethod = if (payType == "CHECK" || payType == "TRANSFER") {
+                        cardToBankMap[rawPayMethod] ?: rawPayMethod
+                    } else {
+                        rawPayMethod
+                    }
+                    
+                    val agg = allTimeMap.getOrPut(resolvedPayMethod) { AggregatedRow() }
+                    agg.totalIncome += totalIncome
+                    agg.totalExpense += totalExpense
+                    agg.totalUsedPoint += totalUsedPoint
+                }
+                
+                val monthRowsRaw = AndroidApiHandler.queryRaw(db,
+                    "SELECT pay_method, pay_type, " +
                     "SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as month_income, " +
                     "SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as month_expense " +
-                    "FROM transactions WHERE datetime LIKE ? GROUP BY pay_method", arrayOf("$month%")
+                    "FROM transactions WHERE datetime LIKE ? GROUP BY pay_method, pay_type", arrayOf("$month%")
                 )
-                val monthMap = monthRows.associateBy { it.jsonObject["pay_method"]?.jsonPrimitive?.contentOrNull ?: "" }.toMutableMap()
+                
+                data class MonthAggregatedRow(
+                    var monthIncome: Long = 0L,
+                    var monthExpense: Long = 0L
+                )
+                val monthMap = mutableMapOf<String, MonthAggregatedRow>()
+                for (row in monthRowsRaw) {
+                    val rowObj = row.jsonObject
+                    val rawPayMethod = rowObj["pay_method"]?.jsonPrimitive?.contentOrNull ?: ""
+                    val payType = rowObj["pay_type"]?.jsonPrimitive?.contentOrNull ?: "CREDIT"
+                    val monthIncome = rowObj["month_income"]?.jsonPrimitive?.longOrNull ?: 0L
+                    val monthExpense = rowObj["month_expense"]?.jsonPrimitive?.longOrNull ?: 0L
+                    
+                    val resolvedPayMethod = if (payType == "CHECK" || payType == "TRANSFER") {
+                        cardToBankMap[rawPayMethod] ?: rawPayMethod
+                    } else {
+                        rawPayMethod
+                    }
+                    
+                    val agg = monthMap.getOrPut(resolvedPayMethod) { MonthAggregatedRow() }
+                    agg.monthIncome += monthIncome
+                    agg.monthExpense += monthExpense
+                }
                 
                 val partsM = month.split("-")
                 if (partsM.size == 2) {
@@ -154,11 +229,9 @@ object AnalyticsApiHandler {
                                 arrayOf(name, startStr, endStr)
                             )
                             
-                            monthMap[name] = buildJsonObject {
-                                put("pay_method", name)
-                                put("month_income", customRow?.get("month_income")?.jsonPrimitive?.longOrNull ?: 0L)
-                                put("month_expense", customRow?.get("month_expense")?.jsonPrimitive?.longOrNull ?: 0L)
-                            }
+                            val agg = monthMap.getOrPut(name) { MonthAggregatedRow() }
+                            agg.monthIncome = customRow?.get("month_income")?.jsonPrimitive?.longOrNull ?: 0L
+                            agg.monthExpense = customRow?.get("month_expense")?.jsonPrimitive?.longOrNull ?: 0L
                         }
                     }
                 }
@@ -173,14 +246,14 @@ object AnalyticsApiHandler {
                         val initBal = initialBalances[name]?.jsonPrimitive?.longOrNull ?: 0L
                         val initPt = initialPoints[name]?.jsonPrimitive?.longOrNull ?: 0L
                         
-                        val allTime = allTimeMap[name]?.jsonObject
-                        val totalIncome = allTime?.get("total_income")?.jsonPrimitive?.longOrNull ?: 0L
-                        val totalExpense = allTime?.get("total_expense")?.jsonPrimitive?.longOrNull ?: 0L
-                        val totalUsedPt = allTime?.get("total_used_point")?.jsonPrimitive?.longOrNull ?: 0L
+                        val allTime = allTimeMap[name]
+                        val totalIncome = allTime?.totalIncome ?: 0L
+                        val totalExpense = allTime?.totalExpense ?: 0L
+                        val totalUsedPt = allTime?.totalUsedPoint ?: 0L
                         
-                        val mTime = monthMap[name]?.jsonObject
-                        val mIncome = mTime?.get("month_income")?.jsonPrimitive?.longOrNull ?: 0L
-                        val mExpense = mTime?.get("month_expense")?.jsonPrimitive?.longOrNull ?: 0L
+                        val mTime = monthMap[name]
+                        val mIncome = mTime?.monthIncome ?: 0L
+                        val mExpense = mTime?.monthExpense ?: 0L
                         
                         val effectivePoint = maxOf(totalUsedPt, initPt)
                         val adjustedExpense = maxOf(0L, totalExpense - totalUsedPt)

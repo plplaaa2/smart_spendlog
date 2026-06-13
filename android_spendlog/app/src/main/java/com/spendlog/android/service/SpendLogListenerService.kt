@@ -103,13 +103,14 @@ class SpendLogListenerService : NotificationListenerService() {
                     merchant = result.merchant,
                     category = result.category,
                     payMethod = result.payMethod,
+                    payType = result.payType,
                     datetime = result.datetime,
                     memo = result.memo,
                     rawText = rawText,
                     usedPoint = result.usedPoint
                 )
                 
-                // 1분 이내 동일 가맹점+금액 거래 중복 차단 검사
+                // 1분 이내 동일 금액 거래 중복 차단 검사 (체크카드 승인 후 은행 연쇄 출금 중복 감지 포함)
                 var isDuplicateTx = false
                 try {
                     val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
@@ -117,9 +118,36 @@ class SpendLogListenerService : NotificationListenerService() {
                     if (parsedDate != null) {
                         val minTime = parsedDate.time - 60000 // 1분 전
                         val minDatetimeStr = sdf.format(Date(minTime))
-                        val dupCount = db.transactionDao().countDuplicateNear(result.amount, result.merchant, minDatetimeStr)
-                        if (dupCount > 0) {
-                            isDuplicateTx = true
+                        val candidates = db.transactionDao().getTransactionsNearByAmount(result.amount, minDatetimeStr)
+                        
+                        for (tx in candidates) {
+                            val cleanExisting = tx.merchant.replace(Regex("[^a-zA-Z0-9가-힣]"), "")
+                            val cleanCurrent = result.merchant.replace(Regex("[^a-zA-Z0-9가-힣]"), "")
+                            
+                            val isSimilarMerchant = cleanExisting.contains(cleanCurrent) || 
+                                                    cleanCurrent.contains(cleanExisting) ||
+                                                    cleanExisting == cleanCurrent
+                            
+                            val isCheck1 = tx.payType == "CHECK" || tx.rawText?.contains("체크") == true || tx.payMethod.contains("체크")
+                            val isCheck2 = result.payType == "CHECK" || rawText.contains("체크") || result.payMethod.contains("체크")
+                            
+                            val isTransfer1 = tx.payType == "TRANSFER" || tx.payType == "CASH"
+                            val isTransfer2 = result.payType == "TRANSFER" || result.payType == "CASH"
+                            
+                            val cardCompanyRegex = Regex("(카드|삼성|현대|롯데|신한|국민|우리|하나|농협|비씨|실적|승인|체크)")
+                            
+                            var isCheckCardDoubleNotification = false
+                            if (isCheck1 && isTransfer2 && cardCompanyRegex.containsMatchIn(result.merchant)) {
+                                isCheckCardDoubleNotification = true
+                            }
+                            if (isTransfer1 && isCheck2 && cardCompanyRegex.containsMatchIn(tx.merchant)) {
+                                isCheckCardDoubleNotification = true
+                            }
+                            
+                            if (isSimilarMerchant || isCheckCardDoubleNotification) {
+                                isDuplicateTx = true
+                                break
+                            }
                         }
                     }
                 } catch (e: Exception) {

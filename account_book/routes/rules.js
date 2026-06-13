@@ -66,7 +66,7 @@ router.get('/rules', async (req, res) => {
 router.post('/rules', async (req, res) => {
   try {
     const db = await getDB('admin');
-    const { id, name, pattern, category, pay_method, merchant_template, type } = req.body;
+    const { id, name, pattern, category, pay_method, pay_type, merchant_template, type } = req.body;
 
     if (!name || !pattern) {
       return res.status(400).json({ error: '규칙 이름과 정규식 패턴은 필수 값입니다.' });
@@ -80,28 +80,29 @@ router.post('/rules', async (req, res) => {
 
     const ruleType = type || 'EXPENSE';
     const ruleCategory = category || '_AUTO_MAPPING_';
+    const rulePayType = pay_type || 'CREDIT';
 
     if (id) {
       const existsInRules = await db.get('SELECT id FROM rules WHERE id = ?', [id]);
       if (existsInRules) {
         await db.run(
-          'UPDATE rules SET name = ?, pattern = ?, category = ?, pay_method = ?, merchant_template = ?, type = ? WHERE id = ?',
-          [name, pattern, ruleCategory, pay_method, merchant_template, ruleType, id]
+          'UPDATE rules SET name = ?, pattern = ?, category = ?, pay_method = ?, pay_type = ?, merchant_template = ?, type = ? WHERE id = ?',
+          [name, pattern, ruleCategory, pay_method, rulePayType, merchant_template, ruleType, id]
         );
         res.json({ success: true, id });
       } else {
         // 기존 패스규칙(pass_rules)에서 전환된 경우
         await db.run('DELETE FROM pass_rules WHERE id = ?', [id]);
         const result = await db.run(
-          'INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)',
-          [name, pattern, ruleCategory, pay_method, merchant_template, ruleType]
+          'INSERT INTO rules (name, pattern, category, pay_method, pay_type, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [name, pattern, ruleCategory, pay_method, rulePayType, merchant_template, ruleType]
         );
         res.json({ success: true, id: result.lastID });
       }
     } else {
       const result = await db.run(
-        'INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)',
-        [name, pattern, ruleCategory, pay_method, merchant_template, ruleType]
+        'INSERT INTO rules (name, pattern, category, pay_method, pay_type, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [name, pattern, ruleCategory, pay_method, rulePayType, merchant_template, ruleType]
       );
       res.json({ success: true, id: result.lastID });
     }
@@ -254,12 +255,12 @@ router.get('/notification_logs', async (req, res) => {
 // 의존성: database.js의 findCategoryByMerchant를 활용하여 카테고리 자동 매핑 결과를 가상 도출합니다.
 router.post('/parse-test', async (req, res) => {
   try {
-    const { text, pattern, category, pay_method, type, merchant_template } = req.body;
+    const { text, pattern, category, pay_method, pay_type, type, merchant_template } = req.body;
     if (!text || !pattern) {
       return res.status(400).json({ error: '테스트 문자열과 정규식 패턴은 필수 값입니다.' });
     }
 
-    const rules = [{ id: 999, name: '테스트 규칙', pattern, category, pay_method, merchant_template, type }];
+    const rules = [{ id: 999, name: '테스트 규칙', pattern, category, pay_method, pay_type, merchant_template, type }];
     const result = parseNotification(text, rules);
 
     if (result) {

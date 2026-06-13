@@ -327,10 +327,11 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     }
 
     // 이중 등록 방지
+    // 이중 등록 방지 (체크카드 승인 후 은행 연쇄 출금 중복 감지 포함)
     const duplicateCheck = await db.get(
-      "SELECT id, merchant, pay_method FROM transactions " +
+      "SELECT id, merchant, pay_method, pay_type, raw_text FROM transactions " +
       "WHERE type = ? AND amount = ? " +
-      "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 30 " +
+      "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 60 " +
       "ORDER BY id DESC LIMIT 1",
       [result.type || 'EXPENSE', result.amount, result.datetime]
     );
@@ -347,12 +348,24 @@ async function processNotificationCore({ title, text, packageVal, username }) {
                                cleanCurrent.includes(cleanExisting) ||
                                cleanExisting === cleanCurrent;
 
-      const isCheck1 = duplicateCheck.raw_text && (duplicateCheck.raw_text.includes('체크') || duplicateCheck.pay_method.includes('체크'));
-      const isCheck2 = rawText.includes('체크') || finalPayMethod.includes('체크');
-      const isCheckRelated = isCheck1 || isCheck2;
+      const isCheck1 = duplicateCheck.pay_type === 'CHECK' || (duplicateCheck.raw_text && duplicateCheck.raw_text.includes('체크')) || (duplicateCheck.pay_method && duplicateCheck.pay_method.includes('체크'));
+      const isCheck2 = finalPayType === 'CHECK' || rawText.includes('체크') || finalPayMethod.includes('체크');
+      
+      const isTransfer1 = duplicateCheck.pay_type === 'TRANSFER' || duplicateCheck.pay_type === 'CASH';
+      const isTransfer2 = finalPayType === 'TRANSFER' || finalPayType === 'CASH';
 
-      if (isSimilarMerchant && (duplicateCheck.pay_method !== finalPayMethod || isCheckRelated)) {
-        console.log(`[파서][${targetUser}] 중복 거래 감지 차단: 기존 거래 ID ${duplicateCheck.id} (${existingMerchant}, ${duplicateCheck.pay_method})와 현재 알림 (${currentMerchant}, ${finalPayMethod})의 금액/시간/사용처가 일치하므로 이중 등록을 방지합니다.`);
+      const cardCompanyRegex = /(카드|삼성|현대|롯데|신한|국민|우리|하나|농협|비씨|실적|승인|체크)/;
+      
+      let isCheckCardDoubleNotification = false;
+      if (isCheck1 && isTransfer2 && cardCompanyRegex.test(currentMerchant)) {
+        isCheckCardDoubleNotification = true;
+      }
+      if (isTransfer1 && isCheck2 && cardCompanyRegex.test(existingMerchant)) {
+        isCheckCardDoubleNotification = true;
+      }
+
+      if (isSimilarMerchant || isCheckCardDoubleNotification) {
+        console.log(`[파서][${targetUser}] 중복 거래 감지 차단: 기존 거래 ID ${duplicateCheck.id} (${existingMerchant}, ${duplicateCheck.pay_method})와 현재 알림 (${currentMerchant}, ${finalPayMethod})의 금액/시간이 일치하고 체크카드-은행 연계 출금으로 감지되어 이중 등록을 방지합니다.`);
         
         parsedStatus = 'IGNORED_DUPLICATE';
         const hasAmount = /(\d+[,.\d]*\s*원|₩\s*\d+[,.\d]*|\\\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/.test(rawText);
@@ -367,11 +380,12 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     }
 
     // 가계부 내역 저장
+    const finalPayType = result.payment_type || 'CREDIT';
     await db.run(
-      'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', rawText, result.used_point || 0]
+      'INSERT INTO transactions (type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, finalPayType, result.datetime, result.memo || '', rawText, result.used_point || 0]
     );
-    console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 사용 포인트: ${result.used_point || 0}]`);
+    console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 결제방법: ${finalPayType}, 사용 포인트: ${result.used_point || 0}]`);
 
     if (finalCategory === '기타') {
       const nameTag = targetUser === 'admin' ? '' : ` (${targetUser})`;

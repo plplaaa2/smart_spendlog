@@ -338,7 +338,8 @@ router.get('/settings/backup', async (req, res) => {
       'notification_logs',
       'package_pay_methods',
       'settings',
-      'merchant_categories'
+      'merchant_categories',
+      'pass_rules'
     ];
 
     const backupData = {

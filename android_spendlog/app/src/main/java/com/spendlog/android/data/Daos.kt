@@ -15,6 +15,9 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE amount = :amount AND merchant = :merchant AND datetime >= :minDatetime")
     suspend fun countDuplicateNear(amount: Long, merchant: String, minDatetime: String): Int
 
+    @Query("SELECT * FROM transactions WHERE amount = :amount AND datetime >= :minDatetime")
+    suspend fun getTransactionsNearByAmount(amount: Long, minDatetime: String): List<Transaction>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction): Long
 

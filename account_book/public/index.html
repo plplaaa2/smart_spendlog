@@ -12,11 +12,11 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=2.1.6"><!-- 캐시 무효화 버전 갱신 (모바일 플로팅 메뉴 및 반응형 개선) -->
+  <link rel="stylesheet" href="./style.css?v=2.4.3"><!-- 캐시 무효화 버전 갱신 (모바일 플로팅 메뉴 및 반응형 개선) -->
   <!-- Chart.js Local -->
-  <script src="./chart.js?v=2.1.6"></script>
+  <script src="./chart.js?v=2.3.3"></script>
   <!-- Lucide Icons Local -->
-  <script src="./lucide.min.js?v=2.1.6"></script>
+  <script src="./lucide.min.js?v=2.3.3"></script>
   <!-- PWA Settings -->
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#0f172a">
@@ -614,8 +614,7 @@
         <div class="card glass control-bar"
           style="margin-bottom: 1.5rem; justify-content: flex-start; gap: 1rem; align-items: center; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <label for="analytics-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">분석 대상
-              연도:</label>
+            <label for="analytics-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">대상 연도:</label>
             <select id="analytics-year-select" class="select-filter" style="width: 110px; padding: 0.5rem;">
               <!-- populated dynamically -->
             </select>
@@ -706,7 +705,7 @@
         <div id="analytics-subview-general" class="analytics-subview-content" style="width: 100%; display: none;">
           <!-- 일반지출 통계 요약 카드 3개 -->
           <div class="stats-grid" style="margin-bottom: 1.5rem;">
-            <div class="card glass stat-card">
+            <div class="card glass stat-card mobile-full-width">
               <div class="stat-header">
                 <span class="stat-label" id="general-total-label">이번 달 일반지출</span>
                 <div class="stat-icon-wrapper expense"><i data-lucide="shopping-bag"></i></div>
@@ -809,7 +808,7 @@
         <div id="analytics-subview-fixed" class="analytics-subview-content" style="width: 100%; display: none;">
           <!-- 고정지출 통계 요약 카드 3개 -->
           <div class="stats-grid" style="margin-bottom: 1.5rem;">
-            <div class="card glass stat-card">
+            <div class="card glass stat-card mobile-full-width">
               <div class="stat-header">
                 <span class="stat-label" id="fixed-total-label">이번 달 고정지출</span>
                 <div class="stat-icon-wrapper expense"><i data-lucide="receipt"></i></div>
@@ -916,7 +915,7 @@
         <div class="card glass control-bar"
           style="margin-bottom: 1.5rem; justify-content: flex-start; gap: 1rem; align-items: center; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <label for="income-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">분석 대상 연도:</label>
+            <label for="income-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">대상 연도:</label>
             <select id="income-year-select" class="select-filter" style="width: 110px; padding: 0.5rem;">
               <!-- populated dynamically -->
             </select>
@@ -963,7 +962,7 @@
               <span class="text-secondary">수입 대비 순수이익(저축) 비중</span>
             </div>
           </div>
-          <div class="card glass stat-card">
+          <div class="card glass stat-card mobile-full-width">
             <div class="stat-header">
               <span class="stat-label" id="income-average-label">월 평균 수입</span>
               <div class="stat-icon-wrapper budget"><i data-lucide="calculator"></i></div>
@@ -1523,6 +1522,15 @@
               <!-- Dynamic -->
             </select>
           </div>
+          <div class="form-group">
+            <label for="tx-pay-type">결제 방법</label>
+            <select id="tx-pay-type" required>
+              <option value="CREDIT" selected>💳 신용</option>
+              <option value="CHECK">🏦 체크</option>
+              <option value="TRANSFER">💸 이체</option>
+              <option value="CASH">💵 현금</option>
+            </select>
+          </div>
         </div>
         <div class="form-row" id="tx-package-row" style="display: none;">
           <div class="form-group" style="flex: 2;">
@@ -1594,7 +1602,7 @@
 
   <!-- 자동 분류 규칙 편집 및 테스트 모달 -->
   <div id="rule-modal" class="modal">
-    <div class="modal-content glass" style="max-width: 650px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal-content glass" style="max-width: 650px; max-height: 90%; overflow-y: auto;">
       <div class="modal-header">
         <h3 id="rule-form-title">규칙 편집</h3>
         <button class="close-btn" id="rule-modal-close-btn">&times;</button>
@@ -1639,6 +1647,15 @@
                 <label for="rule-pay-method">지정 결제수단</label>
                 <select id="rule-pay-method">
                   <!-- Dynamic -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="rule-pay-type">결제 방법</label>
+                <select id="rule-pay-type">
+                  <option value="CREDIT" selected>💳 신용</option>
+                  <option value="CHECK">🏦 체크</option>
+                  <option value="TRANSFER">💸 이체</option>
+                  <option value="CASH">💵 현금</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1708,6 +1725,10 @@
                 <tr>
                   <th>결제수단</th>
                   <td id="result-val-paymethod">--</td>
+                </tr>
+                <tr>
+                  <th>결제방법</th>
+                  <td id="result-val-paytype">--</td>
                 </tr>
                 <tr>
                   <th>카테고리</th>
@@ -1803,7 +1824,7 @@
 
   <!-- 자동 패스 규칙 편집 및 테스트 모달 -->
   <div id="pass-rule-modal" class="modal">
-    <div class="modal-content glass" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+    <div class="modal-content glass" style="max-width: 600px; max-height: 90%; overflow-y: auto;">
       <div class="modal-header">
         <h3 id="pass-rule-form-title">자동 패스규칙 편집</h3>
         <button class="close-btn" id="pass-rule-modal-close-btn">&times;</button>
@@ -1927,19 +1948,19 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- JavaScript files -->
-  <script src="./auth.js?v=2.1.6"></script>
-  <script src="./app.js?v=2.1.6"></script>
-  <script src="./notifications.js?v=2.1.6"></script>
-  <script src="./dashboard.js?v=2.1.6"></script>
-  <script src="./transactions.js?v=2.1.6"></script>
-  <script src="./card_bank_view.js?v=2.1.6"></script>
-  <script src="./rules.js?v=2.1.6"></script>
-  <script src="./analytics.js?v=2.1.6"></script>
-  <script src="./analytics_general.js?v=2.1.6"></script>
-  <script src="./analytics_fixed.js?v=2.1.6"></script>
-  <script src="./analytics_income.js?v=2.1.6"></script>
-  <script src="./ai_report.js?v=2.1.6"></script>
-  <script src="./settings.js?v=2.1.6"></script>
+  <script src="./auth.js?v=2.3.3"></script>
+  <script src="./app.js?v=2.3.3"></script>
+  <script src="./notifications.js?v=2.3.3"></script>
+  <script src="./dashboard.js?v=2.3.3"></script>
+  <script src="./transactions.js?v=2.3.3"></script>
+  <script src="./card_bank_view.js?v=2.3.3"></script>
+  <script src="./rules.js?v=2.3.3"></script>
+  <script src="./analytics.js?v=2.3.3"></script>
+  <script src="./analytics_general.js?v=2.3.3"></script>
+  <script src="./analytics_fixed.js?v=2.3.3"></script>
+  <script src="./analytics_income.js?v=2.3.3"></script>
+  <script src="./ai_report.js?v=2.3.3"></script>
+  <script src="./settings.js?v=2.3.3"></script>
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {

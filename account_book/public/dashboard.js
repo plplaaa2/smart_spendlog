@@ -152,11 +152,37 @@ function getDragPlacement(container, x, y) {
   return closest;
 }
 
-// Helper to initialize drag-and-drop on asset cards
+// Helper to save pay methods order to backend
+async function saveCardOrder(container) {
+  const cards = [...container.querySelectorAll('.asset-card-item:not(.total-type)')];
+  const newOrder = cards.map(c => c.dataset.name);
+
+  try {
+    const response = await fetch('api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pay_methods_order: JSON.stringify(newOrder)
+      })
+    }).then(r => r.json());
+
+    if (response.success) {
+      console.log('결제수단 순서가 드래그로 저장되었습니다.');
+      state.settings.pay_methods_order = JSON.stringify(newOrder);
+    } else {
+      console.error('순서 저장 실패:', response.error);
+    }
+  } catch (err) {
+    console.error('순서 저장 중 오류:', err);
+  }
+}
+
+// Helper to initialize drag-and-drop on asset cards (supports both mouse and touch)
 function initDragAndDropForCard(card, container) {
   const handle = card.querySelector('.drag-handle');
   if (!handle) return;
 
+  // Mouse drag-and-drop
   handle.addEventListener('mousedown', () => {
     card.setAttribute('draggable', 'true');
   });
@@ -174,30 +200,39 @@ function initDragAndDropForCard(card, container) {
   card.addEventListener('dragend', async () => {
     card.classList.remove('dragging');
     card.setAttribute('draggable', 'false');
+    await saveCardOrder(container);
+  });
 
-    // Collect the new order of all non-total card names
-    const cards = [...container.querySelectorAll('.asset-card-item:not(.total-type)')];
-    const newOrder = cards.map(c => c.dataset.name);
+  // Touch drag-and-drop for Mobile
+  handle.addEventListener('touchstart', (e) => {
+    card.classList.add('dragging');
+  }, { passive: true });
 
-    // Save the new order to the backend
-    try {
-      const response = await fetch('api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pay_methods_order: JSON.stringify(newOrder)
-        })
-      }).then(r => r.json());
+  handle.addEventListener('touchmove', (e) => {
+    const dragging = container.querySelector('.dragging');
+    if (!dragging) return;
 
-      if (response.success) {
-        console.log('결제수단 순서가 드래그로 저장되었습니다.');
-        state.settings.pay_methods_order = JSON.stringify(newOrder);
+    const touch = e.touches[0];
+    e.preventDefault(); // Prevent scrolling while dragging
+
+    const closest = getDragPlacement(container, touch.clientX, touch.clientY);
+    if (closest.element) {
+      if (touch.clientX > closest.centerX) {
+        container.insertBefore(dragging, closest.element.nextSibling);
       } else {
-        console.error('순서 저장 실패:', response.error);
+        container.insertBefore(dragging, closest.element);
       }
-    } catch (err) {
-      console.error('순서 저장 중 오류:', err);
+    } else {
+      container.appendChild(dragging);
     }
+  }, { passive: false });
+
+  handle.addEventListener('touchend', async () => {
+    const dragging = container.querySelector('.dragging');
+    if (dragging) {
+      card.classList.remove('dragging');
+    }
+    await saveCardOrder(container);
   });
 }
 

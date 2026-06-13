@@ -92,6 +92,7 @@ async function initUserDB(username) {
       pattern TEXT,
       category TEXT,
       pay_method TEXT,
+      pay_type TEXT DEFAULT 'CREDIT',
       merchant_template TEXT,
       type TEXT DEFAULT 'EXPENSE'
     );
@@ -103,6 +104,7 @@ async function initUserDB(username) {
       merchant TEXT,
       category TEXT,
       pay_method TEXT,
+      pay_type TEXT DEFAULT 'CREDIT',
       datetime TEXT,
       memo TEXT,
       raw_text TEXT,
@@ -219,6 +221,76 @@ async function migrateCategoriesAndData(dbInstance, username) {
   try {
     await dbInstance.exec("ALTER TABLE notification_logs ADD COLUMN text TEXT");
   } catch (e) {}
+
+  // rules 테이블 pay_type 컬럼 추가 및 백필 마이그레이션
+  // 의존성: 결제 방식별 분류 체계와 UI 결제수단 뱃지
+  try {
+    const rulesCols = await dbInstance.all("PRAGMA table_info(rules)");
+    if (!rulesCols.some(col => col.name === 'pay_type')) {
+      await dbInstance.exec("ALTER TABLE rules ADD COLUMN pay_type TEXT DEFAULT 'CREDIT'");
+      console.log(`[DB 마이그레이션][${username}] rules 테이블에 pay_type 컬럼을 성공적으로 추가했습니다.`);
+      
+      await dbInstance.exec(`
+        UPDATE rules 
+        SET pay_type = 'CHECK' 
+        WHERE pay_method LIKE '%체크%' 
+           OR pay_method LIKE '%은행%' 
+           OR pay_method LIKE '%뱅크%' 
+           OR pay_method LIKE '%계좌%' 
+           OR pay_method LIKE '%머니%' 
+           OR pattern LIKE '%체크%'
+      `);
+      await dbInstance.exec(`
+        UPDATE rules 
+        SET pay_type = 'TRANSFER' 
+        WHERE pay_method LIKE '%이체%' 
+           OR pay_method LIKE '%송금%'
+      `);
+      await dbInstance.exec(`
+        UPDATE rules 
+        SET pay_type = 'CASH' 
+        WHERE pay_method = '현금'
+      `);
+    }
+  } catch (e) {
+    console.error(`[DB 마이그레이션][${username}] rules 테이블 pay_type 마이그레이션 실패:`, e.message);
+  }
+
+  // transactions 테이블 pay_type 컬럼 추가 및 백필 마이그레이션
+  // 의존성: 지출/수입 자산 연계 차감
+  try {
+    const txCols = await dbInstance.all("PRAGMA table_info(transactions)");
+    if (!txCols.some(col => col.name === 'pay_type')) {
+      await dbInstance.exec("ALTER TABLE transactions ADD COLUMN pay_type TEXT DEFAULT 'CREDIT'");
+      console.log(`[DB 마이그레이션][${username}] transactions 테이블에 pay_type 컬럼을 성공적으로 추가했습니다.`);
+      
+      await dbInstance.exec(`
+        UPDATE transactions 
+        SET pay_type = 'CHECK' 
+        WHERE pay_method LIKE '%체크%' 
+           OR pay_method LIKE '%은행%' 
+           OR pay_method LIKE '%뱅크%' 
+           OR pay_method LIKE '%계좌%' 
+           OR pay_method LIKE '%머니%' 
+           OR pay_method = '토스페이' 
+           OR raw_text LIKE '%체크%'
+      `);
+      await dbInstance.exec(`
+        UPDATE transactions 
+        SET pay_type = 'TRANSFER' 
+        WHERE pay_method LIKE '%이체%' 
+           OR pay_method LIKE '%송금%'
+      `);
+      await dbInstance.exec(`
+        UPDATE transactions 
+        SET pay_type = 'CASH' 
+        WHERE pay_method = '현금'
+      `);
+      console.log(`[DB 마이그레이션][${username}] transactions 테이블 pay_type 백필 완료.`);
+    }
+  } catch (e) {
+    console.error(`[DB 마이그레이션][${username}] transactions 테이블 pay_type 마이그레이션 실패:`, e.message);
+  }
 
   try {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('이체/송금', '#7950f2', 'arrow-left-right', 'EXPENSE')");

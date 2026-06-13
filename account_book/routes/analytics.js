@@ -111,39 +111,56 @@ router.get('/stats', async (req, res) => {
     }
 
     // 전체 누적 입출금 및 사용 포인트
+    const cardToBankMap = {
+      'KB국민카드': '국민은행',
+      '신한카드': '신한은행',
+      '하나카드': '하나은행',
+      '우리카드': '우리은행',
+      'NH농협카드': '농협은행',
+      'BC카드': '계좌이체',
+      '삼성카드': '계좌이체',
+      '현대카드': '계좌이체',
+      '롯데카드': '계좌이체'
+    };
+
     const allTimeRows = await db.all(
-      "SELECT pay_method, " +
-      "SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as total_income, " +
-      "SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as total_expense, " +
-      "SUM(COALESCE(used_point, 0)) as total_used_point " +
-      "FROM transactions GROUP BY pay_method"
+      "SELECT pay_method, pay_type, type, amount, COALESCE(used_point, 0) as used_point FROM transactions"
     );
     const allTimeMap = {};
     allTimeRows.forEach(r => {
-      if (r.pay_method) {
-        allTimeMap[r.pay_method] = {
-          totalIncome: r.total_income || 0,
-          totalExpense: r.total_expense || 0,
-          totalUsedPoint: r.total_used_point || 0
-        };
+      let targetMethod = r.pay_method || '기타';
+      if ((r.pay_type === 'CHECK' || r.pay_type === 'TRANSFER') && cardToBankMap[targetMethod]) {
+        targetMethod = cardToBankMap[targetMethod];
       }
+      if (!allTimeMap[targetMethod]) {
+        allTimeMap[targetMethod] = { totalIncome: 0, totalExpense: 0, totalUsedPoint: 0 };
+      }
+      if (r.type === 'INCOME') {
+        allTimeMap[targetMethod].totalIncome += r.amount || 0;
+      } else {
+        allTimeMap[targetMethod].totalExpense += r.amount || 0;
+      }
+      allTimeMap[targetMethod].totalUsedPoint += r.used_point || 0;
     });
 
     // 해당 월 입출금 (1일 ~ 말일 기본 달력 기준)
     const monthRows = await db.all(
-      "SELECT pay_method, " +
-      "SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as month_income, " +
-      "SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as month_expense " +
-      "FROM transactions WHERE datetime LIKE ? GROUP BY pay_method",
+      "SELECT pay_method, pay_type, type, amount FROM transactions WHERE datetime LIKE ?",
       [`${month}%`]
     );
     const monthMap = {};
     monthRows.forEach(r => {
-      if (r.pay_method) {
-        monthMap[r.pay_method] = {
-          monthIncome: r.month_income || 0,
-          monthExpense: r.month_expense || 0
-        };
+      let targetMethod = r.pay_method || '기타';
+      if ((r.pay_type === 'CHECK' || r.pay_type === 'TRANSFER') && cardToBankMap[targetMethod]) {
+        targetMethod = cardToBankMap[targetMethod];
+      }
+      if (!monthMap[targetMethod]) {
+        monthMap[targetMethod] = { monthIncome: 0, monthExpense: 0 };
+      }
+      if (r.type === 'INCOME') {
+        monthMap[targetMethod].monthIncome += r.amount || 0;
+      } else {
+        monthMap[targetMethod].monthExpense += r.amount || 0;
       }
     });
 

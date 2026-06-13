@@ -276,6 +276,7 @@ object AndroidApiHandler {
                                         merchant = result.merchant,
                                         category = result.category,
                                         payMethod = result.payMethod,
+                                        payType = result.payType,
                                         datetime = result.datetime,
                                         memo = result.memo,
                                         rawText = log.rawText,

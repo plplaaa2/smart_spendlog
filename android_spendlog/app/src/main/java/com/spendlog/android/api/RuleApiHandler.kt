@@ -70,13 +70,14 @@ object RuleApiHandler {
                     val pattern = jsonObject["pattern"]?.jsonPrimitive?.content ?: ""
                     val category = jsonObject["category"]?.jsonPrimitive?.content ?: ""
                     val payMethod = jsonObject["pay_method"]?.jsonPrimitive?.content ?: ""
+                    val payType = jsonObject["pay_type"]?.jsonPrimitive?.contentOrNull ?: "CREDIT"
                     val merchantTemplate = jsonObject["merchant_template"]?.jsonPrimitive?.content ?: "\${merchant}"
                     val type = jsonObject["type"]?.jsonPrimitive?.contentOrNull ?: "EXPENSE"
                     
                     val rule = if (id > 0) {
-                        Rule(id = id, name = name, pattern = pattern, category = category, payMethod = payMethod, merchantTemplate = merchantTemplate, type = type)
+                        Rule(id = id, name = name, pattern = pattern, category = category, payMethod = payMethod, payType = payType, merchantTemplate = merchantTemplate, type = type)
                     } else {
-                        Rule(name = name, pattern = pattern, category = category, payMethod = payMethod, merchantTemplate = merchantTemplate, type = type)
+                        Rule(name = name, pattern = pattern, category = category, payMethod = payMethod, payType = payType, merchantTemplate = merchantTemplate, type = type)
                     }
                     db.ruleDao().insertRule(rule)
                     MainActivity.refreshUI()
@@ -98,6 +99,7 @@ object RuleApiHandler {
                 val pattern = jsonObject["pattern"]?.jsonPrimitive?.content ?: ""
                 val category = jsonObject["category"]?.jsonPrimitive?.content ?: ""
                 val payMethod = jsonObject["pay_method"]?.jsonPrimitive?.content ?: ""
+                val payType = jsonObject["pay_type"]?.jsonPrimitive?.contentOrNull ?: "CREDIT"
                 val type = jsonObject["type"]?.jsonPrimitive?.contentOrNull ?: "EXPENSE"
                 
                 Log.i("SpendLog_Debug", "[parse-test] Text: '$text'")
@@ -138,6 +140,7 @@ object RuleApiHandler {
                     pattern = pattern,
                     category = category,
                     payMethod = payMethod,
+                    payType = payType,
                     type = type
                 )
                 
@@ -157,6 +160,7 @@ object RuleApiHandler {
                             put("merchant", parsed.merchant)
                             put("datetime", parsed.datetime)
                             put("pay_method", parsed.payMethod)
+                            put("payment_type", parsed.payType)
                             put("category", parsed.category)
                             put("type", parsed.type)
                             put("memo", parsed.memo)
@@ -171,7 +175,18 @@ object RuleApiHandler {
             }
             path.startsWith("pass_rules") -> {
                 if (method == "POST" && body != null) {
-                    val rule = json.decodeFromString<PassRule>(body)
+                    // 요약: JSON 문자열 파싱 시 id 필드 타입 불일치(문자열 대 정수형) 우회 처리.
+                    // 의존성: android_spendlog/app/src/main/assets/app.js, android_spendlog/app/src/main/assets/pass_rules.js
+                    val jsonObject = json.parseToJsonElement(body).jsonObject
+                    val id = jsonObject["id"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0
+                    val name = jsonObject["name"]?.jsonPrimitive?.content ?: ""
+                    val pattern = jsonObject["pattern"]?.jsonPrimitive?.content ?: ""
+                    
+                    val rule = if (id > 0) {
+                        PassRule(id = id, name = name, pattern = pattern)
+                    } else {
+                        PassRule(name = name, pattern = pattern)
+                    }
                     db.passRuleDao().insertPassRule(rule)
                     MainActivity.refreshUI()
                     ApiResponse(body = buildJsonObject { put("success", true) })

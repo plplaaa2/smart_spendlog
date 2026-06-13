@@ -35,9 +35,10 @@
     display: flex !important;
     position: fixed !important;
     bottom: 1.25rem !important;
-    left: 1rem !important;
-    right: 1rem !important;
-    width: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) translateZ(0) !important;
+    width: fit-content !important;
+    max-width: calc(100% - 2rem) !important;
     height: 65px !important;
     background: rgba(15, 23, 42, 0.95) !important; /* 가독성을 위해 불투명도 더 증가 */
     border: 1px solid var(--glass-border) !important;
@@ -45,13 +46,12 @@
     z-index: 10000 !important; /* 더 높은 z-index */
     justify-content: flex-start !important;
     align-items: center !important;
-    padding: 0 0.75rem !important;
+    padding: 0 1rem !important;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
     border-radius: 24px !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     gap: 0.25rem !important;
-    transform: translateZ(0) !important;
     pointer-events: auto !important; /* 클릭 방지 해제 */
   }
 
@@ -144,40 +144,7 @@
     min-width: 85px;
   }
 
-  .mobile-user-container {
-    display: flex !important;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .mobile-user-name {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 6px 10px;
-    border-radius: 8px;
-    white-space: nowrap;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  }
-
-  .mobile-logout-btn {
-    display: inline-flex !important;
-    padding: 8px;
-    border-radius: 10px;
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444 !important;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    align-items: center;
-    justify-content: center;
-  }
-
-  .mobile-logout-btn i,
-  .mobile-logout-btn svg {
-    width: 16px;
-    height: 16px;
-  }
+  /* Mobile User Info & Logout Button styles removed for Standalone Local Mode */
 
   .control-bar {
     flex-direction: column;
@@ -214,6 +181,10 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
     margin-bottom: 1.5rem;
+  }
+
+  .stats-grid .mobile-full-width {
+    grid-column: span 2;
   }
 
   /* logs-grid 모바일 1열 강제 (오버플로 방지) */

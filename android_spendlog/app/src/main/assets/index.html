@@ -12,15 +12,11 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./variables.css?v=2.1.4">
-  <link rel="stylesheet" href="./navigation.css?v=2.1.4">
-  <link rel="stylesheet" href="./components.css?v=2.1.4">
-  <link rel="stylesheet" href="./views.css?v=2.1.4">
-  <link rel="stylesheet" href="./responsive.css?v=2.1.4">
+  <link rel="stylesheet" href="./style.css?v=2.4.1"><!-- 캐시 무효화 버전 갱신 (모바일 플로팅 메뉴 및 반응형 개선) -->
   <!-- Chart.js Local -->
-  <script src="./chart.js?v=2.1.3"></script>
+  <script src="./chart.js?v=2.4.0"></script>
   <!-- Lucide Icons Local -->
-  <script src="./lucide.min.js?v=2.1.3"></script>
+  <script src="./lucide.min.js?v=2.4.0"></script>
   <!-- PWA Settings -->
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#0f172a">
@@ -31,7 +27,45 @@
 </head>
 
 <body>
-  <!-- App Container -->
+  <!-- Login Overlay -->
+  <div id="login_overlay" class="login-overlay" style="display: none;">
+    <div class="login-box">
+      <div class="login-header">
+        <i data-lucide="book-open-variant" class="login-logo-icon"></i>
+        <h2>Smart Spendlog 로그인</h2>
+        <p>서비스 보호를 위해 관리자 계정으로 로그인하세요.</p>
+      </div>
+      <div class="login-form">
+        <div class="input-group-custom">
+          <label for="login_username">사용자명</label>
+          <div class="input-wrapper">
+            <i data-lucide="user"></i>
+            <input type="text" id="login_username" placeholder="아이디를 입력하세요">
+          </div>
+        </div>
+        <div class="input-group-custom">
+          <label for="login_password">비밀번호</label>
+          <div class="input-wrapper">
+            <i data-lucide="lock"></i>
+            <input type="password" id="login_password" placeholder="비밀번호를 입력하세요"
+              onkeydown="if(event.key==='Enter') attemptLogin()">
+          </div>
+        </div>
+        <div class="login-options">
+          <label class="checkbox-container">
+            <input type="checkbox" id="login_remember" checked>
+            <span class="checkmark"></span>
+            로그인 상태 유지
+          </label>
+        </div>
+        <button class="btn-login-submit" onclick="attemptLogin()">
+          <span>로그인</span>
+          <i data-lucide="arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="app-container">
 
     <!-- Sidebar Navigation -->
@@ -57,10 +91,10 @@
           <i data-lucide="receipt"></i>
           <span>거래 내역</span>
         </button>
-          <button class="nav-item" data-tab="logs" id="nav-logs-btn">
-            <i data-lucide="history"></i>
-            <span>알림 로그</span>
-          </button>
+        <button class="nav-item" data-tab="logs">
+          <i data-lucide="history"></i>
+          <span>알림 로그</span>
+        </button>
         <button class="nav-item" data-tab="ai-report">
           <i data-lucide="sparkles"></i>
           <span>AI 소비 리포트</span>
@@ -71,7 +105,7 @@
         </button>
       </nav>
       <!-- Sidebar Clock Card -->
-      <div class="sidebar-clock-card" id="sidebar_clock_card">
+      <div class="sidebar-clock-card" id="sidebar_clock_card" style="display: none;">
         <div class="clock-icon">
           <i data-lucide="clock"></i>
         </div>
@@ -80,11 +114,7 @@
           <div class="clock-time" id="clock-time"></div>
         </div>
       </div>
-      <!-- User Profile removed -->
-      <div class="sidebar-footer">
-        <span class="status-indicator online"></span>
-        <span class="status-text">로컬 모드 활성화</span>
-      </div>
+      <!-- User Profile & HA Status Footer Removed for Standalone Local Mode -->
       <!-- Collapse toggle button -->
       <button class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" title="사이드바 접기/펼치기">
         <i data-lucide="chevron-left"></i>
@@ -114,6 +144,7 @@
               <span class="notification-badge" id="notification-badge" style="display: none;"></span>
             </button>
           </div>
+          <!-- Mobile User Info & Logout Button Removed for Standalone Local Mode -->
         </div>
       </header>
 
@@ -403,7 +434,7 @@
           <div id="subtab-logs-list" class="sub-logs-content active" style="width: 100%;">
             <div class="card glass logs-card">
               <div class="card-header">
-                <h3>시스템 수신 알림 로그 (최근 100건)</h3>
+                <h3>스마트폰 수신 알림 로그 (최근 100건)</h3>
                 <button class="btn btn-secondary btn-sm" id="refresh-logs-btn"><i data-lucide="refresh-cw"></i>
                   새로고침</button>
               </div>
@@ -482,7 +513,7 @@
                 </form>
                 <div
                   style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
-                  <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                  <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                     <thead>
                       <tr
                         style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; background: rgba(255,255,255,0.02);">
@@ -524,7 +555,7 @@
                 </form>
                 <div
                   style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
-                  <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                  <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                     <thead>
                       <tr
                         style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; background: rgba(255,255,255,0.02);">
@@ -561,8 +592,7 @@
         <div class="card glass control-bar"
           style="margin-bottom: 1.5rem; justify-content: flex-start; gap: 1rem; align-items: center; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <label for="analytics-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">분석 대상
-              연도:</label>
+            <label for="analytics-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">대상 연도:</label>
             <select id="analytics-year-select" class="select-filter" style="width: 110px; padding: 0.5rem;">
               <!-- populated dynamically -->
             </select>
@@ -653,7 +683,7 @@
         <div id="analytics-subview-general" class="analytics-subview-content" style="width: 100%; display: none;">
           <!-- 일반지출 통계 요약 카드 3개 -->
           <div class="stats-grid" style="margin-bottom: 1.5rem;">
-            <div class="card glass stat-card">
+            <div class="card glass stat-card mobile-full-width">
               <div class="stat-header">
                 <span class="stat-label" id="general-total-label">이번 달 일반지출</span>
                 <div class="stat-icon-wrapper expense"><i data-lucide="shopping-bag"></i></div>
@@ -756,7 +786,7 @@
         <div id="analytics-subview-fixed" class="analytics-subview-content" style="width: 100%; display: none;">
           <!-- 고정지출 통계 요약 카드 3개 -->
           <div class="stats-grid" style="margin-bottom: 1.5rem;">
-            <div class="card glass stat-card">
+            <div class="card glass stat-card mobile-full-width">
               <div class="stat-header">
                 <span class="stat-label" id="fixed-total-label">이번 달 고정지출</span>
                 <div class="stat-icon-wrapper expense"><i data-lucide="receipt"></i></div>
@@ -863,7 +893,7 @@
         <div class="card glass control-bar"
           style="margin-bottom: 1.5rem; justify-content: flex-start; gap: 1rem; align-items: center; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <label for="income-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">분석 대상 연도:</label>
+            <label for="income-year-select" style="font-weight: 600; font-size: 0.95rem; white-space: nowrap;">대상 연도:</label>
             <select id="income-year-select" class="select-filter" style="width: 110px; padding: 0.5rem;">
               <!-- populated dynamically -->
             </select>
@@ -910,7 +940,7 @@
               <span class="text-secondary">수입 대비 순수이익(저축) 비중</span>
             </div>
           </div>
-          <div class="card glass stat-card">
+          <div class="card glass stat-card mobile-full-width">
             <div class="stat-header">
               <span class="stat-label" id="income-average-label">월 평균 수입</span>
               <div class="stat-icon-wrapper budget"><i data-lucide="calculator"></i></div>
@@ -1021,6 +1051,7 @@
                     </div>
                     <input type="text" id="settings-real-name" placeholder="예: 홍길동">
                   </div>
+                  <!-- HA 알림 센서 선택 제거 -->
                   <div class="form-group">
                     <label for="settings-budget">이번 달 예산 설정 (원)</label>
                     <input type="number" id="settings-budget" placeholder="500000" min="0">
@@ -1035,61 +1066,6 @@
                   </div>
                   <button type="submit" class="btn btn-primary">설정 저장</button>
                 </form>
-              </div>
-
-              <!-- Main Settings Form -->
-              <div class="card glass settings-form-card">
-                <h3>시스템 권한 설정</h3>
-                <div class="info-box" style="margin-bottom: 1.25rem;">
-                  <p>스마트폰의 결제 알림을 가계부에 누락 없이 등록하고 원활한 백그라운드 파싱을 유지하기 위해 필수 시스템 권한을 확인해 주세요.</p>
-                </div>
-                
-                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                  <!-- 1. 알림 리스너 권한 -->
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255, 255, 255, 0.04);">
-                    <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                      <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary);">알림 접근 권한 (Notification Listener)</span>
-                      <span style="font-size: 0.8rem; color: var(--text-secondary);">스마트폰의 결제 알림(문자/앱 푸시) 내용을 읽어오는 권한</span>
-                      <div id="noti-permission-status" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; margin-top: 0.25rem;">
-                        <span class="status-indicator" id="noti-status-dot"></span>
-                        <span id="noti-status-text" class="text-secondary">상태 확인 중...</span>
-                      </div>
-                    </div>
-                    <button type="button" onclick="openNotificationSettings()" class="btn btn-secondary btn-sm" style="width: auto; padding: 8px 16px; white-space: nowrap;">
-                      설정 열기
-                    </button>
-                  </div>
-
-                  <!-- 2. 앱 알림 권한 -->
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255, 255, 255, 0.04);">
-                    <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                      <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary);">앱 알림 권한 (Post Notifications)</span>
-                      <span style="font-size: 0.8rem; color: var(--text-secondary);">앱 내에서 처리된 가계부 등록 성공 여부를 알림으로 띄우는 권한</span>
-                      <div id="post-noti-permission-status" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; margin-top: 0.25rem;">
-                        <span class="status-indicator" id="post-noti-status-dot"></span>
-                        <span id="post-noti-status-text" class="text-secondary">상태 확인 중...</span>
-                      </div>
-                    </div>
-                    <button type="button" onclick="requestPostNotificationPermission()" class="btn btn-secondary btn-sm" style="width: auto; padding: 8px 16px; white-space: nowrap;">
-                      권한 허용
-                    </button>
-                  </div>
-
-                  <!-- 3. 배터리 최적화 제한 제외 -->
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
-                    <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                      <span style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary);">배터리 최적화 예외 (Battery Optimization)</span>
-                      <span style="font-size: 0.8rem; color: var(--text-secondary);">백그라운드에서 OS에 의해 알림 파싱 서비스가 종료되는 것을 방지</span>
-                      <div id="battery-permission-status" style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; margin-top: 0.25rem;">
-                        <span class="status-indicator" id="battery-status-dot"></span>
-                        <span id="battery-status-text" class="text-secondary">상태 확인 중...</span>
-                      </div>
-                    </div>
-                    <button type="button" onclick="requestBatteryOptimizationPermission()" class="btn btn-secondary btn-sm" style="width: auto; padding: 8px 16px; white-space: nowrap;">
-                      제외 설정
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -1150,6 +1126,8 @@
           <!-- 5) 데이터 관리 서브 탭 -->
           <div id="subtab-data" class="sub-settings-content" style="width: 100%;">
             <div style="display: flex; flex-direction: column; gap: 2rem;">
+              <!-- 자동 네트워크 백업 카드 제거 -->
+
               <!-- 2) 수동 데이터 백업 및 복원 카드 -->
               <div class="card glass settings-form-card">
                 <h3>수동 데이터 백업 및 복원</h3>
@@ -1404,6 +1382,15 @@
               <!-- Dynamic -->
             </select>
           </div>
+          <div class="form-group">
+            <label for="tx-pay-type">결제 방법</label>
+            <select id="tx-pay-type" required>
+              <option value="CREDIT" selected>💳 신용</option>
+              <option value="CHECK">🏦 체크</option>
+              <option value="TRANSFER">💸 이체</option>
+              <option value="CASH">💵 현금</option>
+            </select>
+          </div>
         </div>
         <div class="form-row" id="tx-package-row" style="display: none;">
           <div class="form-group" style="flex: 2;">
@@ -1510,7 +1497,7 @@
                 required>
             </div>
             <div class="form-row">
-              <div class="form-group">
+              <div class="form-group" id="rule-category-group">
                 <label for="rule-category">지정 카테고리</label>
                 <select id="rule-category">
                   <!-- Dynamic -->
@@ -1520,6 +1507,15 @@
                 <label for="rule-pay-method">지정 결제수단</label>
                 <select id="rule-pay-method">
                   <!-- Dynamic -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="rule-pay-type">결제 방법</label>
+                <select id="rule-pay-type">
+                  <option value="CREDIT" selected>💳 신용</option>
+                  <option value="CHECK">🏦 체크</option>
+                  <option value="TRANSFER">💸 이체</option>
+                  <option value="CASH">💵 현금</option>
                 </select>
               </div>
               <div class="form-group">
@@ -1589,6 +1585,10 @@
                 <tr>
                   <th>결제수단</th>
                   <td id="result-val-paymethod">--</td>
+                </tr>
+                <tr>
+                  <th>결제방법</th>
+                  <td id="result-val-paytype">--</td>
                 </tr>
                 <tr>
                   <th>카테고리</th>
@@ -1780,7 +1780,6 @@
   </nav>
 
   <!-- In-app Notification Drawer -->
-  <div class="drawer-overlay" id="notification-drawer-overlay"></div>
   <div id="notification-drawer" class="notification-drawer">
     <div class="drawer-header">
       <div class="drawer-title">
@@ -1809,18 +1808,19 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- JavaScript files -->
-  <script src="./app.js?v=2.1.2"></script>
-  <script src="./notifications.js?v=2.1.2"></script>
-  <script src="./dashboard.js?v=2.1.2"></script>
-  <script src="./init-logs.js"></script>
-  <script src="./transactions.js?v=2.1.2"></script>
-  <script src="./card_bank_view.js?v=2.1.2"></script>
-  <script src="./rules.js?v=2.1.2"></script>
-  <script src="./pass_rules.js?v=2.1.2"></script>
-  <script src="./notification_logs.js?v=2.1.2"></script>
-  <script src="./analytics.js?v=2.1.2"></script>
-  <script src="./ai_report.js?v=2.1.2"></script>
-  <script src="./settings.js?v=2.1.2"></script>
+  <script src="./auth.js?v=2.4.0"></script>
+  <script src="./app.js?v=2.4.0"></script>
+  <script src="./notifications.js?v=2.4.0"></script>
+  <script src="./dashboard.js?v=2.4.0"></script>
+  <script src="./transactions.js?v=2.4.0"></script>
+  <script src="./card_bank_view.js?v=2.4.0"></script>
+  <script src="./rules.js?v=2.4.0"></script>
+  <script src="./analytics.js?v=2.4.0"></script>
+  <script src="./analytics_general.js?v=2.4.0"></script>
+  <script src="./analytics_fixed.js?v=2.4.0"></script>
+  <script src="./analytics_income.js?v=2.4.0"></script>
+  <script src="./ai_report.js?v=2.4.0"></script>
+  <script src="./settings.js?v=2.4.0"></script>
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {

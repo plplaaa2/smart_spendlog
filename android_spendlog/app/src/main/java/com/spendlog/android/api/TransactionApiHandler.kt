@@ -50,6 +50,8 @@ object TransactionApiHandler {
                 payMethod = "카드"
             }
 
+            val payType = bodyObj["pay_type"]?.jsonPrimitive?.contentOrNull ?: "CREDIT"
+
             val tx = Transaction(
                 id = idLong,
                 type = type,
@@ -57,6 +59,7 @@ object TransactionApiHandler {
                 merchant = merchant,
                 category = category,
                 payMethod = payMethod,
+                payType = payType,
                 datetime = bodyObj["datetime"]?.jsonPrimitive?.contentOrNull ?: "",
                 memo = bodyObj["memo"]?.takeIf { it !is JsonNull }?.jsonPrimitive?.contentOrNull ?: "",
                 rawText = bodyObj["raw_text"]?.takeIf { it !is JsonNull }?.jsonPrimitive?.contentOrNull ?: "",

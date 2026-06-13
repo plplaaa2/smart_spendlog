@@ -399,10 +399,15 @@ async function executeRestore(username, backupObj) {
     'notification_logs',
     'package_pay_methods',
     'settings',
-    'merchant_categories'
+    'merchant_categories',
+    'pass_rules'
   ];
 
   for (const table of tables) {
+    if (table === 'pass_rules' && !dataObj.data[table]) {
+      dataObj.data[table] = [];
+      continue;
+    }
     if (!Array.isArray(dataObj.data[table])) {
       throw new Error(`백업 데이터 내 '${table}' 테이블 정보가 유실되었습니다.`);
     }
@@ -444,17 +449,17 @@ async function executeRestore(username, backupObj) {
     }
 
     if (dataObj.data.rules.length > 0) {
-      const stmt = await adminDb.prepare('INSERT INTO rules (id, name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?, ?)');
+      const stmt = await adminDb.prepare('INSERT INTO rules (id, name, pattern, category, pay_method, pay_type, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
       for (const row of dataObj.data.rules) {
-        await stmt.run(row.id, row.name, row.pattern, row.category, row.pay_method, row.merchant_template, row.type || 'EXPENSE');
+        await stmt.run(row.id, row.name, row.pattern, row.category, row.pay_method, row.pay_type || 'CREDIT', row.merchant_template, row.type || 'EXPENSE');
       }
       await stmt.finalize();
     }
 
     if (dataObj.data.transactions.length > 0) {
-      const stmt = await db.prepare('INSERT INTO transactions (id, type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+      const stmt = await db.prepare('INSERT INTO transactions (id, type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
       for (const row of dataObj.data.transactions) {
-        await stmt.run(row.id, row.type || 'EXPENSE', row.amount, row.merchant, row.category, row.pay_method, row.datetime, row.memo, row.raw_text, row.used_point || 0);
+        await stmt.run(row.id, row.type || 'EXPENSE', row.amount, row.merchant, row.category, row.pay_method, row.pay_type || 'CREDIT', row.datetime, row.memo, row.raw_text, row.used_point || 0);
       }
       await stmt.finalize();
     }
@@ -487,6 +492,14 @@ async function executeRestore(username, backupObj) {
       const stmt = await db.prepare('INSERT INTO merchant_categories (id, merchant, category) VALUES (?, ?, ?)');
       for (const row of dataObj.data.merchant_categories) {
         await stmt.run(row.id, row.merchant, row.category);
+      }
+      await stmt.finalize();
+    }
+
+    if (dataObj.data.pass_rules.length > 0) {
+      const stmt = await db.prepare('INSERT INTO pass_rules (id, name, pattern) VALUES (?, ?, ?)');
+      for (const row of dataObj.data.pass_rules) {
+        await stmt.run(row.id, row.name, row.pattern);
       }
       await stmt.finalize();
     }

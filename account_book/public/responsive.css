@@ -35,9 +35,10 @@
     display: flex !important;
     position: fixed !important;
     bottom: 1.25rem !important;
-    left: 1rem !important;
-    right: 1rem !important;
-    width: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) translateZ(0) !important;
+    width: fit-content !important;
+    max-width: calc(100% - 2rem) !important;
     height: 65px !important;
     background: rgba(15, 23, 42, 0.95) !important; /* 가독성을 위해 불투명도 더 증가 */
     border: 1px solid var(--glass-border) !important;
@@ -45,13 +46,12 @@
     z-index: 10000 !important; /* 더 높은 z-index */
     justify-content: flex-start !important;
     align-items: center !important;
-    padding: 0 0.75rem !important;
+    padding: 0 1rem !important;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
     border-radius: 24px !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     gap: 0.25rem !important;
-    transform: translateZ(0) !important;
     pointer-events: auto !important; /* 클릭 방지 해제 */
   }
 
@@ -122,7 +122,11 @@
 
   .main-header .header-right {
     width: 100%;
-    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .notification-bell-container {
+    margin-left: auto;
   }
 
   .header-left h1 {
@@ -214,6 +218,10 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
     margin-bottom: 1.5rem;
+  }
+
+  .stats-grid .mobile-full-width {
+    grid-column: span 2;
   }
 
   /* logs-grid 모바일 1열 강제 (오버플로 방지) */
