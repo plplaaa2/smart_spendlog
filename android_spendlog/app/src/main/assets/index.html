@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=2.4.1"><!-- 캐시 무효화 버전 갱신 (모바일 플로팅 메뉴 및 반응형 개선) -->
+  <link rel="stylesheet" href="./style.css?v=2.4.4"><!-- 캐시 무효화 버전 갱신 (정규식 가이드 토글 UI 반영) -->
   <!-- Chart.js Local -->
   <script src="./chart.js?v=2.4.0"></script>
   <!-- Lucide Icons Local -->
@@ -1605,77 +1605,81 @@
           <!-- 정규식 작성 가이드 -->
           <div class="regex-guide"
             style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.08);">
-            <h4
-              style="font-size:0.9rem; color:var(--text-color); margin-bottom:0.75rem; display:flex; align-items:center; gap:0.25rem; font-weight: 600;">
-              <i data-lucide="help-circle" style="width:16px;height:16px;color:var(--text-secondary);"></i> 정규식 수동 작성
-              가이드
+            <h4 class="toggle-guide-title" onclick="toggleRegexGuide(this)"
+              style="font-size:0.9rem; color:var(--text-color); margin-bottom:0.75rem; display:flex; align-items:center; justify-content:space-between; font-weight: 600; cursor: pointer; user-select: none;">
+              <span style="display:flex; align-items:center; gap:0.25rem;">
+                <i data-lucide="help-circle" style="width:16px;height:16px;color:var(--text-secondary);"></i> 정규식 수동 작성 가이드
+              </span>
+              <i data-lucide="chevron-down" class="toggle-icon" style="width:16px;height:16px;transition: transform 0.2s; color:var(--text-secondary);"></i>
             </h4>
-            <p class="text-secondary text-xs" style="margin-bottom:0.75rem; line-height:1.4;">
-              자동 수신된 문자에서 정보를 안전하게 분석하려면 패턴 내에 아래의 <strong>그룹 이름(?&lt;이름&gt;)</strong>이 반드시 매핑되어야 합니다.
-            </p>
-            <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem;">
-              <div class="guide-item"
-                style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
-                <code style="color:#6366f1; font-weight:bold; font-size:0.8rem;">(?&lt;amount&gt;[\d,]+)</code>
-                <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>금액 추출 (필수)</strong>: 쉼표가 들어간 결제
-                  금액을 파싱합니다.</span>
+            <div class="guide-content" style="display: none;">
+              <p class="text-secondary text-xs" style="margin-bottom:0.75rem; line-height:1.4;">
+                자동 수신된 문자에서 정보를 안전하게 분석하려면 패턴 내에 아래의 <strong>그룹 이름(?&lt;이름&gt;)</strong>이 반드시 매핑되어야 합니다.
+              </p>
+              <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem;">
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#6366f1; font-weight:bold; font-size:0.8rem;">(?&lt;amount&gt;[\d,]+)</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>금액 추출 (필수)</strong>: 쉼표가 들어간 결제
+                    금액을 파싱합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#10b981; font-weight:bold; font-size:0.8rem;">(?&lt;merchant&gt;.+?)</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>사용처 추출</strong>: 가맹점명 또는 업종 정보를
+                    파싱합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code
+                    style="color:#eab308; font-weight:bold; font-size:0.8rem;">(?&lt;time&gt;\d{2}/\d{2}\s+\d{2}:\d{2})</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>일시 추출</strong>: 결제 날짜와 시간대를
+                    파싱합니다. (예: 05/22 14:30)</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#f43f5e; font-weight:bold; font-size:0.8rem;">(?&lt;account&gt;[\d*-]+)</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>계좌번호 추출 (선택)</strong>: 문자 내
+                    계좌번호를 파싱하여 가계부 메모에 기록합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#06b6d4; font-weight:bold; font-size:0.8rem;">(?&lt;balance&gt;[\d,]+)</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>잔액 추출 (선택)</strong>: 거래 후 남은
+                    잔액을 파싱하여 가계부 메모에 기록합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#a855f7; font-weight:bold; font-size:0.8rem;">(?&lt;cumulative&gt;[\d,]+)</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>누적금액 추출 (선택)</strong>: 당월 누적 사용
+                    금액을 파싱하여 가계부 메모에 기록합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#ec4899; font-weight:bold; font-size:0.8rem;">(?&lt;usedPoint&gt;[\d,]+)</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>차감 포인트 추출 (선택)</strong>: 결제 시
+                    사용/차감된 지원금 또는 카드 포인트를 파싱합니다.</span>
+                </div>
               </div>
-              <div class="guide-item"
-                style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
-                <code style="color:#10b981; font-weight:bold; font-size:0.8rem;">(?&lt;merchant&gt;.+?)</code>
-                <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>사용처 추출</strong>: 가맹점명 또는 업종 정보를
-                  파싱합니다.</span>
-              </div>
-              <div class="guide-item"
-                style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
-                <code
-                  style="color:#eab308; font-weight:bold; font-size:0.8rem;">(?&lt;time&gt;\d{2}/\d{2}\s+\d{2}:\d{2})</code>
-                <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>일시 추출</strong>: 결제 날짜와 시간대를
-                  파싱합니다. (예: 05/22 14:30)</span>
-              </div>
-              <div class="guide-item"
-                style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
-                <code style="color:#f43f5e; font-weight:bold; font-size:0.8rem;">(?&lt;account&gt;[\d*-]+)</code>
-                <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>계좌번호 추출 (선택)</strong>: 문자 내
-                  계좌번호를 파싱하여 가계부 메모에 기록합니다.</span>
-              </div>
-              <div class="guide-item"
-                style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
-                <code style="color:#06b6d4; font-weight:bold; font-size:0.8rem;">(?&lt;balance&gt;[\d,]+)</code>
-                <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>잔액 추출 (선택)</strong>: 거래 후 남은
-                  잔액을 파싱하여 가계부 메모에 기록합니다.</span>
-              </div>
-              <div class="guide-item"
-                style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
-                <code style="color:#a855f7; font-weight:bold; font-size:0.8rem;">(?&lt;cumulative&gt;[\d,]+)</code>
-                <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>누적금액 추출 (선택)</strong>: 당월 누적 사용
-                  금액을 파싱하여 가계부 메모에 기록합니다.</span>
-              </div>
-              <div class="guide-item"
-                style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
-                <code style="color:#ec4899; font-weight:bold; font-size:0.8rem;">(?&lt;used_point&gt;[\d,]+)</code>
-                <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>차감 포인트 추출 (선택)</strong>: 결제 시
-                  사용/차감된 지원금 또는 카드 포인트를 파싱합니다.</span>
-              </div>
+              <h5 style="font-size:0.8rem; color:var(--text-color); margin-bottom:0.4rem; font-weight:600;">유용한 정규식 문법 팁
+              </h5>
+              <ul class="text-secondary text-xs"
+                style="padding-left:1.2rem; line-height:1.5; display:flex; flex-direction:column; gap:0.25rem; list-style-type: disc;">
+                <li>대괄호 앞에는 백슬래시 두 개를 써서 에스케이프 해줍니다. (예: <code
+                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\[KB국민\\]</code>)
+                </li>
+                <li>임의의 텍스트 구간은 <code
+                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">.*</code>
+                  또는 <code
+                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">.*?</code>로
+                  넘깁니다.</li>
+                <li>띄어쓰기(공백)는 <code
+                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\s+</code>(1개
+                  이상) 또는 <code
+                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\s*</code>(0개
+                  이상)를 대입합니다.</li>
+              </ul>
             </div>
-            <h5 style="font-size:0.8rem; color:var(--text-color); margin-bottom:0.4rem; font-weight:600;">유용한 정규식 문법 팁
-            </h5>
-            <ul class="text-secondary text-xs"
-              style="padding-left:1.2rem; line-height:1.5; display:flex; flex-direction:column; gap:0.25rem; list-style-type: disc;">
-              <li>대괄호 앞에는 백슬래시 두 개를 써서 에스케이프 해줍니다. (예: <code
-                  style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\[KB국민\\]</code>)
-              </li>
-              <li>임의의 텍스트 구간은 <code
-                  style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">.*</code>
-                또는 <code
-                  style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">.*?</code>로
-                넘깁니다.</li>
-              <li>띄어쓰기(공백)는 <code
-                  style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\s+</code>(1개
-                이상) 또는 <code
-                  style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\s*</code>(0개
-                이상)를 대입합니다.</li>
-            </ul>
           </div>
         </div>
       </div>
@@ -1730,6 +1734,59 @@
 
           <div class="test-result-box" id="test-pass-result-container" style="display:none; margin-top:1rem; padding:1rem; border-radius:8px;">
             <!-- Result text -->
+          </div>
+
+          <!-- 패스 규칙 작성 가이드 -->
+          <div class="regex-guide"
+            style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.08);">
+            <h4 class="toggle-guide-title" onclick="toggleRegexGuide(this)"
+              style="font-size:0.9rem; color:var(--text-color); margin-bottom:0.75rem; display:flex; align-items:center; justify-content:space-between; font-weight: 600; cursor: pointer; user-select: none;">
+              <span style="display:flex; align-items:center; gap:0.25rem;">
+                <i data-lucide="help-circle" style="width:16px;height:16px;color:var(--text-secondary);"></i> 패스 규칙 작성 가이드
+              </span>
+              <i data-lucide="chevron-down" class="toggle-icon" style="width:16px;height:16px;transition: transform 0.2s; color:var(--text-secondary);"></i>
+            </h4>
+            <div class="guide-content" style="display: none;">
+              <p class="text-secondary text-xs" style="margin-bottom:0.75rem; line-height:1.4;">
+                알림 수신 시 가계부 등록을 생략하고 <strong>PASS</strong> 처리할 단어나 정규식 패턴을 지정합니다.
+              </p>
+              <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem;">
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#6366f1; font-weight:bold; font-size:0.8rem;">인증\s*번호|본인\s*확인</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>인증/보안 문자 패스</strong>: SMS 본인인증 문자를 무시합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#10b981; font-weight:bold; font-size:0.8rem;">잔액\s*부족|한도\s*초과|승인\s*거절</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>잔액부족/거절 패스</strong>: 결제 실패나 거절 문자를 제외합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#eab308; font-weight:bold; font-size:0.8rem;">\(광고\)|\[광고\]</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>광고 문자 패스</strong>: 스팸 및 광고성 메시지를 필터링합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#f43f5e; font-weight:bold; font-size:0.8rem;">체결안내|분배금\s*입금|자동매수</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>투자/체결 알림 패스</strong>: 주식 체결 및 분배금 입금 등 금융 외 알림을 패스합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#06b6d4; font-weight:bold; font-size:0.8rem;">고지서|명세서|이용요금\s*안내</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>안내/청구서 패스</strong>: 단순 카드대금 청구 안내 등을 제외합니다.</span>
+                </div>
+                <div class="guide-item"
+                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  <code style="color:#a855f7; font-weight:bold; font-size:0.8rem;">^[a-zA-Z0-9\.]+$</code>
+                  <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>패키지명 단독 패스</strong>: 내용 없이 앱 패키지명만 들어오는 알림을 필터링합니다.</span>
+                </div>
+              </div>
+              <h5 style="font-size:0.8rem; color:var(--text-color); margin-bottom:0.4rem; font-weight:600;">패스 규칙 작성 팁</h5>
+              <p class="text-secondary text-xs" style="line-height:1.4;">
+                패스 정규식은 캡처그룹 <code>(?&lt;name&gt;...)</code>이 필요하지 않으며, 특정 단어의 포함 여부만으로 간단하게 작성할 수 있습니다. 다중 조건은 파이프라인(<code>|</code>) 기호로 연결합니다.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -1821,6 +1878,20 @@
   <script src="./analytics_income.js?v=2.4.0"></script>
   <script src="./ai_report.js?v=2.4.0"></script>
   <script src="./settings.js?v=2.4.0"></script>
+  <!-- 정규식 가이드 접기/펼치기 토글 스크립트 -->
+  <script>
+    function toggleRegexGuide(header) {
+      const content = header.nextElementSibling;
+      const icon = header.querySelector('.toggle-icon');
+      if (content.style.display === 'none') {
+        content.style.display = 'block';
+        if (icon) icon.style.transform = 'rotate(180deg)';
+      } else {
+        content.style.display = 'none';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+      }
+    }
+  </script>
   <!-- PWA Service Worker Registration -->
   <script>
     if ('serviceWorker' in navigator) {
