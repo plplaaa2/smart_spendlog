@@ -5,6 +5,7 @@ tree.md
 changelog.jsonl
 caution.jsonl
 antigravity_backup_*/
+android_spendlog/
 
 # Node & Development
 node_modules/
