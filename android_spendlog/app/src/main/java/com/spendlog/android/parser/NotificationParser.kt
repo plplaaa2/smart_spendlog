@@ -125,8 +125,16 @@ object NotificationParser {
                     }
                     payMethod = payMethod.trim()
 
+                    // 앱 패키지명 기준 매핑이 있으면 최우선적으로 덮어씌움 (백엔드 webhook.js 와 일관성 일치)
+                    if (packageName.isNotEmpty()) {
+                        val mapped = db.packagePayMethodDao().getPackagePayMethodByPackage(packageName)?.pay_method
+                        if (!mapped.isNullOrEmpty()) {
+                            payMethod = mapped
+                        }
+                    }
+
                     if (payMethod == "_AUTO_MAPPING_") {
-                        payMethod = db.packagePayMethodDao().getPackagePayMethodByPackage(packageName)?.pay_method ?: "기타"
+                        payMethod = "카드"
                     }
 
                     // 결제 방식 결정 (정규식 그룹 매칭이 우선, 다음으로 규칙에 지정된 payType, 없거나 UNKNOWN 이면 텍스트로부터 판별)
