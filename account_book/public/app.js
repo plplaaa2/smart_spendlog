@@ -1267,8 +1267,16 @@ function initSidebarCollapse() {
   const toggleBtn = document.getElementById('sidebar-collapse-toggle');
   if (!toggleBtn) return;
 
-  // 로컬스토리지에서 이전 상태 복원
-  const isCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+  // 로컬스토리지에서 이전 상태 복원. 저장된 값이 없으면서 화면 너비가 1024px 이하(태블릿/모바일)인 경우 기본값 접힘(true)
+  let isCollapsed = false;
+  const storedVal = localStorage.getItem('sidebar-collapsed');
+  if (storedVal !== null) {
+    isCollapsed = storedVal === 'true';
+  } else if (window.innerWidth <= 1024) {
+    isCollapsed = true;
+    localStorage.setItem('sidebar-collapsed', 'true');
+  }
+
   if (isCollapsed) {
     document.body.classList.add('sidebar-collapsed');
   }

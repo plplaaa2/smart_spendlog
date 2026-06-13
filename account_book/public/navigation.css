@@ -372,6 +372,23 @@ body.sidebar-collapsed .sidebar-collapse-toggle svg {
   transform: rotate(180deg);
 }
 
+/* Tablet & Mobile collapse toggle button responsive overrides */
+@media (max-width: 1024px) {
+  .sidebar-collapse-toggle {
+    width: 36px;
+    height: 36px;
+    right: -18px; /* half of width */
+    top: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+  
+  .sidebar-collapse-toggle i,
+  .sidebar-collapse-toggle svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 /* 스마트폰/모바일 반응형 강제 레이아웃 초기화 가드 */
 @media (max-width: 768px) {
   .sidebar {
