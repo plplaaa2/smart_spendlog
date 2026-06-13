@@ -265,8 +265,11 @@ router.post('/parse-test', async (req, res) => {
 
     if (result) {
       const db = await getDB(req.username);
-      const matchedCategory = await findCategoryByMerchant(db, result.merchant);
-      let finalCategory = matchedCategory;
+      let finalCategory = result.category;
+      if (!finalCategory || finalCategory === '_AUTO_MAPPING_') {
+        const matchedCategory = await findCategoryByMerchant(db, result.merchant);
+        finalCategory = matchedCategory;
+      }
       if (!finalCategory) {
         const lowerMerchant = result.merchant.toLowerCase();
         const isPayCharge = lowerMerchant.includes('페이충전') || 

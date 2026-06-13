@@ -173,13 +173,44 @@ object NotificationParser {
                         paymentType = "CREDIT" // 기본값
                     }
 
-                    // 5. 카테고리(Category) 자동 매핑
+                    // 5. 메모 및 거래 유형(수입/지출) 결정
+                    val account = try { matcher.group("account") } catch (e: Exception) { null }
+                    val balance = try { matcher.group("balance") } catch (e: Exception) { null }
+                    val cumulative = try { matcher.group("cumulative") } catch (e: Exception) { null }
+                    val memoParts = mutableListOf<String>()
+                    if (account != null) memoParts.add("계좌: ${account.trim()}")
+                    if (balance != null) memoParts.add("잔액: ${balance.trim()}")
+                    if (cumulative != null) memoParts.add("누적: ${cumulative.trim()}")
+                    
+                    val matchedStatus = try { matcher.group("status") ?: matcher.group("type_text") } catch (e: Exception) { null }
+                    val txInfo = TransactionClassifier.determineTransactionType(normalizedText, matchedStatus, rule.type)
+                    val memo = txInfo.customMemo + memoParts.joinToString(" | ")
+
+                    // 6. 카테고리(Category) 자동 매핑
                     var category = rule.category
-                    if (category == "_AUTO_MAPPING_") {
-                        category = findCategoryByMerchant(db, merchant) ?: "기타"
+                    if (category.isEmpty() || category == "_AUTO_MAPPING_") {
+                        val matchedCategory = findCategoryByMerchant(db, merchant)
+                        if (!matchedCategory.isNullOrEmpty()) {
+                            category = matchedCategory
+                        } else {
+                            if (txInfo.transactionType == "INCOME") {
+                                category = "기타수입"
+                            } else {
+                                val lowerMerchant = merchant.lowercase(Locale.US)
+                                val isPayCharge = lowerMerchant.contains("페이충전") ||
+                                        lowerMerchant.contains("페이 충전") ||
+                                        lowerMerchant.contains("페이머니") ||
+                                        lowerMerchant.contains("네이버페이") ||
+                                        lowerMerchant.contains("카카오페이") ||
+                                        lowerMerchant.contains("토스페이") ||
+                                        lowerMerchant.contains("토스머니")
+                                val isPayMethod = (payMethod.contains("페이") || payMethod.contains("머니")) && !payMethod.contains("삼성페이")
+                                category = if (isPayCharge || isPayMethod) "페이류" else "기타"
+                            }
+                        }
                     }
 
-                    // 6. 사용 포인트(Used Point) 추출
+                    // 7. 사용 포인트(Used Point) 추출
                     val usedPointStr = try {
                         matcher.group("usedPoint") ?: matcher.group("used_point")
                     } catch (e: Exception) {
@@ -192,20 +223,6 @@ object NotificationParser {
                             usedPoint = pointMatch.group(1)?.replace(",", "")?.toLongOrNull() ?: 0L
                         }
                     }
-
-                    // 7. 메모 및 거래 유형(수입/지출) 결정
-                    val account = try { matcher.group("account") } catch (e: Exception) { null }
-                    val balance = try { matcher.group("balance") } catch (e: Exception) { null }
-                    val cumulative = try { matcher.group("cumulative") } catch (e: Exception) { null }
-                    val memoParts = mutableListOf<String>()
-                    if (account != null) memoParts.add("계좌: ${account.trim()}")
-                    if (balance != null) memoParts.add("잔액: ${balance.trim()}")
-                    if (cumulative != null) memoParts.add("누적: ${cumulative.trim()}")
-                    
-                    val matchedStatus = try { matcher.group("status") ?: matcher.group("type_text") } catch (e: Exception) { null }
-                    val txInfo = TransactionClassifier.determineTransactionType(normalizedText, matchedStatus, rule.type)
-
-                    val memo = txInfo.customMemo + memoParts.joinToString(" | ")
 
                     return ParsedResult(
                         amount = amount,

@@ -286,8 +286,11 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     }
 
     // 카테고리 매핑
-    const matchedCategory = await findCategoryByMerchant(db, result.merchant);
-    let finalCategory = matchedCategory;
+    let finalCategory = result.category;
+    if (!finalCategory || finalCategory === '_AUTO_MAPPING_') {
+      const matchedCategory = await findCategoryByMerchant(db, result.merchant);
+      finalCategory = matchedCategory;
+    }
     if (!finalCategory) {
       if (result.type === 'INCOME') {
         finalCategory = '기타수입';
