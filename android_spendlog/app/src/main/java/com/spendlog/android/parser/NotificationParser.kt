@@ -193,20 +193,7 @@ object NotificationParser {
                         if (!matchedCategory.isNullOrEmpty()) {
                             category = matchedCategory
                         } else {
-                            if (txInfo.transactionType == "INCOME") {
-                                category = "기타수입"
-                            } else {
-                                val lowerMerchant = merchant.lowercase(Locale.US)
-                                val isPayCharge = lowerMerchant.contains("페이충전") ||
-                                        lowerMerchant.contains("페이 충전") ||
-                                        lowerMerchant.contains("페이머니") ||
-                                        lowerMerchant.contains("네이버페이") ||
-                                        lowerMerchant.contains("카카오페이") ||
-                                        lowerMerchant.contains("토스페이") ||
-                                        lowerMerchant.contains("토스머니")
-                                val isPayMethod = (payMethod.contains("페이") || payMethod.contains("머니")) && !payMethod.contains("삼성페이")
-                                category = if (isPayCharge || isPayMethod) "페이류" else "기타"
-                            }
+                            category = if (txInfo.transactionType == "INCOME") "기타수입" else "기타"
                         }
                     }
 

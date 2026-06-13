@@ -295,16 +295,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
       if (result.type === 'INCOME') {
         finalCategory = '기타수입';
       } else {
-        const lowerMerchant = result.merchant.toLowerCase();
-        const isPayCharge = lowerMerchant.includes('페이충전') || 
-                             lowerMerchant.includes('페이 충전') || 
-                             lowerMerchant.includes('페이머니') || 
-                             lowerMerchant.includes('네이버페이') || 
-                             lowerMerchant.includes('카카오페이') || 
-                             lowerMerchant.includes('토스페이') || 
-                             lowerMerchant.includes('토스머니');
-        const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
-        finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
+        finalCategory = '기타';
       }
     }
 
