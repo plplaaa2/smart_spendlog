@@ -203,13 +203,13 @@ async function generateAiReport() {
       showToast('AI 소비 분석 리포트가 성공적으로 생성되었습니다.', 'success');
     } else {
       if (emptyView) emptyView.style.display = 'flex';
-      showToast(data.error || '리포트 생성에 실패했습니다.', 'danger');
+      alert(`[AI 리포트 생성 실패]\n\n${data.error || '리포트 생성에 실패했습니다.'}`);
     }
   } catch (err) {
     console.error('[AI 리포트 생성 오류]', err);
     if (loadingView) loadingView.style.display = 'none';
     if (emptyView) emptyView.style.display = 'flex';
-    showToast('네트워크 오류 또는 AI 서버 문제로 생성에 실패했습니다.', 'danger');
+    alert(`[AI 리포트 생성 실패 - 네트워크/서버 오류]\n\n상세 내용: ${err.message || err}`);
   }
 }
 

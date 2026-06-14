@@ -847,11 +847,14 @@ object AnalyticsApiHandler {
                 }
 
                 // 3. AI 소비 리포트 작성 호출
-                val reportResult = AiParser.generateConsumptionReportWithAI(dataText, aiConfig)
-
-                if (reportResult == null) {
+                val reportResult = try {
+                    AiParser.generateConsumptionReportWithAI(dataText, aiConfig)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    android.util.Log.e("SpendLogAPI", "AI Report Generation Exception: ${e.message}", e)
                     return ApiResponse(status = 500, body = buildJsonObject {
-                        put("error", "AI 소비 리포트를 생성하는 도중 오류가 발생했습니다. AI 설정 정보를 확인해주세요.")
+                        put("success", false)
+                        put("error", "AI 소비 리포트 생성 실패: ${e.localizedMessage ?: e.message ?: "알 수 없는 오류"}")
                     })
                 }
 

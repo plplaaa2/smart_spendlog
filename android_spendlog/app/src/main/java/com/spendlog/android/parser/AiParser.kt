@@ -40,23 +40,24 @@ object AiParser {
     ): ParsedResult? {
         if (text.isEmpty()) return null
 
-        val now = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"))
-        val pad = { n: Int -> String.format("%02d", n) }
-        val resolvedFallback = fallbackDatetime ?: buildString {
-            append(now.get(Calendar.YEAR))
-            append("-")
-            append(pad(now.get(Calendar.MONTH) + 1))
-            append("-")
-            append(pad(now.get(Calendar.DAY_OF_MONTH)))
-            append(" ")
-            append(pad(now.get(Calendar.HOUR_OF_DAY)))
-            append(":")
-            append(pad(now.get(Calendar.MINUTE)))
-            append(":")
-            append(pad(now.get(Calendar.SECOND)))
-        }
+        try {
+            val now = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"))
+            val pad = { n: Int -> String.format("%02d", n) }
+            val resolvedFallback = fallbackDatetime ?: buildString {
+                append(now.get(Calendar.YEAR))
+                append("-")
+                append(pad(now.get(Calendar.MONTH) + 1))
+                append("-")
+                append(pad(now.get(Calendar.DAY_OF_MONTH)))
+                append(" ")
+                append(pad(now.get(Calendar.HOUR_OF_DAY)))
+                append(":")
+                append(pad(now.get(Calendar.MINUTE)))
+                append(":")
+                append(pad(now.get(Calendar.SECOND)))
+            }
 
-        val prompt = """
+            val prompt = """
 You are a financial transaction SMS/notification parser.
 Analyze the following notification text and extract transaction details.
 You MUST output the result ONLY as a JSON object, without markdown formatting or code blocks.
@@ -71,33 +72,37 @@ Notification Text: "$text"
 Fallback Date: "$resolvedFallback"
 """.trimIndent()
 
-        val responseText = callAiText(config, prompt) ?: return null
-        val payload = normalizeJsonText(responseText) ?: return null
-        val result = try {
-            aiJson.parseToJsonElement(payload).jsonObject
-        } catch (_: Exception) {
+            val responseText = callAiText(config, prompt)
+            val payload = normalizeJsonText(responseText) ?: return null
+            val result = try {
+                aiJson.parseToJsonElement(payload).jsonObject
+            } catch (_: Exception) {
+                return null
+            }
+
+            val amount = result["amount"]?.jsonPrimitive?.contentOrNull?.replace(",", "")?.toLongOrNull() ?: return null
+            val merchant = result["merchant"]?.jsonPrimitive?.contentOrNull?.trim().takeUnless { it.isNullOrEmpty() } ?: "알수없음"
+            val datetime = result["datetime"]?.jsonPrimitive?.contentOrNull?.takeUnless { it.isNullOrBlank() } ?: resolvedFallback
+            val payMethod = result["pay_method"]?.jsonPrimitive?.contentOrNull?.trim().takeUnless { it.isNullOrEmpty() } ?: "카드"
+            val type = if (result["type"]?.jsonPrimitive?.contentOrNull == "INCOME") "INCOME" else "EXPENSE"
+
+            return ParsedResult(
+                amount = amount,
+                merchant = merchant,
+                datetime = datetime,
+                payMethod = payMethod,
+                payType = "CREDIT",
+                category = "_AUTO_MAPPING_",
+                type = type,
+                ruleId = null,
+                ruleName = null,
+                usedPoint = 0L,
+                memo = ""
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
             return null
         }
-
-        val amount = result["amount"]?.jsonPrimitive?.contentOrNull?.replace(",", "")?.toLongOrNull() ?: return null
-        val merchant = result["merchant"]?.jsonPrimitive?.contentOrNull?.trim().takeUnless { it.isNullOrEmpty() } ?: "알수없음"
-        val datetime = result["datetime"]?.jsonPrimitive?.contentOrNull?.takeUnless { it.isNullOrBlank() } ?: resolvedFallback
-        val payMethod = result["pay_method"]?.jsonPrimitive?.contentOrNull?.trim().takeUnless { it.isNullOrEmpty() } ?: "카드"
-        val type = if (result["type"]?.jsonPrimitive?.contentOrNull == "INCOME") "INCOME" else "EXPENSE"
-
-        return ParsedResult(
-            amount = amount,
-            merchant = merchant,
-            datetime = datetime,
-            payMethod = payMethod,
-            payType = "CREDIT",
-            category = "_AUTO_MAPPING_",
-            type = type,
-            ruleId = null,
-            ruleName = null,
-            usedPoint = 0L,
-            memo = ""
-        )
     }
 
     /**
@@ -106,7 +111,8 @@ Fallback Date: "$resolvedFallback"
     suspend fun generatePatternWithAI(text: String, config: AIConfig): String? {
         if (text.isEmpty()) return null
 
-        val prompt = """
+        try {
+            val prompt = """
 You are a regex pattern builder.
 Build a JavaScript Regular Expression (RegExp) pattern that parses the following financial SMS/push notification text.
 The regex pattern MUST extract the following values using NAMED CAPTURE GROUPS:
@@ -132,22 +138,26 @@ The JSON object MUST contain exactly one field:
 - "pattern" (string): The constructed RegExp pattern.
 """.trimIndent()
 
-        val responseText = callAiText(config, prompt) ?: return null
-        val payload = normalizeJsonText(responseText) ?: return null
-        val result = try {
-            aiJson.parseToJsonElement(payload).jsonObject
-        } catch (_: Exception) {
+            val responseText = callAiText(config, prompt)
+            val payload = normalizeJsonText(responseText) ?: return null
+            val result = try {
+                aiJson.parseToJsonElement(payload).jsonObject
+            } catch (_: Exception) {
+                return null
+            }
+
+            return result["pattern"]?.jsonPrimitive?.contentOrNull?.takeUnless { it.isNullOrBlank() }
+        } catch (e: Exception) {
+            e.printStackTrace()
             return null
         }
-
-        return result["pattern"]?.jsonPrimitive?.contentOrNull?.takeUnless { it.isNullOrBlank() }
     }
 
     /**
      * AI 모델을 사용하여 소비 리포트 생성 (한 줄 요약 & 마크다운 본문 반환)
      */
-    suspend fun generateConsumptionReportWithAI(dataText: String, config: AIConfig): Pair<String, String>? {
-        if (dataText.isEmpty()) return null
+    suspend fun generateConsumptionReportWithAI(dataText: String, config: AIConfig): Pair<String, String> {
+        if (dataText.isEmpty()) throw IllegalArgumentException("가계부 통계 데이터가 비어 있습니다.")
 
         val prompt = """
 당신은 대한민국 최고의 금융 분석가이자 개인 자산 관리 코치입니다.
@@ -178,12 +188,12 @@ $dataText
 }
 """.trimIndent()
 
-        val responseText = callAiText(config, prompt) ?: return null
-        val payload = normalizeJsonText(responseText) ?: return null
+        val responseText = callAiText(config, prompt)
+        val payload = normalizeJsonText(responseText) ?: throw IllegalStateException("AI 응답을 JSON 형식으로 변환할 수 없습니다. 응답: $responseText")
         val result = try {
             aiJson.parseToJsonElement(payload).jsonObject
-        } catch (_: Exception) {
-            return Pair("AI 소비 분석 리포트", responseText)
+        } catch (e: Exception) {
+            throw IllegalStateException("AI 응답 JSON 파싱 실패. 응답: $payload, 에러: ${e.message}")
         }
 
         val summary = result["summary"]?.jsonPrimitive?.contentOrNull?.trim() ?: "소비 분석이 완료되었습니다."
@@ -195,64 +205,62 @@ $dataText
     /**
      * LLM API 호출 헬퍼
      */
-    private suspend fun callAiText(config: AIConfig, prompt: String): String? = withContext(Dispatchers.IO) {
-        try {
-            when (config.provider.ifBlank { "gemini" }) {
-                "gemini" -> {
-                    if (config.apiKey.isBlank()) return@withContext null
-                    val body = buildString {
-                        append("{\"contents\":[{\"parts\":[{\"text\":")
-                        append(JsonPrimitive(prompt).toString())
-                        append("}]}],\"generationConfig\":{\"responseMimeType\":\"application/json\"}}")
-                    }
-                    val response = postJson(
-                        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${config.apiKey}",
-                        body
-                    )
-                    val data = aiJson.parseToJsonElement(response).jsonObject
-                    data["candidates"]?.jsonArray?.getOrNull(0)?.jsonObject
-                        ?.get("content")?.jsonObject
-                        ?.get("parts")?.jsonArray?.getOrNull(0)?.jsonObject
-                        ?.get("text")?.jsonPrimitive?.contentOrNull
+    private suspend fun callAiText(config: AIConfig, prompt: String): String = withContext(Dispatchers.IO) {
+        when (config.provider.ifBlank { "gemini" }) {
+            "gemini" -> {
+                if (config.apiKey.isBlank()) throw IllegalArgumentException("Gemini API Key가 누락되었습니다.")
+                val body = buildString {
+                    append("{\"contents\":[{\"parts\":[{\"text\":")
+                    append(JsonPrimitive(prompt).toString())
+                    append("}]}],\"generationConfig\":{\"responseMimeType\":\"application/json\"}}")
                 }
-                "openai" -> {
-                    if (config.apiKey.isBlank()) return@withContext null
-                    val body = buildString {
-                        append("{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":")
-                        append(JsonPrimitive(prompt).toString())
-                        append("}],\"response_format\":{\"type\":\"json_object\"}}")
-                    }
-                    val response = postJson(
-                        "https://api.openai.com/v1/chat/completions",
-                        body,
-                        mapOf("Authorization" to "Bearer ${config.apiKey}")
-                    )
-                    val data = aiJson.parseToJsonElement(response).jsonObject
-                    data["choices"]?.jsonArray?.getOrNull(0)?.jsonObject
-                        ?.get("message")?.jsonObject
-                        ?.get("content")?.jsonPrimitive?.contentOrNull
-                }
-                "local" -> {
-                    if (config.localIp.isBlank()) return@withContext null
-                    val model = if (config.localModel.isBlank()) "local-model" else config.localModel
-                    val body = buildString {
-                        append("{\"model\":\"")
-                        append(model)
-                        append("\",\"messages\":[{\"role\":\"user\",\"content\":")
-                        append(JsonPrimitive(prompt).toString())
-                        append("}]}")
-                    }
-                    val response = postJson("${config.localIp.trimEnd('/')}/chat/completions", body)
-                    val data = aiJson.parseToJsonElement(response).jsonObject
-                    data["choices"]?.jsonArray?.getOrNull(0)?.jsonObject
-                        ?.get("message")?.jsonObject
-                        ?.get("content")?.jsonPrimitive?.contentOrNull
-                }
-                else -> null
+                val response = postJson(
+                    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${config.apiKey}",
+                    body
+                )
+                val data = aiJson.parseToJsonElement(response).jsonObject
+                data["candidates"]?.jsonArray?.getOrNull(0)?.jsonObject
+                    ?.get("content")?.jsonObject
+                    ?.get("parts")?.jsonArray?.getOrNull(0)?.jsonObject
+                    ?.get("text")?.jsonPrimitive?.contentOrNull
+                    ?: throw IllegalStateException("Gemini API 응답에서 텍스트를 추출할 수 없습니다. 응답: $response")
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
+            "openai" -> {
+                if (config.apiKey.isBlank()) throw IllegalArgumentException("OpenAI API Key가 누락되었습니다.")
+                val body = buildString {
+                    append("{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":")
+                    append(JsonPrimitive(prompt).toString())
+                    append("}],\"response_format\":{\"type\":\"json_object\"}}")
+                }
+                val response = postJson(
+                    "https://api.openai.com/v1/chat/completions",
+                    body,
+                    mapOf("Authorization" to "Bearer ${config.apiKey}")
+                )
+                val data = aiJson.parseToJsonElement(response).jsonObject
+                data["choices"]?.jsonArray?.getOrNull(0)?.jsonObject
+                    ?.get("message")?.jsonObject
+                    ?.get("content")?.jsonPrimitive?.contentOrNull
+                    ?: throw IllegalStateException("OpenAI API 응답에서 텍스트를 추출할 수 없습니다. 응답: $response")
+            }
+            "local" -> {
+                if (config.localIp.isBlank()) throw IllegalArgumentException("로컬 API 주소(IP)가 누락되었습니다.")
+                val model = if (config.localModel.isBlank()) "local-model" else config.localModel
+                val body = buildString {
+                    append("{\"model\":\"")
+                    append(model)
+                    append("\",\"messages\":[{\"role\":\"user\",\"content\":")
+                    append(JsonPrimitive(prompt).toString())
+                    append("}]}")
+                }
+                val response = postJson("${config.localIp.trimEnd('/')}/chat/completions", body)
+                val data = aiJson.parseToJsonElement(response).jsonObject
+                data["choices"]?.jsonArray?.getOrNull(0)?.jsonObject
+                    ?.get("message")?.jsonObject
+                    ?.get("content")?.jsonPrimitive?.contentOrNull
+                    ?: throw IllegalStateException("로컬 API 응답에서 텍스트를 추출할 수 없습니다. 응답: $response")
+            }
+            else -> throw IllegalArgumentException("지원하지 않는 AI provider입니다: ${config.provider}")
         }
     }
 
