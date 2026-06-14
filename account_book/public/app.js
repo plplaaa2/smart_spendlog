@@ -55,7 +55,7 @@ async function initApp() {
   initEventListeners();
   initSidebarCollapse();
   startSidebarClock();
-  switchTab('dashboard'); // 첫 페이지 로드
+  switchTab('dashboard', true); // 첫 페이지 로드 (자동 가로 스크롤 애니메이션 스킵)
   lucide.createIcons();
 }
 
@@ -301,7 +301,7 @@ function updateHeaderTitle(mainTabId, subTabId) {
   }
 }
 
-function switchTab(tabId) {
+function switchTab(tabId, isProgrammatic = false) {
   state.currentTab = tabId;
 
   // 네비게이션 버튼 클래스 토글
@@ -317,10 +317,12 @@ function switchTab(tabId) {
   document.querySelectorAll('.mobile-nav-item').forEach(btn => {
     if (btn.dataset.tab === tabId) {
       btn.classList.add('active');
-      // 활성화된 모바일 하단 메뉴가 화면 밖에 가려진 경우 자동 가로 스크롤 포커싱
-      setTimeout(() => {
-        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }, 50);
+      // 첫 화면 로드(isProgrammatic)가 아닐 때에만 활성화 탭으로 부드럽게 가로 스크롤 포커싱
+      if (!isProgrammatic) {
+        setTimeout(() => {
+          btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }, 50);
+      }
     } else {
       btn.classList.remove('active');
     }

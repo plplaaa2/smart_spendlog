@@ -51,6 +51,7 @@
     border-radius: 24px !important;
     overflow-x: auto !important; /* 가로 스크롤 허용 */
     -webkit-overflow-scrolling: touch !important; /* 모바일 관성 스크롤 활성화 */
+    touch-action: pan-x !important; /* 모바일 WebView 전체 페이지 제스처 스와이프 간섭 방지 */
     gap: 0.25rem !important;
     pointer-events: auto !important; /* 클릭 방지 해제 */
   }
