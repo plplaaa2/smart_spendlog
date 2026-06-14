@@ -27,9 +27,10 @@
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 3rem;
-  background: linear-gradient(135deg, #fff 0%, var(--accent-color) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+}
+
+.brand-highlight {
+  color: var(--accent-color);
 }
 
 .brand-icon {
