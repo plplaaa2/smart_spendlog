@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=2.6.5"><!-- 캐시 무효화 버전 갱신 (브랜드 타이틀 텍스트 그라데이션 렌더링 버그 수정) -->
+  <link rel="stylesheet" href="./style.css?v=2.6.6"><!-- 캐시 무효화 버전 갱신 (사이드바 스타일 복원 및 시계 활성화) -->
   <!-- Chart.js Local -->
   <script src="./chart.js?v=2.3.3"></script>
   <!-- Lucide Icons Local -->
@@ -72,7 +72,7 @@
     <aside class="sidebar">
       <div class="brand">
         <i data-lucide="book-open-variant" class="brand-icon"></i>
-        <span>Smart <span class="brand-highlight">Spendlog</span></span>
+        <span>Smart Spendlog</span>
       </div>
       <nav class="nav-menu">
         <button class="nav-item active" data-tab="dashboard">
@@ -105,7 +105,7 @@
         </button>
       </nav>
       <!-- Sidebar Clock Card -->
-      <div class="sidebar-clock-card" id="sidebar_clock_card" style="display: none;">
+      <div class="sidebar-clock-card" id="sidebar_clock_card" style="display: flex;">
         <div class="clock-icon">
           <i data-lucide="clock"></i>
         </div>
@@ -2017,8 +2017,8 @@
   </div>
 
   <!-- JavaScript files -->
-  <script src="./auth.js?v=2.3.3"></script>
-  <script src="./app.js?v=2.6.3"></script>
+  <script src="./auth.js?v=2.6.6"></script>
+  <script src="./app.js?v=2.6.6"></script>
   <script src="./notifications.js?v=2.3.3"></script>
   <script src="./dashboard.js?v=2.3.3"></script>
   <script src="./transactions.js?v=2.3.3"></script>
