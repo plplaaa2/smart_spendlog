@@ -4,8 +4,8 @@
    의존성: public/index.html에서 메인 CSS 파일로 호출되며, 하위 모듈들을 상대 경로로 결합합니다.
    ========================================== */
 
-@import url("./variables.css?v=2.7.0");
-@import url("./navigation.css?v=2.7.0");
-@import url("./components.css?v=2.7.0");
-@import url("./views.css?v=2.7.0");
-@import url("./responsive.css?v=2.7.0");
+@import url("./variables.css?v=2.7.1");
+@import url("./navigation.css?v=2.7.1");
+@import url("./components.css?v=2.7.1");
+@import url("./views.css?v=2.7.1");
+@import url("./responsive.css?v=2.7.1");

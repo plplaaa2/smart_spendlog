@@ -408,7 +408,8 @@ body.sidebar-collapsed .sidebar-collapse-toggle svg {
 /* ==========================================================================
    Android Standalone Edition - Force Mobile Layout & Remove Sidebar
    ========================================================================== */
-.sidebar {
+.sidebar,
+.sidebar-collapse-toggle {
   display: none !important;
 }
 
