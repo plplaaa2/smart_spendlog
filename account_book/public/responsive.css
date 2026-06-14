@@ -37,21 +37,20 @@
     bottom: 1.25rem !important;
     left: 50% !important;
     transform: translateX(-50%) translateZ(0) !important;
-    width: fit-content !important;
-    max-width: calc(100% - 2rem) !important;
+    width: calc(100% - 1.5rem) !important; /* 모바일 양옆 여백을 약간 줄여서 가용 폭 극대화 */
+    max-width: 500px !important; /* 너무 큰 화면에서는 넓어지지 않도록 한계 지정 */
     height: 65px !important;
     background: rgba(15, 23, 42, 0.95) !important; /* 가독성을 위해 불투명도 더 증가 */
     border: 1px solid var(--glass-border) !important;
     backdrop-filter: blur(20px) !important; /* 블러 강도 증가 */
     z-index: 10000 !important; /* 더 높은 z-index */
-    justify-content: flex-start !important;
+    justify-content: space-around !important; /* 스크롤 없이 가로 폭을 균등하게 채움 */
     align-items: center !important;
-    padding: 0 1rem !important;
+    padding: 0 0.5rem !important; /* 좌우 패딩 최소화 */
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
     border-radius: 24px !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    gap: 0.25rem !important;
+    overflow: hidden !important; /* 스크롤바가 생기지 않도록 차단 */
+    gap: 0 !important; /* 아이템 간 불필요한 공백 제거 */
     pointer-events: auto !important; /* 클릭 방지 해제 */
   }
 
@@ -67,13 +66,16 @@
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 0.7rem;
+    font-size: 0.65rem; /* 글자 크기를 약간 다이어트하여 한글 겹침 방지 */
     font-weight: 500;
     gap: 4px;
-    flex: 0 0 68px;
+    flex: 1 1 0; /* 너비 균등 분배 */
+    min-width: 0;
+    max-width: 70px;
     height: 100%;
     cursor: pointer;
     transition: all 0.2s ease;
+    white-space: nowrap;
   }
 
   .mobile-nav-item i,
