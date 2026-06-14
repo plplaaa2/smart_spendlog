@@ -7,7 +7,9 @@
 /* Sidebar Styling */
 .sidebar {
   width: var(--sidebar-width);
-  background: rgba(15, 23, 42, 0.8);
+  background: 
+    radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 65%),
+    rgba(15, 23, 42, 0.8);
   border-right: 1px solid var(--glass-border);
   backdrop-filter: blur(20px);
   padding: 2rem 1.5rem;
@@ -15,6 +17,8 @@
   flex-direction: column;
   position: fixed;
   height: 100vh;
+  min-height: 100vh;
+  box-sizing: border-box;
   z-index: 100;
   transition: width var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1), padding var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -27,9 +31,6 @@
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 3rem;
-  background: linear-gradient(135deg, #fff 0%, var(--accent-color) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .brand-icon {
@@ -224,11 +225,12 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  margin: 5px 0;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 12px;
-  margin-top: auto; /* Push down to the bottom above the profile card */
+  margin: 5px 0 !important;
+  margin-top: auto !important; /* 항상 아래로 강제 밀착 */
+  margin-bottom: 1rem !important; /* 최하단 정렬 후 바닥 여백 부여 */
 }
 
 .clock-icon {
