@@ -281,6 +281,8 @@ $dataText
             connectTimeout = 20_000
             readTimeout = 30_000
             setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36")
             headers.forEach { (key, value) -> setRequestProperty(key, value) }
         }
 
@@ -293,7 +295,12 @@ $dataText
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             if (code !in 200..299) {
-                throw IllegalStateException("HTTP $code: $response")
+                val cleanResponse = if (response.contains("<!doctype", ignoreCase = true) || response.contains("<html", ignoreCase = true)) {
+                    "HTML Document (웹 서버가 요청을 처리하지 못했습니다. API 주소/포트 번호 또는 API 경로가 올바른지 확인해 주세요. 로컬 LLM 설정 시 포트 번호 예: :1234 가 누락되었을 수 있습니다.)"
+                } else {
+                    response.take(200)
+                }
+                throw IllegalStateException("HTTP $code: $cleanResponse")
             }
             return response
         } finally {
