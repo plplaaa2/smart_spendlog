@@ -300,6 +300,7 @@
   touch-action: manipulation; /* 터치 반응성 최적화 */
   -webkit-tap-highlight-color: transparent;
   padding: 8px; /* 터치 가능 영역 추가 확대 */
+  outline: none;
 }
 
 .sidebar-collapse-toggle:hover {
@@ -311,6 +312,12 @@
   transform: scale(0.85); /* 터치 시 시각 피드백 */
   background: var(--accent-color);
   opacity: 0.9;
+}
+
+.sidebar-collapse-toggle:focus,
+.sidebar-collapse-toggle:focus-visible {
+  outline: none !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
 }
 
 .sidebar-collapse-toggle i,
