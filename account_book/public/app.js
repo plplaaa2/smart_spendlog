@@ -1351,3 +1351,54 @@ function startSidebarClock() {
   updateClock();
   setInterval(updateClock, 1000);
 }
+
+/**
+ * @summary 전역 토스트 알림 메시지 헬퍼 함수
+ * @param {string} message 표시할 텍스트
+ * @param {string} type 알림 타입 ('success', 'danger', 'warning', 'info')
+ * @description index.html의 #toast-container에 커스텀 토스트 알림을 동적으로 생성 및 표시합니다.
+ * @dependencies
+ *   - index.html (#toast-container)
+ *   - components.css (.toast, .toast-icon 등)
+ *   - ai_report.js (showToast 호출)
+ */
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  
+  let iconName = 'info';
+  if (type === 'success') iconName = 'check-circle';
+  else if (type === 'danger') iconName = 'alert-triangle';
+  else if (type === 'warning') iconName = 'alert-circle';
+
+  toast.innerHTML = `
+    <div class="toast-icon ${type}">
+      <i data-lucide="${iconName}"></i>
+    </div>
+    <div class="toast-body">
+      <div class="toast-desc">${message}</div>
+    </div>
+  `;
+
+  container.appendChild(toast);
+  
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+
+  // 클릭 시 즉시 제거
+  toast.addEventListener('click', () => {
+    toast.remove();
+  });
+
+  // 3초 후 페이드아웃 애니메이션과 함께 제거
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    toast.addEventListener('animationend', () => {
+      toast.remove();
+    });
+  }, 3000);
+}
