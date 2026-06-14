@@ -272,13 +272,18 @@
   line-height: 1.2;
 }
 
-/* Sidebar collapse toggle button styling */
+/* Sidebar collapse toggle button styling
+   요약: 사이드바 외부에 독립 배치된 접기/펼치기 버튼입니다.
+   주의: backdrop-filter가 적용된 .sidebar 내부에 absolute로 배치하면 Android WebView에서
+         CSS containment로 인해 터치 이벤트가 전달되지 않으므로 반드시 외부 fixed로 유지해야 합니다.
+   의존성: index.html의 #sidebar-collapse-toggle, app.js의 initSidebarCollapse() */
+/* 의존성: public/index.html의 #sidebar-collapse-toggle, android_spendlog/app/src/main/assets/navigation.css */
 .sidebar-collapse-toggle {
-  position: absolute;
-  right: -12px;
-  top: 24px;
-  width: 24px;
-  height: 24px;
+  position: fixed;
+  left: calc(var(--sidebar-width) - 18px); /* 사이드바 우측 경계에 버튼 중심 배치 */
+  top: 20px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: var(--bg-secondary);
   border: 1px solid var(--glass-border);
@@ -287,21 +292,31 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  z-index: 110;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 99999 !important; /* 항상 최상위에 위치하도록 z-index 극대화 */
+  pointer-events: auto !important; /* 터치 이벤트 명시적 강제 활성화 */
+  transition: left var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1),
+              background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  touch-action: manipulation; /* 터치 반응성 최적화 */
+  -webkit-tap-highlight-color: transparent;
+  padding: 8px; /* 터치 가능 영역 추가 확대 */
 }
 
 .sidebar-collapse-toggle:hover {
   background: var(--accent-color);
   border-color: var(--accent-color);
-  transform: scale(1.1);
+}
+
+.sidebar-collapse-toggle:active {
+  transform: scale(0.85); /* 터치 시 시각 피드백 */
+  background: var(--accent-color);
+  opacity: 0.9;
 }
 
 .sidebar-collapse-toggle i,
 .sidebar-collapse-toggle svg {
-  width: 14px;
-  height: 14px;
+  width: 20px;
+  height: 20px;
   transition: transform var(--transition-speed) ease;
 }
 
@@ -313,6 +328,12 @@ body.sidebar-collapsed .sidebar {
 
 body.sidebar-collapsed .main-content {
   margin-left: var(--sidebar-width-collapsed);
+}
+
+/* 접힌 상태의 토글 버튼 위치 전환 */
+/* 의존성: android_spendlog/app/src/main/assets/navigation.css */
+body.sidebar-collapsed .sidebar-collapse-toggle {
+  left: calc(var(--sidebar-width-collapsed) - 18px); /* 72px - 18px = 54px */
 }
 
 body.sidebar-collapsed .brand {
@@ -372,26 +393,15 @@ body.sidebar-collapsed .sidebar-collapse-toggle svg {
   transform: rotate(180deg);
 }
 
-/* Tablet & Mobile collapse toggle button responsive overrides */
-@media (max-width: 1024px) {
-  .sidebar-collapse-toggle {
-    width: 36px;
-    height: 36px;
-    right: -18px; /* half of width */
-    top: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  }
-  
-  .sidebar-collapse-toggle i,
-  .sidebar-collapse-toggle svg {
-    width: 20px;
-    height: 20px;
-  }
-}
+/* Tablet & Mobile collapse toggle button responsive overrides - 기본 스타일로 통합됨 */
 
 /* 스마트폰/모바일 반응형 강제 레이아웃 초기화 가드 */
 @media (max-width: 768px) {
   .sidebar {
+    display: none !important;
+  }
+  /* 사이드바 외부에 독립 배치된 토글 버튼도 모바일에서는 숨김 */
+  .sidebar-collapse-toggle {
     display: none !important;
   }
   .main-content {

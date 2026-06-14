@@ -32,6 +32,8 @@ let incomeMonthlyTrendChartInstance = null;
 let incomeCategoryChartInstance = null;
 
 // 초기화
+let isAppInitialized = false;
+
 document.addEventListener('DOMContentLoaded', async () => {
   if (!checkLogin()) {
     // Lucide 아이콘 로드 (로그인 화면용)
@@ -42,6 +44,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function initApp() {
+  if (isAppInitialized) {
+    console.log("[SpendLog] initApp()이 이미 실행되었습니다. 중복 실행을 무시합니다.");
+    return;
+  }
+  isAppInitialized = true;
+
   initMonth();
   await loadMetadata();
   initEventListeners();
@@ -1264,32 +1272,58 @@ function closePackageMappingModal() {
 
 // 사이드바 접기/펼치기 제어
 function initSidebarCollapse() {
+  console.log("[SpendLog] initSidebarCollapse 실행 시작");
   const toggleBtn = document.getElementById('sidebar-collapse-toggle');
-  if (!toggleBtn) return;
+  if (!toggleBtn) {
+    console.error("[SpendLog] 오류: sidebar-collapse-toggle 버튼 엘리먼트를 찾을 수 없습니다.");
+    return;
+  }
+  console.log("[SpendLog] sidebar-collapse-toggle 버튼을 찾았습니다.");
 
   // 로컬스토리지에서 이전 상태 복원. 저장된 값이 없으면서 화면 너비가 1024px 이하(태블릿/모바일)인 경우 기본값 접힘(true)
   let isCollapsed = false;
   const storedVal = localStorage.getItem('sidebar-collapsed');
   if (storedVal !== null) {
     isCollapsed = storedVal === 'true';
+    console.log("[SpendLog] 로컬스토리지 복원 collapsed 값:", isCollapsed);
   } else if (window.innerWidth <= 1024) {
     isCollapsed = true;
     localStorage.setItem('sidebar-collapsed', 'true');
+    console.log("[SpendLog] 기본 1024px 이하에 의한 collapsed 기본값 설정: true");
   }
 
   if (isCollapsed) {
     document.body.classList.add('sidebar-collapsed');
   }
 
-  toggleBtn.addEventListener('click', () => {
+  let lastToggleTime = 0;
+  const handleToggle = (e) => {
+    const now = Date.now();
+    // 400ms 이내 연속 클릭/터치는 노이즈로 간주하고 차단
+    if (now - lastToggleTime < 400) {
+      console.log(`[SpendLog] 토글 이벤트 무시 (더블 탭 방지) - 간격: ${now - lastToggleTime}ms`);
+      e.preventDefault();
+      return;
+    }
+    lastToggleTime = now;
+
+    e.preventDefault();
+    console.log(`[SpendLog] 토글 이벤트 트리거됨 - 타입: ${e.type}`);
     const collapsed = document.body.classList.toggle('sidebar-collapsed');
     localStorage.setItem('sidebar-collapsed', collapsed);
+    console.log("[SpendLog] 토글 완료, 현재 collapsed 상태:", collapsed);
     
     // 차트 크기가 변하므로 리사이즈 이벤트 강제 트리거
     setTimeout(() => {
       window.dispatchEvent(new Event('resize'));
+      console.log("[SpendLog] 리사이즈 이벤트 디스패치 완료");
     }, 300); // CSS 트랜지션 완료 후 실행
-  });
+  };
+
+  // 모바일 터치 반응성 확보 및 웹뷰 터치 무시 방지
+  toggleBtn.addEventListener('click', handleToggle);
+  toggleBtn.addEventListener('touchend', handleToggle);
+  console.log("[SpendLog] click 및 touchend 이벤트 핸들러 바인딩 완료");
 }
 
 // 실시간 사이드바 날짜/시간 업데이트

@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=2.5.2"><!-- 캐시 무효화 버전 갱신 (태블릿 사이드바 및 토글 터치 영역 개선) -->
+  <link rel="stylesheet" href="./style.css?v=2.6.1"><!-- 캐시 무효화 버전 갱신 (사이드바 토글 버튼 고정 크기 및 미디어 쿼리 최적화) -->
   <!-- Chart.js Local -->
   <script src="./chart.js?v=2.3.3"></script>
   <!-- Lucide Icons Local -->
@@ -132,9 +132,6 @@
         <span class="status-text">HA 연동 활성화</span>
       </div>
       <!-- Collapse toggle button -->
-      <button class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" title="사이드바 접기/펼치기">
-        <i data-lucide="chevron-left"></i>
-      </button>
     </aside>
 
     <!-- Main Content Area -->
@@ -2014,9 +2011,14 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
+  <!-- 사이드바 접기/펼치기 토글 버튼 (사이드바 외부 독립 배치 - WebView backdrop-filter containment 회피) -->
+  <button class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" title="사이드바 접기/펼치기">
+    <i data-lucide="chevron-left"></i>
+  </button>
+
   <!-- JavaScript files -->
   <script src="./auth.js?v=2.3.3"></script>
-  <script src="./app.js?v=2.5.2"></script>
+  <script src="./app.js?v=2.6.1"></script>
   <script src="./notifications.js?v=2.3.3"></script>
   <script src="./dashboard.js?v=2.3.3"></script>
   <script src="./transactions.js?v=2.3.3"></script>
