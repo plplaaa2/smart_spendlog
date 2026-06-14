@@ -44,14 +44,13 @@
     border: 1px solid var(--glass-border) !important;
     backdrop-filter: blur(20px) !important; /* 블러 강도 증가 */
     z-index: 10000 !important; /* 더 높은 z-index */
-    justify-content: flex-start !important; /* 가로 스크롤을 위해 왼쪽 정렬 */
+    justify-content: flex-start !important;
     align-items: center !important;
     padding: 0 1rem !important;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
     border-radius: 24px !important;
-    overflow-x: auto !important; /* 가로 스크롤 허용 */
-    -webkit-overflow-scrolling: touch !important; /* 모바일 관성 스크롤 활성화 */
-    touch-action: pan-x !important; /* 모바일 WebView 전체 페이지 제스처 스와이프 간섭 방지 */
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
     gap: 0.25rem !important;
     pointer-events: auto !important; /* 클릭 방지 해제 */
   }
@@ -71,8 +70,7 @@
     font-size: 0.7rem;
     font-weight: 500;
     gap: 4px;
-    flex: 0 0 72px !important; /* 한 화면에 4~5개 노출되도록 고정폭 확보 */
-    flex-shrink: 0 !important; /* 브라우저의 강제 축소 방지 */
+    flex: 0 0 68px;
     height: 100%;
     cursor: pointer;
     transition: all 0.2s ease;
