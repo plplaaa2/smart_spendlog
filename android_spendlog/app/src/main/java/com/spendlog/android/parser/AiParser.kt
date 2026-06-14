@@ -20,6 +20,13 @@ data class AIConfig(
     val localModel: String
 )
 
+data class AIPatternResult(
+    val pattern: String,
+    val payMethod: String,
+    val payType: String,
+    val type: String
+)
+
 /**
  * [AiParser.kt]
  * - 요약: Google Gemini, OpenAI, 또는 로컬 LLM을 연동하여 정규식 분류에 실패한 알림 메시지를 자율적으로 폴백 파싱하고, 규칙이 매칭되지 않는 텍스트에 대한 맞춤형 정규식 패턴을 생성해주는 모듈입니다.
@@ -66,6 +73,7 @@ The JSON object MUST contain the following fields:
 - "merchant" (string): The merchant, sender, or receiver name. Keep it clean.
 - "datetime" (string): Format: "YYYY-MM-DD HH:mm:ss". Use the transaction time from the text. If the year is not mentioned, use the current year from fallback date: $resolvedFallback. If no date/time is mentioned, use fallback date: $resolvedFallback.
 - "pay_method" (string): The payment method name.
+- "pay_type" (string): The payment type. Must be one of "CREDIT" (credit card/default), "CHECK" (check card/debit), "TRANSFER" (bank transfer/wire), or "CASH" (cash).
 - "type" (string): "EXPENSE" for spending/outflow, "INCOME" for deposit/inflow.
 
 Notification Text: "$text"
@@ -86,12 +94,29 @@ Fallback Date: "$resolvedFallback"
             val payMethod = result["pay_method"]?.jsonPrimitive?.contentOrNull?.trim().takeUnless { it.isNullOrEmpty() } ?: "카드"
             val type = if (result["type"]?.jsonPrimitive?.contentOrNull == "INCOME") "INCOME" else "EXPENSE"
 
+            val aiPayType = result["pay_type"]?.jsonPrimitive?.contentOrNull?.trim() ?: ""
+            var payType = when {
+                aiPayType.contains("체크") || aiPayType.equals("CHECK", ignoreCase = true) -> "CHECK"
+                aiPayType.contains("이체") || aiPayType.contains("송금") || aiPayType.equals("TRANSFER", ignoreCase = true) -> "TRANSFER"
+                aiPayType.contains("현금") || aiPayType.equals("CASH", ignoreCase = true) -> "CASH"
+                aiPayType.contains("신용") || aiPayType.contains("일시불") || aiPayType.contains("할부") || aiPayType.equals("CREDIT", ignoreCase = true) -> "CREDIT"
+                else -> ""
+            }
+
+            if (payType.isEmpty()) {
+                val detectedType = PaymentResolver.parsePaymentType(text, payMethod)
+                payType = if (detectedType == "BANK_TRANSFER") "TRANSFER" else detectedType
+            }
+            if (payType.isEmpty() || payType == "UNKNOWN") {
+                payType = "CREDIT"
+            }
+
             return ParsedResult(
                 amount = amount,
                 merchant = merchant,
                 datetime = datetime,
                 payMethod = payMethod,
-                payType = "CREDIT",
+                payType = payType,
                 category = "_AUTO_MAPPING_",
                 type = type,
                 ruleId = null,
@@ -108,7 +133,7 @@ Fallback Date: "$resolvedFallback"
     /**
      * AI 모델을 통해 알림 원문에 대응되는 정규식 패턴 생성 추천
      */
-    suspend fun generatePatternWithAI(text: String, config: AIConfig): String? {
+    suspend fun generatePatternWithAI(text: String, config: AIConfig): AIPatternResult? {
         if (text.isEmpty()) return null
 
         try {
@@ -134,8 +159,11 @@ The pattern MUST match the entire text or its major part. Escape bracket charact
 Notification Text: "$text"
 
 You MUST output the result ONLY as a JSON object, without markdown formatting or code blocks.
-The JSON object MUST contain exactly one field:
+The JSON object MUST contain the following fields:
 - "pattern" (string): The constructed RegExp pattern.
+- "pay_method" (string): The extracted payment method name (e.g. "신한카드", "국민은행"). Use "카드" as default.
+- "pay_type" (string): The payment type. Must be one of "CREDIT", "CHECK", "TRANSFER", "CASH". Use "CREDIT" as default.
+- "type" (string): "EXPENSE" or "INCOME".
 """.trimIndent()
 
             val responseText = callAiText(config, prompt)
@@ -146,7 +174,24 @@ The JSON object MUST contain exactly one field:
                 return null
             }
 
-            return result["pattern"]?.jsonPrimitive?.contentOrNull?.takeUnless { it.isNullOrBlank() }
+            val pattern = result["pattern"]?.jsonPrimitive?.contentOrNull?.takeUnless { it.isNullOrBlank() } ?: return null
+            val payMethod = result["pay_method"]?.jsonPrimitive?.contentOrNull?.trim() ?: "카드"
+            val rawPayType = result["pay_type"]?.jsonPrimitive?.contentOrNull?.trim() ?: "CREDIT"
+            val payType = when {
+                rawPayType.contains("체크") || rawPayType.equals("CHECK", ignoreCase = true) -> "CHECK"
+                rawPayType.contains("이체") || rawPayType.contains("송금") || rawPayType.equals("TRANSFER", ignoreCase = true) -> "TRANSFER"
+                rawPayType.contains("현금") || rawPayType.equals("CASH", ignoreCase = true) -> "CASH"
+                rawPayType.contains("신용") || rawPayType.contains("일시불") || rawPayType.contains("할부") || rawPayType.equals("CREDIT", ignoreCase = true) -> "CREDIT"
+                else -> "CREDIT"
+            }
+            val type = if (result["type"]?.jsonPrimitive?.contentOrNull == "INCOME") "INCOME" else "EXPENSE"
+
+            return AIPatternResult(
+                pattern = pattern,
+                payMethod = payMethod,
+                payType = payType,
+                type = type
+            )
         } catch (e: Exception) {
             e.printStackTrace()
             return null

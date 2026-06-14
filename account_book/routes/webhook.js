@@ -11,7 +11,7 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors, sendHANotification, createInAppNotification } = require('../database');
-const { parseNotification, generatePatternFromText, parseNotificationWithAI, generatePatternWithAI } = require('../parser');
+const { parseNotification, generatePatternFromText, parseNotificationWithAI, generatePatternWithAI, sanitizePattern } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
@@ -85,7 +85,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
   let matchedPassRuleId = null;
   for (const pRule of passRules) {
     try {
-      const pRegex = new RegExp(pRule.pattern);
+      const pRegex = new RegExp(sanitizePattern(pRule.pattern));
       if (pRegex.test(rawText)) {
         isPassed = true;
         matchedPassRuleId = pRule.id;
@@ -149,21 +149,23 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         // AI 피드백 루프: 성공한 경우 정규식을 자동으로 생성하여 DB 규칙으로 등록 (캐싱)
         try {
           console.log(`[웹훅][${targetUser}] AI 파싱 성공. 정규식 캐싱 등록 시도...`);
-          const generatedPattern = await generatePatternWithAI(rawText, {
+          const aiPatternResult = await generatePatternWithAI(rawText, {
             provider,
             apiKey,
             localIp,
             localModel
           });
+          const generatedPattern = aiPatternResult ? aiPatternResult.pattern : null;
           
           if (generatedPattern) {
             let isPatternValid = false;
             try {
-              new RegExp(generatedPattern, 'ds');
-              if (generatedPattern.includes('(?<amount>') && generatedPattern.includes('(?<merchant>')) {
+              const sanitized = sanitizePattern(generatedPattern);
+              new RegExp(sanitized, 'ds');
+              if (sanitized.includes('(?<amount>') && (sanitized.includes('(?<merchant>') || sanitized.includes('(?<usage>'))) {
                 isPatternValid = true;
               } else {
-                console.warn(`[웹훅][${targetUser}] AI 생성 정규식에 필수 그룹(?<amount> 또는 (?<merchant>)이 누락되어 캐싱을 제외합니다: "${generatedPattern}"`);
+                console.warn(`[웹훅][${targetUser}] AI 생성 정규식에 필수 그룹(?<amount> 또는 (?<merchant>)이 누락되어 캐싱을 제외합니다: "${sanitized}"`);
               }
             } catch (regErr) {
               console.warn(`[웹훅][${targetUser}] AI 생성 정규식이 올바르지 않은 문법입니다:`, regErr.message);

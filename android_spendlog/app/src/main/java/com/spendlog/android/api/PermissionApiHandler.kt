@@ -33,6 +33,13 @@ object PermissionApiHandler {
                     val packageName = context.packageName
                     val flat = android.provider.Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
                     val isGranted = flat?.contains(packageName) == true
+                    if (isGranted) {
+                        // [알림 리스너 강제 활성화]
+                        // - 요약: 권한 확인 시 리스너 서비스의 유실된 OS 바인딩을 강제로 복구합니다.
+                        // - 연결된 파일 목록:
+                        //   - MainActivity.kt (rebindListenerService 호출)
+                        MainActivity.rebindListenerService(context)
+                    }
                     ApiResponse(body = buildJsonObject { put("granted", isGranted) })
                 }
             }

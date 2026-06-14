@@ -1,5 +1,6 @@
 package com.spendlog.android
 
+import android.content.Context
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.webkit.*
@@ -76,6 +77,62 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+
+        /**
+         * [알림 리스너 서비스 재바인딩]
+         * - 요약: OS에 의해 연결이 끊긴 SpendLogListenerService를 강제로 다시 바인딩하여 활성화합니다.
+         * - 연결된 파일 목록:
+         *   - SpendLogListenerService.kt (대상 서비스)
+         *   - PermissionApiHandler.kt (권한 활성화 시 강제 호출용)
+         */
+        fun rebindListenerService(context: Context) {
+            val packageName = context.packageName
+            val flat = android.provider.Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
+            val isGranted = flat?.contains(packageName) == true
+
+            if (!isGranted) {
+                android.util.Log.d("SpendLogListener", "Cannot rebind: permission not granted")
+                return
+            }
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                try {
+                    val componentName = android.content.ComponentName(context, com.spendlog.android.service.SpendLogListenerService::class.java)
+                    android.service.notification.NotificationListenerService.requestRebind(componentName)
+                    android.util.Log.d("SpendLogListener", "Called NotificationListenerService.requestRebind")
+                } catch (e: Exception) {
+                    android.util.Log.e("SpendLogListener", "Failed requestRebind, trying fallback component toggle", e)
+                    toggleComponent(context)
+                }
+            } else {
+                toggleComponent(context)
+            }
+        }
+
+        private fun toggleComponent(context: Context) {
+            try {
+                val pm = context.packageManager
+                val componentName = android.content.ComponentName(context, com.spendlog.android.service.SpendLogListenerService::class.java)
+                pm.setComponentEnabledSetting(
+                    componentName,
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    android.content.pm.PackageManager.DONT_KILL_APP
+                )
+                pm.setComponentEnabledSetting(
+                    componentName,
+                    android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    android.content.pm.PackageManager.DONT_KILL_APP
+                )
+                android.util.Log.d("SpendLogListener", "Component toggled to force rebind listener service")
+            } catch (e: Exception) {
+                android.util.Log.e("SpendLogListener", "Failed component toggle", e)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        rebindListenerService(applicationContext)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

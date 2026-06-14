@@ -182,11 +182,11 @@ async function generateAiReport() {
     loadingView.style.display = 'flex';
     document.getElementById('ai-report-loading-text').innerHTML = 
       `가계부 데이터를 수집하여 AI 분석 모델에 전달 중입니다.<br>
-       소비 패턴을 꼼꼼하게 분석하느라 <strong>약 10~30초</strong> 정도 소요될 수 있습니다.`;
+       소비 패턴을 꼼꼼하게 분석하느라 <strong>약 30초 ~ 2분</strong> 정도 소요될 수 있습니다.`;
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초 명시적 타임아웃 제한
+  const timeoutId = setTimeout(() => controller.abort(), 180000); // 180초 명시적 타임아웃 제한 (HTML 시각화 생성 고려)
 
   if (btnGenerate) {
     btnGenerate.disabled = true;
@@ -291,11 +291,8 @@ function renderAiReportData(report, year, month) {
 function parseMarkdownToHtml(markdown) {
   if (!markdown) return '<p class="text-secondary">작성된 분석 본문이 비어있습니다.</p>';
 
-  // HTML XSS 방지
-  let html = markdown
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  // HTML 태그 및 그래프 렌더링을 허용하기 위해 이스케이프 완화
+  let html = markdown;
 
   // 1. Bold 파싱: **text**
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -343,7 +340,10 @@ function parseMarkdownToHtml(markdown) {
         insideList = false;
       }
 
-      if (line.startsWith('<h') || line.startsWith('<div')) {
+      // HTML 태그 시작(<로 시작)을 감지하여 <p>로 래핑하지 않도록 가드 처리
+      const isHtml = /^\s*</.test(line);
+
+      if (line.startsWith('<h') || isHtml) {
         result.push(line);
       } else {
         result.push(`<p style="margin-bottom: 0.75rem; line-height: 1.65; color: rgba(255, 255, 255, 0.85);">${line}</p>`);

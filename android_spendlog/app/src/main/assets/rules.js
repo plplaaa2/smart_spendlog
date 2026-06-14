@@ -1018,10 +1018,62 @@ async function aiGeneratePattern() {
       if (patternInput) patternInput.value = res.pattern;
       if (rulePatternInput) rulePatternInput.value = res.pattern;
 
+      // AI가 추출한 결제정보 동기화 (결제수단, 결제타입, 지출/수입 구분)
+      if (res.pay_method) {
+        const payMethodSelect = document.getElementById('rule-pay-method');
+        if (payMethodSelect) {
+          let hasOption = Array.from(payMethodSelect.options).some(opt => opt.value === res.pay_method);
+          if (!hasOption && res.pay_method !== '_AUTO_MAPPING_') {
+            const opt = document.createElement('option');
+            opt.value = res.pay_method;
+            opt.text = res.pay_method;
+            payMethodSelect.add(opt);
+          }
+          payMethodSelect.value = res.pay_method;
+        }
+      }
+
+      if (res.pay_type) {
+        const payTypeSelect = document.getElementById('rule-pay-type');
+        if (payTypeSelect) {
+          payTypeSelect.value = res.pay_type;
+        }
+      }
+
+      if (res.type) {
+        const typeSelect = document.getElementById('rule-type');
+        if (typeSelect) {
+          typeSelect.value = res.type;
+          if (typeof updateCategorySelect === 'function') {
+            updateCategorySelect('#rule-category', res.type, '');
+          }
+        }
+      }
+
       // 규칙 이름 자동 추천
       const ruleNameEl = document.getElementById('rule-name');
-      if (ruleNameEl && !ruleNameEl.value) {
-        ruleNameEl.value = 'AI 생성 규칙';
+      if (ruleNameEl && (!ruleNameEl.value || ruleNameEl.value === 'AI 생성 규칙')) {
+        let tempMerchant = 'AI';
+        try {
+          const match = new RegExp(res.pattern).exec(text);
+          if (match && match.groups && (match.groups.merchant || match.groups.usage)) {
+            tempMerchant = match.groups.merchant || match.groups.usage;
+          }
+        } catch (e) {
+          console.warn('Regex exec failed for name recommendation:', e);
+        }
+        
+        let suffix = '지출';
+        if (res.type === 'INCOME') {
+          suffix = '수입';
+        } else {
+          if (res.pay_type === 'CHECK' || text.includes('체크')) {
+            suffix = '체크';
+          } else if (res.pay_type === 'CREDIT' || text.includes('신용') || text.includes('카드')) {
+            suffix = '신용';
+          }
+        }
+        ruleNameEl.value = `${tempMerchant.trim()} ${suffix} (AI)`;
       }
 
       // 규칙 생성 카드창이 안 열려있으면 강제로 활성화
@@ -1029,6 +1081,30 @@ async function aiGeneratePattern() {
       if (formCard && formCard.style.display === 'none') {
         loadRuleToEditor(null);
         if (patternInput) rulePatternInput.value = patternInput.value;
+        if (res.pay_method) {
+          const pmSel = document.getElementById('rule-pay-method');
+          if (pmSel) {
+            let hasOpt = Array.from(pmSel.options).some(o => o.value === res.pay_method);
+            if (!hasOpt && res.pay_method !== '_AUTO_MAPPING_') {
+              const opt = document.createElement('option');
+              opt.value = res.pay_method; opt.text = res.pay_method; pmSel.add(opt);
+            }
+            pmSel.value = res.pay_method;
+          }
+        }
+        if (res.pay_type) {
+          const ptSel = document.getElementById('rule-pay-type');
+          if (ptSel) ptSel.value = res.pay_type;
+        }
+        if (res.type) {
+          const tSel = document.getElementById('rule-type');
+          if (tSel) {
+            tSel.value = res.type;
+            if (typeof updateCategorySelect === 'function') {
+              updateCategorySelect('#rule-category', res.type, '');
+            }
+          }
+        }
       }
 
       alert('AI가 알림 내용을 완벽히 파싱할 수 있는 정규식 패턴을 생성했습니다! 바로 [테스트 실행]을 클릭해 정상 작동하는지 검증해 보세요.');

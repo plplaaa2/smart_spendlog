@@ -1,3 +1,5 @@
+const { parsePaymentType } = require('./payment_resolver');
+
 async function parseNotificationWithAI(text, config, fallbackDatetime = null) {
   if (!text || !config) return null;
 
@@ -15,6 +17,7 @@ The JSON object MUST contain the following fields:
 - "merchant" (string): The merchant, sender, or receiver name. Keep it clean (e.g. extract "이마트" from "이마트 신도림점").
 - "datetime" (string): Format: "YYYY-MM-DD HH:mm:ss". Use the transaction time from the text. If the year is not mentioned, use the current year from fallback date: ${resolvedFallback}. If no date/time is mentioned, use fallback date: ${resolvedFallback}.
 - "pay_method" (string): The payment method name (e.g., "KB국민체크", "신한카드", "토스", "농협" etc.).
+- "pay_type" (string): The payment type. Must be one of "CREDIT" (credit card/default), "CHECK" (check card/debit), "TRANSFER" (bank transfer/wire), or "CASH" (cash).
 - "type" (string): "EXPENSE" for spending/outflow, "INCOME" for deposit/inflow.
 
 Notification Text: "${cleanText}"
@@ -26,6 +29,7 @@ Example Output:
   "merchant": "스타벅스",
   "datetime": "2026-06-02 14:30:00",
   "pay_method": "신한카드",
+  "pay_type": "CHECK",
   "type": "EXPENSE"
 }
 `;
@@ -169,11 +173,31 @@ Example Output:
       return null;
     }
 
+    let aiPayType = result.pay_type || '';
+    let paymentType = '';
+    if (aiPayType) {
+      const cleanPt = aiPayType.trim();
+      if (/체크/.test(cleanPt) || /CHECK/i.test(cleanPt)) paymentType = 'CHECK';
+      else if (/이체|송금/.test(cleanPt) || /TRANSFER/i.test(cleanPt)) paymentType = 'TRANSFER';
+      else if (/현금/.test(cleanPt) || /CASH/i.test(cleanPt)) paymentType = 'CASH';
+      else if (/신용|일시불|할부/.test(cleanPt) || /CREDIT/i.test(cleanPt)) paymentType = 'CREDIT';
+    }
+    if (!paymentType || paymentType === 'UNKNOWN') {
+      paymentType = parsePaymentType(cleanText, result.pay_method);
+      if (paymentType === 'BANK_TRANSFER') {
+        paymentType = 'TRANSFER';
+      }
+    }
+    if (!paymentType || paymentType === 'UNKNOWN') {
+      paymentType = 'CREDIT';
+    }
+
     return {
       amount: parseInt(result.amount, 10),
       merchant: (result.merchant || '알수없음').trim(),
       datetime: result.datetime || resolvedFallback,
       pay_method: (result.pay_method || '카드').trim(),
+      payment_type: paymentType,
       type: result.type === 'INCOME' ? 'INCOME' : 'EXPENSE'
     };
 
@@ -201,6 +225,9 @@ The regex pattern MUST extract the following values using NAMED CAPTURE GROUPS:
 - "payMethod" (e.g. (?<payMethod>[^\\s/]+)): Extracts payment method/source such as bank or card brand name (optional).
 - "payType" (e.g. (?<payType>[^\\s/]+)): Extracts payment type such as credit, checking, transfer, or cash (optional).
 
+CRITICAL RULE FOR NAMED CAPTURE GROUPS:
+Named capture group names MUST NOT contain underscores ('_'). They must use strictly camelCase or simple letters (e.g. use 'merchantName' instead of 'merchant_name', 'payMethod' instead of 'pay_method'). Underscores in group names cause regex syntax errors in Android mobile environment.
+
 CRITICAL RULE FOR NEWLINES/SPACES:
 DO NOT use raw newlines (\\n or \\r\\n) in the pattern. Instead, use \\\\s+ or \\\\s* to match line breaks and whitespaces to make the pattern platform-independent.
 
@@ -213,14 +240,19 @@ Notice that double backslashes should be used since it will be parsed as JSON.
 Notification Text: "${cleanText}"
 
 You MUST output the result ONLY as a JSON object, without markdown formatting or code blocks.
-The JSON object MUST contain exactly one field:
+The JSON object MUST contain the following fields:
 - "pattern" (string): The constructed RegExp pattern.
+- "pay_method" (string): The extracted payment method name (e.g. "신한카드", "국민은행"). Use "카드" as default.
+- "pay_type" (string): The payment type. Must be one of "CREDIT", "CHECK", "TRANSFER", "CASH". Use "CREDIT" as default.
+- "type" (string): "EXPENSE" or "INCOME".
 
 Example Output:
 {
-  "pattern": "\\\\[KB국민체크\\\\]\\\\s*(?<time>\\\\d{2}/\\\\d{2}\\\\s+\\\\d{2}:\\\\d{2})\\\\s+(?<amount>[\\\\d,]+)원\\\\s+(?<merchant>.+?)\\\\s+승인"
-}
-`;
+  "pattern": "^(?:\\\\[Web발신\\\\])?\\\\s*결제\\\\s+(?<amount>[\\\\d,]+)원\\\\s+(?<merchant>.+?)$",
+  "pay_method": "카드",
+  "pay_type": "CREDIT",
+  "type": "EXPENSE"
+}`;
 
   try {
     let responseText = '';
@@ -355,7 +387,45 @@ Example Output:
     }
 
     const result = JSON.parse(jsonText);
-    return result.pattern || null;
+    
+    let aiPayType = result.pay_type || '';
+    let paymentType = '';
+    if (aiPayType) {
+      const cleanPt = aiPayType.trim();
+      if (/체크/.test(cleanPt) || /CHECK/i.test(cleanPt)) paymentType = 'CHECK';
+      else if (/이체|송금/.test(cleanPt) || /TRANSFER/i.test(cleanPt)) paymentType = 'TRANSFER';
+      else if (/현금/.test(cleanPt) || /CASH/i.test(cleanPt)) paymentType = 'CASH';
+      else if (/신용|일시불|할부/.test(cleanPt) || /CREDIT/i.test(cleanPt)) paymentType = 'CREDIT';
+    }
+    if (!paymentType || paymentType === 'UNKNOWN') {
+      paymentType = parsePaymentType(text, result.pay_method);
+      if (paymentType === 'BANK_TRANSFER') {
+        paymentType = 'TRANSFER';
+      }
+    }
+    if (!paymentType || paymentType === 'UNKNOWN') {
+      paymentType = 'CREDIT';
+    }
+
+    let pattern = result.pattern || null;
+    if (pattern) {
+      // ICU 정규식 에러(U_REGEX_INVALID_CAPTURE_GROUP_NAME) 방지:
+      // 명명된 캡처 그룹(?<group_name>)에서 언더바(_)를 모두 카멜케이스로 치환
+      pattern = pattern.replace(/\(\?<([a-zA-Z0-9_]+)>/g, (match, groupName) => {
+        if (groupName.includes('_')) {
+          const camelGroupName = groupName.replace(/_([a-z0-9])/gi, (m, letter) => letter.toUpperCase()).replace(/_/g, '');
+          return `(?<${camelGroupName}>`;
+        }
+        return match;
+      });
+    }
+
+    return {
+      pattern: pattern,
+      pay_method: (result.pay_method || '카드').trim(),
+      pay_type: paymentType,
+      type: result.type === 'INCOME' ? 'INCOME' : 'EXPENSE'
+    };
 
   } catch (err) {
     console.error('[AI 패턴빌더 오류]:', err.message);
@@ -367,7 +437,7 @@ async function generateConsumptionReportWithAI(dataText, config) {
   if (!dataText || !config) return null;
 
   const prompt = `당신은 대한민국 최고의 금융 분석가이자 개인 자산 관리 코치입니다.
-사용자의 가계부 통계 데이터를 심층적으로 분석하여, 현재 소비 성향을 진단하고 실용적이고 구체적인 재정 피드백 리포트를 마크다운(Markdown) 형식으로 생성해 주세요.
+사용자의 가계부 통계 데이터를 심층적으로 분석하여, 현재 소비 성향을 진단하고 실용적이고 구체적인 재정 피드백 리포트를 마크다운(Markdown) 및 HTML 요소의 조합으로 보기 쉽게 작성해 주세요.
 
 [분석 대상 통계 데이터]
 ${dataText}
@@ -377,20 +447,50 @@ ${dataText}
 2. 출력은 반드시 다음과 같은 JSON 객체 하나만 반환해야 하며, 마크다운 코드 블록이나 기타 텍스트 설명은 절대로 덧붙이지 마십시오. (JSON 순수 텍스트만 출력)
 {
   "summary": "가계의 현재 소비 요약 한 줄 평 (예: '이번 달은 온라인 쇼핑 지출이 평소보다 25% 늘어났지만, 고정 지출을 성공적으로 통제한 한 달입니다.')",
-  "content": "여기에 상세한 마크다운 리포트 본문 텍스트를 기재하십시오. 줄바꿈은 \\n 으로 이스케이프해야 합니다."
+  "content": "여기에 상세한 리포트 본문 텍스트를 기재하십시오. 줄바꿈은 \\n 으로 이스케이프해야 합니다."
 }
 
-3. content (마크다운 리포트 본문)에 반드시 포함되어야 할 항목:
-   - ## 📊 가계부 종합 요약: 수입과 지출의 균형, 예산 준수율 등을 명확한 수치와 함께 요약.
-   - ## 🔍 주요 소비 카테고리 분석: 가장 높은 지출을 차지한 상위 3개 카테고리에 대한 지출 요인 분석.
-   - ## ✨ 이번 달의 긍정적인 소비 습관: 이전 대비 절약했거나 잘한 부분 칭찬.
-   - ## ⚠️ 개선 및 주의가 필요한 영역: 충동 소비 경향이 있거나 불필요하게 낭비된 부문 지적.
-   - ## 💡 다음 달 저축 및 예산 제안: 실현 가능한 저축액 목표 제시 및 예산 최적화 팁 제안.
+3. content (리포트 본문) 구성 규칙:
+   - 가독성과 심미성을 극대화하기 위해, 텍스트(마크다운) 설명과 함께 인라인 스타일(style="...")이 지정된 HTML/CSS 기반의 동적 그래프(차트) 및 분석 카드를 적극 활용하여 렌더링하도록 마크업을 설계하십시오.
+   - 중요: 리포트 내에 포함되는 모든 HTML/CSS 요소(하위 예시 1, 예시 2 전체 구조 포함)는 코드 내부에 줄바꿈(\n)을 절대로 포함하지 말고, 반드시 단 한 줄의 길고 완성된 단일 행(Single Line) 텍스트로 합쳐서 출력하십시오. 줄 단위 마크다운 분석 파서가 각 행을 쪼개는 과정에서 HTML 구조 내부에 원치 않는 문단 태그(<p>)를 주입하거나 닫는 태그를 오인하여 레이아웃이 깨지고 깨진 빈 여백만 잔뜩 노출되는 현상을 근본적으로 차단하기 위함입니다.
+   - 모던하고 세련된 다크 모드 가계부 UI에 자연스럽게 어우러지도록 부드러운 반투명 카드 테두리(rgba), 그리고 HSL/RGB 기반의 선명한 그라데이션 및 색상 매핑을 적용하십시오.
+   - [시각화 요소 예시 1 - 카테고리별 비중 가로 막대 그래프]:
+     <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.06);">
+       <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; color: rgba(255,255,255,0.95);">
+         <span>🍔 식비 (지출 비중 45.3%)</span>
+         <strong style="color: #6366f1;">453,000원</strong>
+       </div>
+       <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
+         <div style="width: 45.3%; height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); border-radius: 4px;"></div>
+       </div>
+     </div>
+   - [시각화 요소 예시 2 - 지출 비교 및 도넛형 conic-gradient 차트]:
+     <div style="display: flex; justify-content: center; margin: 16px 0; gap: 20px; align-items: center; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+       <div style="width: 100px; height: 100px; border-radius: 50%; background: conic-gradient(#6366f1 0% 50%, #ec4899 50% 80%, #3b82f6 80% 100%); flex-shrink: 0;"></div>
+       <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px; color: rgba(255,255,255,0.75);">
+         <div><span style="display:inline-block; width:10px; height:10px; background:#6366f1; border-radius:50%; margin-right:6px;"></span>🍔 식비: 50%</div>
+         <div><span style="display:inline-block; width:10px; height:10px; background:#ec4899; border-radius:50%; margin-right:6px;"></span>🛍️ 쇼핑: 30%</div>
+         <div><span style="display:inline-block; width:10px; height:10px; background:#3b82f6; border-radius:50%; margin-right:6px;"></span>기타: 20%</div>
+       </div>
+     </div>
+   - 각 카테고리별 디자인 색감 규칙:
+     * 식비/생활비 계열: Indigo/Purple 그라데이션 (#6366f1, #a855f7)
+     * 쇼핑/패션/여가 계열: Pink/Red 그라데이션 (#ec4899, #ef4444)
+     * 교통/주거/공과금 계열: Blue/Cyan 그라데이션 (#3b82f6, #06b6d4)
+     * 저축/수입 계열: Green/Teal 그라데이션 (#10b981, #14b8a6)
+     * 기타: Grey 계열 (#94a3b8)
+   
+   - content 본문 내에 반드시 포함되어야 할 항목:
+     - ## 📊 가계부 종합 요약: 이번 달 총 수입/지출 현황과 예산 준수율을 명확한 수치와 함께 요약하고, 전체 예산 대비 총 지출 현황을 가로 막대 그래프(Progress Bar)로 시각화해 주세요.
+     - ## 🔍 주요 소비 카테고리 분석: 가장 높은 지출을 기록한 상위 3개 카테고리를 추출하여, 각각의 지출 비중과 금액을 세련된 가로 막대형 그래프와 분석 텍스트로 자세하게 작성해 주세요. (도넛형 conic-gradient 차트로 카테고리 간의 지출 분배를 요약하여 첨부해 주세요.)
+     - ## ✨ 이번 달의 긍정적인 소비 습관: 이전 기간과 비교하여 절약했거나 예산 한도를 잘 지킨 현황을 짚고 칭찬해 주세요.
+     - ## ⚠️ 개선 및 주의가 필요한 영역: 과도하게 지출된 부문, 충동 소비가 의심되는 카테고리를 날카롭게 지적하고 원인과 위험 요소를 짚어주세요.
+     - ## 💡 다음 달 저축 및 예산 제안: 실천 가능한 다음 달 지출 한도 가이드라인, 구체적인 저축 목표액, 그리고 재정 건전성을 높이기 위한 스마트 예산 팁을 제공해 주세요.
 
 예시 출력 형식:
 {
   "summary": "온라인 쇼핑이 급증했으나 외식비를 아껴 전체 예산을 방어했습니다.",
-  "content": "## 📊 가계부 종합 요약\\n이번 달 총 지출은...\\n\\n## 🔍 주요 소비 카테고리 분석\\n- **외식비**: 지난 달 대비...\\n"
+  "content": "## 📊 가계부 종합 요약\\n이번 달 총 지출은...\\n<div style=\\"background: rgba(255,255,255,0.04); ...\\n\\n## 🔍 주요 소비 카테고리 분석\\n- **외식비**: 지난 달 대비...\\n"
 }
 `;
 

@@ -1,4 +1,4 @@
-const { supportsDFlag, escapeRegexChars, cleanMerchantName } = require('./utils');
+const { supportsDFlag, escapeRegexChars, cleanMerchantName, sanitizePattern } = require('./utils');
 const { parseFlexibleDatetime } = require('./datetime_parser');
 const { addKoreanBrandName } = require('./brand_mapper');
 const { parsePaymentType, resolveCheckCardToBank } = require('./payment_resolver');
@@ -13,7 +13,7 @@ function parseNotification(text, rules, fallbackDatetime = null) {
   for (const rule of rules) {
     try {
       const flags = supportsDFlag ? 'ds' : 's';
-      const regex = new RegExp(rule.pattern, flags);
+      const regex = new RegExp(sanitizePattern(rule.pattern), flags);
       const match = regex.exec(normalizedText);
 
       if (match) {

@@ -35,6 +35,35 @@ data class ParsedResult(
 object NotificationParser {
 
     /**
+     * ICU 정규식 엔진의 Named Capture Group 언더바 (_) 제한을 우회하기 위한 정화 유틸
+     * 명명 그룹 내부의 언더바가 포함된 이름을 카멜케이스로 자동 변환합니다.
+     * 예: (?<merchant_name>.*?) -> (?<merchantName>.*?)
+     */
+    fun sanitizePattern(pattern: String): String {
+        if (!pattern.contains("(?<")) return pattern
+        val regex = Regex("\\(\\?<([a-zA-Z0-9_]+)>")
+        return regex.replace(pattern) { matchResult ->
+            val groupName = matchResult.groupValues[1]
+            if (groupName.contains("_")) {
+                val parts = groupName.split("_")
+                val camel = StringBuilder(parts[0])
+                for (i in 1 until parts.size) {
+                    val part = parts[i]
+                    if (part.isNotEmpty()) {
+                        camel.append(part.substring(0, 1).uppercase(Locale.ROOT))
+                        if (part.length > 1) {
+                            camel.append(part.substring(1))
+                        }
+                    }
+                }
+                "(?<$camel>"
+            } else {
+                matchResult.value
+            }
+        }
+    }
+
+    /**
      * 알림 제외(패스) 규칙 매칭 여부 체크
      */
     fun checkPassRules(text: String, passRules: List<PassRule>): Boolean {
@@ -42,7 +71,7 @@ object NotificationParser {
         val normalizedText = text.replace(Regex("[\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069]"), "").replace("\r\n", "\n")
         for (rule in passRules) {
             try {
-                val pattern = Pattern.compile(rule.pattern, Pattern.DOTALL)
+                val pattern = Pattern.compile(sanitizePattern(rule.pattern), Pattern.DOTALL)
                 if (pattern.matcher(normalizedText).find()) return true
             } catch (e: Exception) {}
         }
@@ -65,7 +94,7 @@ object NotificationParser {
 
         for (rule in rules) {
             try {
-                val pattern = Pattern.compile(rule.pattern, Pattern.DOTALL)
+                val pattern = Pattern.compile(sanitizePattern(rule.pattern), Pattern.DOTALL)
                 val matcher = pattern.matcher(normalizedText)
 
                 if (matcher.find()) {
@@ -275,8 +304,9 @@ object NotificationParser {
      */
     fun validateRegexPattern(patternStr: String): Boolean {
         return try {
-            Pattern.compile(patternStr)
-            patternStr.contains("(?<amount>") && (patternStr.contains("(?<merchant>") || patternStr.contains("(?<usage>"))
+            val sanitized = sanitizePattern(patternStr)
+            Pattern.compile(sanitized)
+            sanitized.contains("(?<amount>") && (sanitized.contains("(?<merchant>") || sanitized.contains("(?<usage>"))
         } catch (e: Exception) {
             false
         }
@@ -753,7 +783,7 @@ object NotificationParser {
     /**
      * AI 모델을 사용해 정규식 패턴 생성 (AiParser로 위임)
      */
-    suspend fun generatePatternWithAI(text: String, config: AIConfig): String? {
+    suspend fun generatePatternWithAI(text: String, config: AIConfig): AIPatternResult? {
         return AiParser.generatePatternWithAI(text, config)
     }
 }

@@ -10,7 +10,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors } = require('../database');
-const { parseNotification, generatePatternFromText, generatePatternWithAI } = require('../parser');
+const { parseNotification, generatePatternFromText, generatePatternWithAI, sanitizePattern } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 
 // SQLite UTC 날짜 문자열(YYYY-MM-DD HH:mm:ss)을 KST 로컬 시각 문자열로 변환하는 헬퍼 함수
@@ -73,7 +73,7 @@ router.post('/rules', async (req, res) => {
     }
 
     try {
-      new RegExp(pattern, 'ds');
+      new RegExp(sanitizePattern(pattern), 'ds');
     } catch (regexErr) {
       return res.status(400).json({ error: `올바르지 않은 정규식 패턴 형식입니다: ${regexErr.message}` });
     }
@@ -144,7 +144,7 @@ router.post('/pass_rules', async (req, res) => {
     }
 
     try {
-      new RegExp(pattern);
+      new RegExp(sanitizePattern(pattern));
     } catch (regexErr) {
       return res.status(400).json({ error: `올바르지 않은 정규식 패턴 형식입니다: ${regexErr.message}` });
     }
@@ -318,9 +318,15 @@ router.post('/rules/ai-generate', async (req, res) => {
       localModel: settings.ai_local_model
     };
     
-    const pattern = await generatePatternWithAI(text, aiConfig);
-    if (pattern) {
-      res.json({ success: true, pattern });
+    const aiResult = await generatePatternWithAI(text, aiConfig);
+    if (aiResult && aiResult.pattern) {
+      res.json({ 
+        success: true, 
+        pattern: aiResult.pattern,
+        pay_method: aiResult.pay_method,
+        pay_type: aiResult.pay_type,
+        type: aiResult.type
+      });
     } else {
       res.status(500).json({ error: 'AI를 통한 정규식 패턴 생성에 실패했습니다.' });
     }

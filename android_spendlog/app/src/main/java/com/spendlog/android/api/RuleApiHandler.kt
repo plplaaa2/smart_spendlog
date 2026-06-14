@@ -47,13 +47,16 @@ object RuleApiHandler {
                     localIp = settings.ai_local_ip,
                     localModel = settings.ai_local_model
                 )
-                val patternVal = runBlocking {
+                val aiResult = runBlocking {
                     NotificationParser.generatePatternWithAI(text, aiConfig)
                 }
-                if (patternVal != null) {
+                if (aiResult != null) {
                     ApiResponse(body = buildJsonObject { 
                         put("success", JsonPrimitive(true))
-                        put("pattern", JsonPrimitive(patternVal)) 
+                        put("pattern", JsonPrimitive(aiResult.pattern)) 
+                        put("pay_method", JsonPrimitive(aiResult.payMethod)) 
+                        put("pay_type", JsonPrimitive(aiResult.payType)) 
+                        put("type", JsonPrimitive(aiResult.type)) 
                     })
                 } else {
                     ApiResponse(body = buildJsonObject { 
@@ -109,12 +112,13 @@ object RuleApiHandler {
                 
                 // 상세 진단 실행
                 try {
-                    val p = Pattern.compile(pattern, Pattern.DOTALL)
+                    val sanitizedPattern = com.spendlog.android.parser.NotificationParser.sanitizePattern(pattern)
+                    val p = Pattern.compile(sanitizedPattern, Pattern.DOTALL)
                     val normalizedText = text.replace(Regex("[\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069]"), "").replace("\r\n", "\n")
                     val m = p.matcher(normalizedText)
                     if (!m.find()) {
                         parseErrorMsg = "매칭 실패: 정규식이 본문 텍스트와 매칭되지 않습니다."
-                        Log.w("SpendLog_Debug", "[parse-test] Regex match failed for text: '$normalizedText' with pattern: '$pattern'")
+                        Log.w("SpendLog_Debug", "[parse-test] Regex match failed for text: '$normalizedText' with pattern: '$sanitizedPattern'")
                     } else {
                         val amountStr = try { m.group("amount") } catch (e: Exception) { null }
                         val merchantStr = try { m.group("merchant") ?: m.group("usage") } catch (e: Exception) { null }

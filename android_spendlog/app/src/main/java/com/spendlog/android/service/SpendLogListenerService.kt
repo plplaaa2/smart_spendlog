@@ -40,11 +40,13 @@ class SpendLogListenerService : NotificationListenerService() {
         }
         val trimmedRawText = rawText.trim()
 
-        // Improved amount pattern to catch more variations (e.g., symbols, different spacing)
-        val amountPattern = Regex("""(?:\d{1,3}(?:,\d{3})+|\d+\s*원|\d+\s*USD|\d+\s*달러|[₩$]\s*\d+|\d+\s*€|\d+\s*¥|\d+\s*won)""", RegexOption.IGNORE_CASE)
-        
-        if (!amountPattern.containsMatchIn(trimmedRawText)) {
-            Log.d(TAG, "Notification skipped (No amount pattern detected): $trimmedRawText")
+        // [인증/보안/광고 스팸 필터링]
+        // - 요약: 가계부 등록 대상이 아닌 광고나 본인인증 번호 등의 알림은 즉시 무시합니다.
+        // - 연결된 파일 목록:
+        //   - webhook.js (동일 정규식 공유)
+        val excludePattern = Regex("""(?:\(광고\)|\[광고\]|^광고|인증번호|인증\s*번호|인증코드|인증\s*코드|본인\s*인증|본인\s*확인|인증문자|인증요청|임시\s*비밀번호|임시\s*비밀\s*번호|OTP|이벤트|혜택|쿠폰|특가)""", RegexOption.IGNORE_CASE)
+        if (excludePattern.containsMatchIn(trimmedRawText)) {
+            Log.d(TAG, "Notification skipped (Spam/Ad/Auth notification): $trimmedRawText")
             return
         }
 
@@ -165,16 +167,19 @@ class SpendLogListenerService : NotificationListenerService() {
                 Log.d(TAG, "Parsing failed for: $rawText (also tried body: $text)")
             }
 
-            // Always log the notification attempt
-            val log = NotificationLog(
-                sender = sender,
-                rawText = rawText,
-                title = title,
-                text = text,
-                parsedStatus = parsedStatus,
-                matchedRuleId = matchedRuleId
-            )
-            db.notificationLogDao().insertLog(log)
+            // 백엔드 webhook.js와 수집 일치화: 금액이 있거나 파싱에 성공한 알림만 로그 DB에 기록
+            val hasAmount = Regex("""(?:\d+[,.\d]*\s*원|[₩$]\s*\d+[,.\d]*|\\\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)""").containsMatchIn(rawText)
+            if (hasAmount || parsedStatus == "SUCCESS") {
+                val log = NotificationLog(
+                    sender = sender,
+                    rawText = rawText,
+                    title = title,
+                    text = text,
+                    parsedStatus = parsedStatus,
+                    matchedRuleId = matchedRuleId
+                )
+                db.notificationLogDao().insertLog(log)
+            }
             com.spendlog.android.MainActivity.refreshUI()
         }
     }
