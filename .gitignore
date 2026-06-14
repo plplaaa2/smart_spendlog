@@ -1,9 +1,14 @@
 backup_*/
 backups/
+backups
 backup/
 tree.md
 changelog.jsonl
 caution.jsonl
+parsing_flow.md
+.blackboxrules
+account_book/scratch/
+account_book/parsing_structure.md
 antigravity_backup_*/
 # Add-on 전용 저장소 구축을 위해 안드로이드 버전 소스 폴더 전체를 제외 처리합니다.
 android_spendlog/
