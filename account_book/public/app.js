@@ -317,6 +317,10 @@ function switchTab(tabId) {
   document.querySelectorAll('.mobile-nav-item').forEach(btn => {
     if (btn.dataset.tab === tabId) {
       btn.classList.add('active');
+      // 활성화된 모바일 하단 메뉴가 화면 밖에 가려진 경우 자동 가로 스크롤 포커싱
+      setTimeout(() => {
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }, 50);
     } else {
       btn.classList.remove('active');
     }
