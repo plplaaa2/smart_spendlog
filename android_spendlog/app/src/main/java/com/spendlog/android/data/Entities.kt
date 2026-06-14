@@ -114,3 +114,17 @@ data class PackagePayMethod(
     val `package`: String,
     @SerialName("pay_method") val pay_method: String
 )
+
+@Serializable
+@Entity(
+    tableName = "ai_reports",
+    primaryKeys = ["report_type", "target_year", "target_month"]
+)
+data class AiReport(
+    @SerialName("report_type") @ColumnInfo(name = "report_type") val reportType: String, // MONTHLY, YEARLY
+    @SerialName("target_year") @ColumnInfo(name = "target_year") val targetYear: Int,
+    @SerialName("target_month") @ColumnInfo(name = "target_month") val targetMonth: Int,
+    val summary: String,
+    val content: String,
+    @SerialName("created_at") @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis()
+)

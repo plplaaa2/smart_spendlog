@@ -57,6 +57,34 @@ async function initApp() {
   startSidebarClock();
   switchTab('dashboard'); // 첫 페이지 로드
   lucide.createIcons();
+
+  // 스플래시 화면 페이드아웃 및 제거 (첫 실행 권한 설정 흐름 대응)
+  const splash = document.getElementById('splash_screen');
+  if (splash) {
+    let isSetupInProgress = false;
+    if (window.AndroidBridge && typeof window.AndroidBridge.isFirstRunSetupInProgress === 'function') {
+      isSetupInProgress = window.AndroidBridge.isFirstRunSetupInProgress();
+    }
+
+    if (!isSetupInProgress) {
+      setTimeout(() => {
+        hideSplashScreen();
+      }, 2500); // 로고 애니메이션 감상을 위해 2.5초간 노출 유지
+    } else {
+      console.log("[SpendLog] 첫 실행 권한 설정 진행 중으로 스플래시 화면을 유지합니다.");
+    }
+  }
+}
+
+// 스플래시 화면 수동/자동 숨김 헬퍼 함수
+function hideSplashScreen() {
+  const splash = document.getElementById('splash_screen');
+  if (splash && !splash.classList.contains('fade-out')) {
+    splash.classList.add('fade-out');
+    setTimeout(() => {
+      splash.style.display = 'none';
+    }, 500); // CSS transition 시간(0.5초) 대기 후 숨김
+  }
 }
 
 

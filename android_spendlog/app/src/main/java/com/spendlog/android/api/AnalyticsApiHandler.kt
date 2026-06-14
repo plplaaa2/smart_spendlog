@@ -3,6 +3,7 @@ package com.spendlog.android.api
 import android.content.Context
 import com.spendlog.android.MainActivity.ApiResponse
 import com.spendlog.android.data.*
+import com.spendlog.android.parser.*
 import kotlinx.serialization.json.*
 import kotlinx.serialization.decodeFromString
 import java.text.SimpleDateFormat
@@ -23,6 +24,8 @@ object AnalyticsApiHandler {
         context: Context,
         db: SpendLogDatabase,
         path: String,
+        method: String,
+        body: String?,
         queryParams: Map<String, String>
     ): ApiResponse {
         val json = AndroidApiHandler.json
@@ -659,15 +662,218 @@ object AnalyticsApiHandler {
                 })
             }
             path == "analytics/ai-report" -> {
-                ApiResponse(body = buildJsonObject {
-                    put("success", false)
-                    put("message", "모바일 앱 가계부에서는 AI 리포트 조회를 지원하지 않습니다.")
-                })
+                val year = queryParams["year"]
+                val month = queryParams["month"]
+                if (year.isNullOrEmpty() || month.isNullOrEmpty()) {
+                    return ApiResponse(status = 400, body = buildJsonObject {
+                        put("error", "조회할 연도(year)와 월(month)을 지정해 주세요.")
+                    })
+                }
+
+                val reportType = if (month == "all") "YEARLY" else "MONTHLY"
+                val targetMonth = if (month == "all") 0 else (month.toIntOrNull() ?: 1)
+                val targetYear = year.toIntOrNull() ?: 2026
+
+                val report = db.aiReportDao().getAiReport(reportType, targetYear, targetMonth)
+
+                if (report != null) {
+                    ApiResponse(body = buildJsonObject {
+                        put("success", true)
+                        put("report", buildJsonObject {
+                            put("summary", report.summary)
+                            put("content", report.content)
+                            put("created_at", report.createdAt)
+                        })
+                    })
+                } else {
+                    ApiResponse(body = buildJsonObject {
+                        put("success", false)
+                        put("message", "생성된 AI 소비 리포트가 없습니다.")
+                    })
+                }
             }
-            path == "analytics/ai-report/generate" -> {
+            path == "analytics/ai-report/generate" && method == "POST" && body != null -> {
+                val jsonObject = json.parseToJsonElement(body).jsonObject
+                val year = jsonObject["year"]?.jsonPrimitive?.contentOrNull ?: ""
+                val month = jsonObject["month"]?.jsonPrimitive?.contentOrNull ?: ""
+                if (year.isEmpty() || month.isEmpty()) {
+                    return ApiResponse(status = 400, body = buildJsonObject {
+                        put("error", "생성할 연도(year)와 월(month)을 지정해 주세요.")
+                    })
+                }
+
+                val isYearly = (month == "all")
+                val targetYear = year.toIntOrNull() ?: 2026
+                val targetMonth = if (isYearly) 0 else (month.toIntOrNull() ?: 1)
+                val reportType = if (isYearly) "YEARLY" else "MONTHLY"
+
+                // 1. AI 설정 조회 및 검증
+                val settings = db.settingsDao().getSettings() ?: Settings()
+                if (!settings.ai_enabled) {
+                    return ApiResponse(status = 400, body = buildJsonObject {
+                        put("error", "AI 기능이 비활성화 상태입니다. 설정 탭의 AI 설정에서 먼저 활성화해 주세요.")
+                    })
+                }
+
+                val provider = settings.ai_provider
+                val apiKey = settings.ai_api_key
+
+                if (provider == "gemini" || provider == "openai") {
+                    if (apiKey.isBlank() || apiKey == "******") {
+                        return ApiResponse(status = 400, body = buildJsonObject {
+                            put("error", "유효한 AI API Key가 설정되어 있지 않습니다. 설정 탭의 AI 설정에서 API Key를 입력 후 저장해 주세요.")
+                        })
+                    }
+                } else if (provider == "local") {
+                    if (settings.ai_local_ip.isBlank()) {
+                        return ApiResponse(status = 400, body = buildJsonObject {
+                            put("error", "로컬 API 주소(IP)가 설정되어 있지 않습니다. 설정 탭의 AI 설정에서 로컬 API 주소를 입력해 주세요.")
+                        })
+                    }
+                }
+
+                val aiConfig = AIConfig(
+                    provider = provider,
+                    apiKey = apiKey,
+                    localIp = settings.ai_local_ip,
+                    localModel = settings.ai_local_model
+                )
+
+                // 2. 가계부 데이터 수집
+                val targetPattern = if (isYearly) "$year%" else "$year-${month.padStart(2, '0')}%"
+
+                // 총 수입액 (이체/입금 제외)
+                val incomeRow = AndroidApiHandler.queryRawSingle(db,
+                    "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'INCOME' AND category != '이체/입금'",
+                    arrayOf(targetPattern)
+                )
+                val totalIncome = incomeRow?.get("total")?.jsonPrimitive?.longOrNull ?: 0L
+
+                // 총 지출액 (이체/송금 제외)
+                val expenseRow = AndroidApiHandler.queryRawSingle(db,
+                    "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
+                    arrayOf(targetPattern)
+                )
+                val totalExpense = expenseRow?.get("total")?.jsonPrimitive?.longOrNull ?: 0L
+
+                // 카테고리별 지출 내역
+                val categories = AndroidApiHandler.queryRaw(db,
+                    "SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' GROUP BY category ORDER BY total DESC",
+                    arrayOf(targetPattern)
+                )
+
+                // 예산 설정값
+                val budget = settings.monthlyBudget
+
+                // 월별/일자별 추이 데이터 집계
+                val trendText = StringBuilder()
+                if (isYearly) {
+                    val monthlyData = AndroidApiHandler.queryRaw(db,
+                        "SELECT strftime('%m', datetime) as mm, " +
+                        "SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as inc, " +
+                        "SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as exp " +
+                        "FROM transactions WHERE datetime LIKE ? GROUP BY mm ORDER BY mm ASC",
+                        arrayOf(targetPattern)
+                    )
+                    for (m in monthlyData) {
+                        val mObj = m.jsonObject
+                        val mm = mObj["mm"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val inc = mObj["inc"]?.jsonPrimitive?.longOrNull ?: 0L
+                        val exp = mObj["exp"]?.jsonPrimitive?.longOrNull ?: 0L
+                        trendText.append("  - ${mm}월: 수입 ${java.lang.String.format("%,d", inc)}원, 지출 ${java.lang.String.format("%,d", exp)}원\n")
+                    }
+                } else {
+                    val dailyExpenses = AndroidApiHandler.queryRaw(db,
+                        "SELECT strftime('%d', datetime) as dd, SUM(amount) as total " +
+                        "FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' " +
+                        "GROUP BY dd ORDER BY total DESC LIMIT 5",
+                        arrayOf(targetPattern)
+                    )
+                    for (d in dailyExpenses) {
+                        val dObj = d.jsonObject
+                        val dd = dObj["dd"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val total = dObj["total"]?.jsonPrimitive?.longOrNull ?: 0L
+                        trendText.append("  - ${dd}일 지출 합계: ${java.lang.String.format("%,d", total)}원\n")
+                    }
+                }
+
+                // dataText 조립
+                val dataText = if (isYearly) {
+                    val categoriesText = StringBuilder()
+                    for (c in categories) {
+                        val cObj = c.jsonObject
+                        val cat = cObj["category"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val total = cObj["total"]?.jsonPrimitive?.longOrNull ?: 0L
+                        val percent = if (totalExpense > 0L) (total.toDouble() / totalExpense * 100.0) else 0.0
+                        categoriesText.append("  - $cat: ${java.lang.String.format("%,d", total)}원 (${java.lang.String.format("%.1f", percent)}%)\n")
+                    }
+
+                    """
+                    [${year}년 연간 가계 통계 데이터]
+                    - 총 수입: ${java.lang.String.format("%,d", totalIncome)}원 (이체/입금 제외)
+                    - 총 지출: ${java.lang.String.format("%,d", totalExpense)}원 (이체/송금 제외)
+                    - 순수익 (수입-지출): ${java.lang.String.format("%,d", totalIncome - totalExpense)}원
+                    - 연간 총 예산: ${if (budget > 0) java.lang.String.format("%,d", budget * 12) + "원" else "설정되지 않음"}
+                    - 카테고리별 지출 비중:
+                    $categoriesText
+                    - 월별 수입 및 지출 흐름:
+                    ${if (trendText.isNotEmpty()) trendText.toString() else "  (기록된 월별 데이터 없음)"}
+                    """.trimIndent()
+                } else {
+                    val categoriesText = StringBuilder()
+                    for (c in categories) {
+                        val cObj = c.jsonObject
+                        val cat = cObj["category"]?.jsonPrimitive?.contentOrNull ?: ""
+                        val total = cObj["total"]?.jsonPrimitive?.longOrNull ?: 0L
+                        val percent = if (totalExpense > 0L) (total.toDouble() / totalExpense * 100.0) else 0.0
+                        categoriesText.append("  - $cat: ${java.lang.String.format("%,d", total)}원 (${java.lang.String.format("%.1f", percent)}%)\n")
+                    }
+
+                    val budgetString = if (budget > 0) java.lang.String.format("%,d", budget) + "원" else "설정되지 않음"
+                    val budgetPercent = if (budget > 0) java.lang.String.format("%.1f", (totalExpense.toDouble() / budget * 100.0)) + "%" else "N/A"
+
+                    """
+                    [${year}년 ${month}월 가계 통계 데이터]
+                    - 총 수입: ${java.lang.String.format("%,d", totalIncome)}원 (이체/입금 제외)
+                    - 총 지출: ${java.lang.String.format("%,d", totalExpense)}원 (이체/송금 제외)
+                    - 순수익 (수입-지출): ${java.lang.String.format("%,d", totalIncome - totalExpense)}원
+                    - 이번 달 설정 예산: $budgetString
+                    - 예산 소진율: $budgetPercent
+                    - 카테고리별 지출 비중:
+                    $categoriesText
+                    - 일자별 주요 지출 일(상위 5일):
+                    ${if (trendText.isNotEmpty()) trendText.toString() else "  (기록된 지출 없음)"}
+                    """.trimIndent()
+                }
+
+                // 3. AI 소비 리포트 작성 호출
+                val reportResult = AiParser.generateConsumptionReportWithAI(dataText, aiConfig)
+
+                if (reportResult == null) {
+                    return ApiResponse(status = 500, body = buildJsonObject {
+                        put("error", "AI 소비 리포트를 생성하는 도중 오류가 발생했습니다. AI 설정 정보를 확인해주세요.")
+                    })
+                }
+
+                // 4. DB에 저장
+                val now = System.currentTimeMillis()
+                val aiReport = AiReport(
+                    reportType = reportType,
+                    targetYear = targetYear,
+                    targetMonth = targetMonth,
+                    summary = reportResult.first,
+                    content = reportResult.second,
+                    createdAt = now
+                )
+                db.aiReportDao().insertAiReport(aiReport)
+
                 ApiResponse(body = buildJsonObject {
-                    put("success", false)
-                    put("error", "모바일 앱 가계부에서는 AI 리포트 생성을 지원하지 않습니다.")
+                    put("success", true)
+                    put("report", buildJsonObject {
+                        put("summary", reportResult.first)
+                        put("content", reportResult.second)
+                        put("created_at", now)
+                    })
                 })
             }
             else -> ApiResponse(status = 404, body = buildJsonObject { put("error", "Not Found") })

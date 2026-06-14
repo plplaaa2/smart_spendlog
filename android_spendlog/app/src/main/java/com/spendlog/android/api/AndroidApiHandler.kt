@@ -118,7 +118,7 @@ object AndroidApiHandler {
 
                 // 4. Analytics 위임
                 path == "stats" || path.startsWith("analytics/") -> {
-                    AnalyticsApiHandler.handleAnalyticsRequest(context, db, path, queryParams)
+                    AnalyticsApiHandler.handleAnalyticsRequest(context, db, path, method, body, queryParams)
                 }
 
                 // 5. Rules 위임

@@ -144,3 +144,12 @@ interface PackagePayMethodDao {
     @Query("DELETE FROM package_pay_methods WHERE id = :id")
     suspend fun deletePackagePayMethodById(id: Int)
 }
+
+@Dao
+interface AiReportDao {
+    @Query("SELECT * FROM ai_reports WHERE report_type = :reportType AND target_year = :targetYear AND target_month = :targetMonth LIMIT 1")
+    suspend fun getAiReport(reportType: String, targetYear: Int, targetMonth: Int): AiReport?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAiReport(aiReport: AiReport): Long
+}

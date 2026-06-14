@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=2.7.1"><!-- 캐시 무효화 버전 갱신 (사이드바 토글 버튼까지 완전 숨김) -->
+  <link rel="stylesheet" href="./style.css?v=2.7.3"><!-- 캐시 무효화 버전 갱신 (AI 소비 리포트 모바일 하단 메뉴 탑재) -->
   <!-- Chart.js Local -->
   <script src="./chart.js?v=2.4.0"></script>
   <!-- Lucide Icons Local -->
@@ -27,6 +27,21 @@
 </head>
 
 <body>
+  <!-- Splash Screen -->
+  <div id="splash_screen" class="splash-screen">
+    <div class="splash-content">
+      <div class="splash-logo-container">
+        <i data-lucide="book-open-variant" class="splash-logo-icon"></i>
+        <div class="splash-logo-glow"></div>
+      </div>
+      <h1 class="splash-title">Smart Spendlog</h1>
+      <p class="splash-subtitle">지능형 자산 관리 가계부</p>
+      <div class="splash-loader-bar">
+        <div class="splash-loader-progress"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Login Overlay -->
   <div id="login_overlay" class="login-overlay" style="display: none;">
     <div class="login-box">
@@ -1886,6 +1901,10 @@
       <i data-lucide="trending-up"></i>
       <span>소득분석</span>
     </button>
+    <button class="mobile-nav-item" data-tab="ai-report">
+      <i data-lucide="sparkles"></i>
+      <span>AI 리포트</span>
+    </button>
     <button class="mobile-nav-item" data-tab="transactions">
       <i data-lucide="receipt"></i>
       <span>내역</span>
@@ -1934,8 +1953,8 @@
   </div>
 
   <!-- JavaScript files -->
-  <script src="./auth.js?v=2.7.1"></script>
-  <script src="./app.js?v=2.7.1"></script>
+  <script src="./auth.js?v=2.7.3"></script>
+  <script src="./app.js?v=2.7.3"></script>
   <script src="./notifications.js?v=2.4.0"></script>
   <script src="./dashboard.js?v=2.4.0"></script>
   <script src="./transactions.js?v=2.4.0"></script>

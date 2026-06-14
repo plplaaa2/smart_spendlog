@@ -32,6 +32,7 @@ import java.util.*
 class MainActivity : ComponentActivity() {
 
     private lateinit var db: SpendLogDatabase
+    private var isFirstRunSetupInProgress = false
     private var webView: WebView? = null
     private var filePathCallback: ValueCallback<Array<android.net.Uri>>? = null
 
@@ -82,6 +83,12 @@ class MainActivity : ComponentActivity() {
         instance = this
         db = SpendLogDatabase.getDatabase(this)
 
+        val prefs = getSharedPreferences("com.spendlog.android.prefs", MODE_PRIVATE)
+        val isFirstRun = prefs.getBoolean("is_first_run", true)
+        if (isFirstRun) {
+            isFirstRunSetupInProgress = true
+        }
+
         lifecycleScope.launch {
             com.spendlog.android.parser.FranchisePresets.loadPresets(applicationContext)
             DatabaseSeeder.seedIfEmpty(applicationContext)
@@ -94,6 +101,8 @@ class MainActivity : ComponentActivity() {
                 factory = { context ->
                     WebView(context).apply {
                         webView = this
+                        // 초기 WebView 로드 시 흰색 번쩍임(White Flash) 방지를 위해 배경색을 다크로 사전 지정
+                        setBackgroundColor(android.graphics.Color.parseColor("#0a0e1a"))
                         setupWebView(this)
                         loadUrl("https://appassets.androidplatform.net/assets/index.html")
                     }
@@ -141,12 +150,26 @@ class MainActivity : ComponentActivity() {
                     val intent = android.content.Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
                     intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(intent)
+                    finishFirstRunSetup()
                 }
                 .setNegativeButton("나중에") { dialog, _ ->
                     dialog.dismiss()
+                    finishFirstRunSetup()
                 }
                 .setCancelable(false)
                 .show()
+        } else {
+            finishFirstRunSetup()
+        }
+    }
+
+    private fun finishFirstRunSetup() {
+        isFirstRunSetupInProgress = false
+        runOnUiThread {
+            webView?.evaluateJavascript(
+                "if(typeof hideSplashScreen === 'function') hideSplashScreen();",
+                null
+            )
         }
     }
 
@@ -253,6 +276,11 @@ class MainActivity : ComponentActivity() {
     }
 
     inner class AndroidBridge {
+        @JavascriptInterface
+        fun isFirstRunSetupInProgress(): Boolean {
+            return isFirstRunSetupInProgress
+        }
+
         /**
          * 웹뷰 JS단에서 callApi를 통해 가상 REST API 요청을 보낼 때 작동하는 브릿지 메서드
          * @param url 가상 엔드포인트 URL (예: "/api/transactions")

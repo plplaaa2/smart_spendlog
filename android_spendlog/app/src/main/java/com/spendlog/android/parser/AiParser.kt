@@ -144,6 +144,55 @@ The JSON object MUST contain exactly one field:
     }
 
     /**
+     * AI 모델을 사용하여 소비 리포트 생성 (한 줄 요약 & 마크다운 본문 반환)
+     */
+    suspend fun generateConsumptionReportWithAI(dataText: String, config: AIConfig): Pair<String, String>? {
+        if (dataText.isEmpty()) return null
+
+        val prompt = """
+당신은 대한민국 최고의 금융 분석가이자 개인 자산 관리 코치입니다.
+사용자의 가계부 통계 데이터를 심층적으로 분석하여, 현재 소비 성향을 진단하고 실용적이고 구체적인 재정 피드백 리포트를 마크다운(Markdown) 형식으로 생성해 주세요.
+
+[분석 대상 통계 데이터]
+$dataText
+
+[작성 및 출력 규칙]
+1. 반드시 한국어로 정중하게 작성해 주십시오. (존댓말 사용)
+2. 출력은 반드시 다음과 같은 JSON 객체 하나만 반환해야 하며, 마크다운 코드 블록이나 기타 텍스트 설명은 절대로 덧붙이지 마십시오. (JSON 순수 텍스트만 출력)
+{
+  "summary": "가계의 현재 소비 요약 한 줄 평 (예: '이번 달은 온라인 쇼핑 지출이 평소보다 25% 늘어났지만, 고정 지출을 성공적으로 통제한 한 달입니다.')",
+  "content": "여기에 상세한 마크다운 리포트 본문 텍스트를 기재하십시오. 줄바꿈은 \n 으로 이스케이프해야 합니다."
+}
+
+3. content (마크다운 리포트 본문)에 반드시 포함되어야 할 항목:
+   - ## 📊 가계부 종합 요약: 수입과 지출의 균형, 예산 준수율 등을 명확한 수치와 함께 요약.
+   - ## 🔍 주요 소비 카테고리 분석: 가장 높은 지출을 차지한 상위 3개 카테고리에 대한 지출 요인 분석.
+   - ## ✨ 이번 달의 긍정적인 소비 습관: 이전 대비 절약했거나 잘한 부분 칭찬.
+   - ## ⚠️ 개선 및 주의가 필요한 영역: 충동 소비 경향이 있거나 불필요하게 낭비된 부문 지적.
+   - ## 💡 다음 달 저축 및 예산 제안: 실현 가능한 저축액 목표 제시 및 예산 최적화 팁 제안.
+
+예시 출력 형식:
+{
+  "summary": "온라인 쇼핑이 급증했으나 외식비를 아껴 전체 예산을 방어했습니다.",
+  "content": "## 📊 가계부 종합 요약\n이번 달 총 지출은...\n\n## 🔍 주요 소비 카테고리 분석\n- **외식비**: 지난 달 대비...\n"
+}
+""".trimIndent()
+
+        val responseText = callAiText(config, prompt) ?: return null
+        val payload = normalizeJsonText(responseText) ?: return null
+        val result = try {
+            aiJson.parseToJsonElement(payload).jsonObject
+        } catch (_: Exception) {
+            return Pair("AI 소비 분석 리포트", responseText)
+        }
+
+        val summary = result["summary"]?.jsonPrimitive?.contentOrNull?.trim() ?: "소비 분석이 완료되었습니다."
+        val content = result["content"]?.jsonPrimitive?.contentOrNull?.trim() ?: responseText.trim()
+
+        return Pair(summary, content)
+    }
+
+    /**
      * LLM API 호출 헬퍼
      */
     private suspend fun callAiText(config: AIConfig, prompt: String): String? = withContext(Dispatchers.IO) {
