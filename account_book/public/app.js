@@ -1298,6 +1298,9 @@ function initSidebarCollapse() {
 
   let lastToggleTime = 0;
   const handleToggle = (e) => {
+    // 포커스로 인한 아웃라인 및 탭 하이라이트 제거를 위해 강제 blur 처리
+    if (toggleBtn) toggleBtn.blur();
+
     const now = Date.now();
     // 400ms 이내 연속 클릭/터치는 노이즈로 간주하고 차단
     if (now - lastToggleTime < 400) {

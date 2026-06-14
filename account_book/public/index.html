@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=2.6.2"><!-- 캐시 무효화 버전 갱신 (사이드바 토글 버튼 아웃라인 포커스 제거) -->
+  <link rel="stylesheet" href="./style.css?v=2.6.3"><!-- 캐시 무효화 버전 갱신 (토글 버튼 태그 div 교체 및 자동 포커스 링 원천 제거) -->
   <!-- Chart.js Local -->
   <script src="./chart.js?v=2.3.3"></script>
   <!-- Lucide Icons Local -->
@@ -2012,13 +2012,13 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- 사이드바 접기/펼치기 토글 버튼 (사이드바 외부 독립 배치 - WebView backdrop-filter containment 회피) -->
-  <button class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" title="사이드바 접기/펼치기">
+  <div class="sidebar-collapse-toggle" id="sidebar-collapse-toggle" title="사이드바 접기/펼치기" role="button" tabindex="-1">
     <i data-lucide="chevron-left"></i>
-  </button>
+  </div>
 
   <!-- JavaScript files -->
   <script src="./auth.js?v=2.3.3"></script>
-  <script src="./app.js?v=2.6.1"></script>
+  <script src="./app.js?v=2.6.3"></script>
   <script src="./notifications.js?v=2.3.3"></script>
   <script src="./dashboard.js?v=2.3.3"></script>
   <script src="./transactions.js?v=2.3.3"></script>
