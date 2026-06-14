@@ -174,6 +174,7 @@ async function generateAiReport() {
   const emptyView = document.getElementById('ai-report-empty-view');
   const loadingView = document.getElementById('ai-report-loading-view');
   const resultView = document.getElementById('ai-report-result-view');
+  const btnGenerate = document.getElementById('btn-generate-ai-report');
 
   if (emptyView) emptyView.style.display = 'none';
   if (resultView) resultView.style.display = 'none';
@@ -184,6 +185,13 @@ async function generateAiReport() {
        소비 패턴을 꼼꼼하게 분석하느라 <strong>약 10~30초</strong> 정도 소요될 수 있습니다.`;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초 명시적 타임아웃 제한
+
+  if (btnGenerate) {
+    btnGenerate.disabled = true;
+  }
+
   try {
     const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token');
     const res = await fetch('api/analytics/ai-report/generate', {
@@ -192,8 +200,11 @@ async function generateAiReport() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ year, month })
+      body: JSON.stringify({ year, month }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     const data = await res.json();
     if (loadingView) loadingView.style.display = 'none';
@@ -203,13 +214,23 @@ async function generateAiReport() {
       showToast('AI 소비 분석 리포트가 성공적으로 생성되었습니다.', 'success');
     } else {
       if (emptyView) emptyView.style.display = 'flex';
-      showToast(data.error || '리포트 생성에 실패했습니다.', 'danger');
+      alert(`[AI 리포트 생성 실패]\n\n${data.error || '리포트 생성에 실패했습니다.'}`);
     }
   } catch (err) {
+    clearTimeout(timeoutId);
     console.error('[AI 리포트 생성 오류]', err);
     if (loadingView) loadingView.style.display = 'none';
     if (emptyView) emptyView.style.display = 'flex';
-    showToast('네트워크 오류 또는 AI 서버 문제로 생성에 실패했습니다.', 'danger');
+
+    if (err.name === 'AbortError') {
+      alert('[AI 리포트 생성 실패 - 시간 초과]\n\nAI 분석 요청 시간이 초과되었습니다. AI 서버가 준비되지 않았거나 응답이 지나치게 지연되고 있습니다. 잠시 후 다시 시도해 주세요.');
+    } else {
+      alert(`[AI 리포트 생성 실패 - 네트워크/서버 오류]\n\n상세 내용: ${err.message || err}`);
+    }
+  } finally {
+    if (btnGenerate) {
+      btnGenerate.disabled = false;
+    }
   }
 }
 

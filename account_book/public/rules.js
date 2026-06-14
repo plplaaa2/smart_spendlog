@@ -995,6 +995,9 @@ async function aiGeneratePattern() {
   const aiGenBtn = document.getElementById('btn-ai-generate-pattern');
   const originalHtml = aiGenBtn.innerHTML;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30초 타임아웃 제한
+
   try {
     aiGenBtn.disabled = true;
     aiGenBtn.innerHTML = '<i data-lucide="loader" class="animate-spin" style="width:14px;height:14px;"></i> 생성 중...';
@@ -1003,8 +1006,11 @@ async function aiGeneratePattern() {
     const res = await fetch('api/rules/ai-generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text }),
+      signal: controller.signal
     }).then(r => r.json());
+
+    clearTimeout(timeoutId);
 
     if (res.success && res.pattern) {
       const patternInput = document.getElementById('test-pattern');
@@ -1030,7 +1036,12 @@ async function aiGeneratePattern() {
       alert('AI 패턴 생성 실패: ' + (res.error || '알 수 없는 오류'));
     }
   } catch (err) {
-    alert('AI 패턴 생성 중 오류 발생: ' + err.message);
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      alert('AI 패턴 생성 실패: 요청 시간이 초과되었습니다. AI 서버의 네트워크 상태를 점검해 주세요.');
+    } else {
+      alert('AI 패턴 생성 중 오류 발생: ' + err.message);
+    }
   } finally {
     aiGenBtn.disabled = false;
     aiGenBtn.innerHTML = originalHtml;

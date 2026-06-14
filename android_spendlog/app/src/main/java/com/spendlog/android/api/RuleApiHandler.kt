@@ -37,7 +37,7 @@ object RuleApiHandler {
         val json = AndroidApiHandler.json
 
         return when {
-            path.startsWith("rules/ai/generate") && method == "POST" && body != null -> {
+            path.startsWith("rules/ai-generate") && method == "POST" && body != null -> {
                 val jsonObject = json.parseToJsonElement(body).jsonObject
                 val text = jsonObject["text"]?.jsonPrimitive?.content ?: ""
                 val settings = db.settingsDao().getSettings() ?: Settings()
