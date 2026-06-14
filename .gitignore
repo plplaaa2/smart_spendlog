@@ -5,7 +5,7 @@ tree.md
 changelog.jsonl
 caution.jsonl
 antigravity_backup_*/
-android_spendlog/
+# android_spendlog/ 은 자체 .gitignore를 따르므로 루트 ignore에서 해제합니다.
 
 # Node & Development
 node_modules/
