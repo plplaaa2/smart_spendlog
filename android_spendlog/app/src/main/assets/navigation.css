@@ -404,3 +404,80 @@ body.sidebar-collapsed .sidebar-collapse-toggle svg {
 }
 
 /* Tablet & Mobile collapse toggle button responsive overrides - 기본 스타일로 통합됨 */
+
+/* ==========================================================================
+   Android Standalone Edition - Force Mobile Layout & Remove Sidebar
+   ========================================================================== */
+.sidebar {
+  display: none !important;
+}
+
+.main-content {
+  margin-left: 0 !important;
+  padding: 1.25rem 0.75rem 100px 0.75rem !important;
+  width: 100% !important;
+}
+
+.mobile-bottom-nav {
+  display: flex !important;
+  position: fixed !important;
+  bottom: 1.25rem !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateZ(0) !important;
+  width: fit-content !important;
+  max-width: calc(100% - 2rem) !important;
+  height: 65px !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid var(--glass-border) !important;
+  backdrop-filter: blur(20px) !important;
+  z-index: 10000 !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  padding: 0 1rem !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+  border-radius: 24px !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  gap: 0.25rem !important;
+  pointer-events: auto !important;
+}
+
+.mobile-bottom-nav::-webkit-scrollbar {
+  display: none !important;
+}
+
+.mobile-nav-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: none !important;
+  border: none !important;
+  color: var(--text-secondary) !important;
+  font-size: 0.7rem !important;
+  font-weight: 500 !important;
+  gap: 4px !important;
+  flex: 0 0 68px !important;
+  height: 100% !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.mobile-nav-item.active {
+  color: var(--accent-color) !important;
+  text-shadow: 0 0 10px rgba(99, 102, 241, 0.3) !important;
+}
+
+.mobile-nav-item i,
+.mobile-nav-item svg {
+  width: 20px !important;
+  height: 20px !important;
+  transition: transform 0.2s ease !important;
+}
+
+.mobile-nav-item.active i,
+.mobile-nav-item.active svg {
+  transform: translateY(-2px) !important;
+  color: var(--accent-color) !important;
+}
+
