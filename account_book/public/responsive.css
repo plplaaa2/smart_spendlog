@@ -113,27 +113,35 @@
 
   /* 모바일 헤더 2줄 자동 개행 최적화 */
   .main-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-    width: 100%;
-  }
-
-  .main-header .header-right {
-    width: 100%;
     gap: 0.5rem;
+    margin-bottom: 1.5rem;
   }
 
-  .notification-bell-container {
-    margin-left: auto;
+  .header-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
   }
 
-  .header-left h1 {
+  .header-top-row h1 {
     font-size: 1.4rem;
   }
 
-  .header-left p {
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .header-bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .header-bottom-row p {
     display: none;
   }
 
@@ -148,40 +156,7 @@
     min-width: 85px;
   }
 
-  .mobile-user-container {
-    display: flex !important;
-    align-items: center;
-    gap: 0.5rem;
-  }
 
-  .mobile-user-name {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 6px 10px;
-    border-radius: 8px;
-    white-space: nowrap;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  }
-
-  .mobile-logout-btn {
-    display: inline-flex !important;
-    padding: 8px;
-    border-radius: 10px;
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444 !important;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    align-items: center;
-    justify-content: center;
-  }
-
-  .mobile-logout-btn i,
-  .mobile-logout-btn svg {
-    width: 16px;
-    height: 16px;
-  }
 
   .control-bar {
     flex-direction: column;
@@ -427,4 +402,56 @@
   .notification-drawer.active {
     right: 0;
   }
+
+  /* 분석/수입 탭의 연도/월 선택 바 모바일 가로 한 줄 배치 최적화 */
+  #tab-analytics .control-bar,
+  #tab-income .control-bar {
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    gap: 0.5rem 0.75rem !important;
+    padding: 0.75rem 1rem !important;
+  }
+
+  #tab-analytics .control-bar > div,
+  #tab-income .control-bar > div {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+  }
+
+  #tab-analytics .control-bar label,
+  #tab-income .control-bar label {
+    font-size: 0.85rem !important;
+  }
+
+  #tab-analytics .control-bar .select-filter,
+  #tab-income .control-bar .select-filter {
+    min-width: unset !important;
+    width: 95px !important;
+    padding: 0.4rem 1.5rem 0.4rem 0.5rem !important;
+    font-size: 0.85rem !important;
+    height: 36px !important;
+  }
+
+  #analytics-compare-mode {
+    width: 115px !important;
+  }
+
+  /* 모바일 카드 헤더 내 타이틀/설명 세로 정렬 */
+  .card-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.35rem !important;
+  }
+
+  /* 더 보기 버튼이 있는 최근 지출 내역 헤더는 모바일에서도 가로 배치 유지 */
+  .recent-transactions-card .card-header {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
 }
+
+

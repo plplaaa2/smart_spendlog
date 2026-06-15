@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=2.7.18"><!-- 캐시 무효화 버전 갱신 (모바일 하단 내비게이션 바 스타일 원상복원 v2.7.18) -->
+  <link rel="stylesheet" href="./style.css?v=2.7.24"><!-- 캐시 무효화 버전 갱신 (더 보기 버튼 축소 및 헤더 정렬 v2.7.24) -->
   <!-- Chart.js Local -->
   <script src="./chart.js?v=2.3.3"></script>
   <!-- Lucide Icons Local -->
@@ -137,11 +137,27 @@
     <!-- Main Content Area -->
     <main class="main-content">
       <header class="main-header">
-        <div class="header-left">
+        <div class="header-top-row">
           <h1 id="page-title">대시보드</h1>
-          <p id="page-subtitle" class="text-secondary">이번 달 소비 패턴 분석 및 통계</p>
+          <div class="header-actions">
+            <!-- In-app Notification Bell -->
+            <div class="notification-bell-container" id="notification-bell-btn">
+              <button class="icon-btn" title="알림 센터">
+                <i data-lucide="bell"></i>
+                <span class="notification-badge" id="notification-badge" style="display: none;"></span>
+              </button>
+            </div>
+            <!-- Mobile User Info & Logout Button -->
+            <div class="mobile-user-container">
+              <span class="mobile-user-name" id="mobile_current_user_name">admin</span>
+              <button class="mobile-logout-btn icon-btn" onclick="logout()" title="로그아웃">
+                <i data-lucide="log-out"></i>
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="header-right" style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="header-bottom-row">
+          <p id="page-subtitle" class="text-secondary">이번 달 소비 패턴 분석 및 통계</p>
           <!-- Month Selector -->
           <div class="month-picker">
             <button id="prev-month-btn" class="icon-btn"><i data-lucide="chevron-left"></i></button>
@@ -149,20 +165,6 @@
             <input type="month" id="month-input" style="display:none;">
             <button id="month-select-trigger" class="icon-btn"><i data-lucide="calendar"></i></button>
             <button id="next-month-btn" class="icon-btn"><i data-lucide="chevron-right"></i></button>
-          </div>
-          <!-- In-app Notification Bell -->
-          <div class="notification-bell-container" id="notification-bell-btn">
-            <button class="icon-btn" title="알림 센터">
-              <i data-lucide="bell"></i>
-              <span class="notification-badge" id="notification-badge" style="display: none;"></span>
-            </button>
-          </div>
-          <!-- Mobile User Info & Logout Button -->
-          <div class="mobile-user-container">
-            <span class="mobile-user-name" id="mobile_current_user_name">admin</span>
-            <button class="mobile-logout-btn icon-btn" onclick="logout()" title="로그아웃">
-              <i data-lucide="log-out"></i>
-            </button>
           </div>
         </div>
       </header>
@@ -246,7 +248,7 @@
         <div class="card glass recent-transactions-card">
           <div class="card-header">
             <h3>최근 지출 내역</h3>
-            <button class="btn btn-secondary text-sm" onclick="switchTab('transactions')">더 보기</button>
+            <button class="btn btn-secondary btn-sm" onclick="switchTab('transactions')">더 보기</button>
           </div>
           <div class="transaction-list-compact" id="dashboard-recent-list">
             <!-- Dynamic items here -->
@@ -285,7 +287,7 @@
           </button>
           <button class="tx-subtab-btn" data-subtab="banks"
             style="background: none; border: none; padding: 0.6rem 1.2rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">
-            은행별 입출금
+            은행 입출금
           </button>
         </div>
 
@@ -602,9 +604,9 @@
           <button class="analytics-tab-btn active" data-subtab="trend"
             style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">소비 추이</button>
           <button class="analytics-tab-btn" data-subtab="general"
-            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">일반지출 분석</button>
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">일반지출</button>
           <button class="analytics-tab-btn" data-subtab="fixed"
-            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">고정지출 분석</button>
+            style="background: none; border: none; padding: 0.75rem 1.25rem; color: var(--text-secondary); font-weight: 600; cursor: pointer; border-radius: 8px; font-size: 0.95rem; transition: all 0.2s;">고정지출</button>
         </div>
 
         <!-- Year Selector & Compare Mode Selector (Moved to top of Analytics Tab) -->
@@ -2022,7 +2024,7 @@
 
   <!-- JavaScript files -->
   <script src="./auth.js?v=2.7.9"></script>
-  <script src="./app.js?v=2.7.17"></script>
+  <script src="./app.js?v=2.7.22"></script>
   <script src="./notifications.js?v=2.3.3"></script>
   <script src="./dashboard.js?v=2.3.3"></script>
   <script src="./transactions.js?v=2.3.3"></script>

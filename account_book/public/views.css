@@ -569,7 +569,7 @@
   display: block;
 }
 
-.settings-tab-btn, .logs-tab-btn {
+.settings-tab-btn, .logs-tab-btn, .analytics-tab-btn {
   background: none;
   border: none;
   padding: 0.75rem 1.25rem;
@@ -581,15 +581,15 @@
   transition: all 0.2s;
 }
 
-.settings-tab-btn:hover, .logs-tab-btn:hover {
+.settings-tab-btn:hover, .logs-tab-btn:hover, .analytics-tab-btn:hover {
   background: var(--glass-hover);
   color: var(--text-primary) !important;
 }
 
-.settings-tab-btn.active, .logs-tab-btn.active {
-  color: var(--primary-color) !important;
+.settings-tab-btn.active, .logs-tab-btn.active, .analytics-tab-btn.active {
+  color: var(--accent-color) !important;
   background: rgba(99, 102, 241, 0.1) !important;
-  border-bottom: 2px solid var(--primary-color);
+  border-bottom: 2px solid var(--accent-color) !important;
   border-radius: 8px 8px 0 0;
 }
 
@@ -614,7 +614,7 @@
 .tx-subtab-btn.active {
   color: var(--accent-color) !important;
   background: rgba(99, 102, 241, 0.1) !important;
-  border-bottom: 2px solid var(--accent-color);
+  border-bottom: 2px solid var(--accent-color) !important;
   border-radius: 8px 8px 0 0;
 }
 

@@ -118,7 +118,7 @@
 
 /* User profile inside sidebar */
 .user-profile-container {
-  display: flex;
+  display: none !important; /* 헤더 우측으로 이관되었으므로 사이드바 하단은 숨김 */
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
@@ -198,24 +198,49 @@
 
 .main-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.75rem;
   margin-bottom: 2.5rem;
   max-width: 1200px;
   margin-right: auto;
   width: 100%;
 }
 
-.main-header h1 {
+.header-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.header-top-row h1 {
   font-size: 2rem;
   font-weight: 700;
   letter-spacing: -0.025em;
-  margin-bottom: 0.25rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.header-bottom-row p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
 }
 
 /* Mobile elements default hidden on desktop */
-.mobile-bottom-nav,
-.mobile-user-container {
+.mobile-bottom-nav {
   display: none;
 }
 
@@ -418,4 +443,50 @@ body.sidebar-collapsed .sidebar-collapse-toggle svg {
     padding: 1.25rem 0.75rem 100px 0.75rem !important;
     width: 100% !important;
   }
+}
+
+/* Header User Profile & Logout (Desktop & Mobile Common) */
+.mobile-user-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mobile-user-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.mobile-logout-btn {
+  display: inline-flex;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444 !important;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.mobile-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.mobile-logout-btn:active {
+  transform: scale(0.95);
+}
+
+.mobile-logout-btn i,
+.mobile-logout-btn svg {
+  width: 16px;
+  height: 16px;
 }

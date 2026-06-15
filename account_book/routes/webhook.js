@@ -432,6 +432,37 @@ async function processNotificationCore({ title, text, packageVal, username }) {
   }
 }
 
+// 알림 수신 이벤트를 순차적으로 실행하기 위한 가상 큐(Queue)
+const notificationQueue = [];
+let isQueueProcessing = false;
+
+function enqueueNotification(task) {
+  return new Promise((resolve, reject) => {
+    notificationQueue.push({ task, resolve, reject });
+    processNotificationQueue();
+  });
+}
+
+async function processNotificationQueue() {
+  if (isQueueProcessing || notificationQueue.length === 0) return;
+  isQueueProcessing = true;
+
+  const { task, resolve, reject } = notificationQueue.shift();
+  try {
+    const result = await task();
+    resolve(result);
+  } catch (err) {
+    reject(err);
+  } finally {
+    isQueueProcessing = false;
+    if (typeof setImmediate !== 'undefined') {
+      setImmediate(processNotificationQueue);
+    } else {
+      setTimeout(processNotificationQueue, 0);
+    }
+  }
+}
+
 // WebSocket 알림 이벤트 수신 처리 인터페이스
 async function processIncomingNotification(newState, username) {
   const attrs = newState.attributes || {};
@@ -440,12 +471,12 @@ async function processIncomingNotification(newState, username) {
   const packageVal = attrs.package || (attrs.android && attrs.android.package) || '';
 
   try {
-    await processNotificationCore({
+    await enqueueNotification(() => processNotificationCore({
       title,
       text,
       packageVal,
       username
-    });
+    }));
   } catch (err) {
     console.error(`[웹훅][WebSocket] 알림 처리 중 예외 발생:`, err);
   }
@@ -473,12 +504,12 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
   }
 
   try {
-    const resObj = await processNotificationCore({
+    const resObj = await enqueueNotification(() => processNotificationCore({
       title,
       text,
       packageVal,
       username: targetUser
-    });
+    }));
 
     if (resObj.success) {
       if (resObj.isPassed) {

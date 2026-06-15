@@ -249,12 +249,12 @@ const subTabTitles = {
   transactions: {
     all: ['거래 내역 - 전체 내역', '전체 수입 및 지출 상세 내역 조회 및 편집'],
     cards: ['거래 내역 - 카드 지출', '카드사별 이번 달 누적 결제 및 사용 분석'],
-    banks: ['거래 내역 - 은행별 입출금', '각 은행 및 계좌별 실시간 잔액 및 입출금 분석']
+    banks: ['거래 내역 - 은행 입출금', '각 은행 및 계좌별 실시간 잔액 및 입출금 분석']
   },
   analytics: {
     trend: ['소비 분석 - 소비 추이', '월별/연도별 자산 흐름 및 전년 대비 소비 비교'],
-    general: ['소비 분석 - 일반지출 분석', '고정지출을 제외한 변동성 소비 패턴 분석'],
-    fixed: ['소비 분석 - 고정지출 분석', '공과금/구독/보험/통신 등 매달 나가는 고정 비용 분석']
+    general: ['소비 분석 - 일반지출', '고정지출을 제외한 변동성 소비 패턴 분석'],
+    fixed: ['소비 분석 - 고정지출', '공과금/구독/보험/통신 등 매달 나가는 고정 비용 분석']
   },
   logs: {
     'logs-list': ['알림 로그 - 수신 로그', 'Home Assistant에서 수신된 스마트폰 알림 원본 이력'],
@@ -292,11 +292,13 @@ function updateHeaderTitle(mainTabId, subTabId) {
   const subtitleEl = document.getElementById('page-subtitle');
   if (!titleEl || !subtitleEl) return;
 
+  if (mainTitles[mainTabId]) {
+    titleEl.textContent = mainTitles[mainTabId][0];
+  }
+
   if (subTabId && subTabTitles[mainTabId] && subTabTitles[mainTabId][subTabId]) {
-    titleEl.textContent = subTabTitles[mainTabId][subTabId][0];
     subtitleEl.textContent = subTabTitles[mainTabId][subTabId][1];
   } else if (mainTitles[mainTabId]) {
-    titleEl.textContent = mainTitles[mainTabId][0];
     subtitleEl.textContent = mainTitles[mainTabId][1];
   }
 }
@@ -333,6 +335,16 @@ function switchTab(tabId) {
 
   // 타이틀 변경
   updateHeaderTitle(tabId, getSubTabIdForTab(tabId));
+
+  // 대시보드 탭일 때만 년월 선택기(month-picker) 표시
+  const monthPicker = document.querySelector('.month-picker');
+  if (monthPicker) {
+    if (tabId === 'dashboard') {
+      monthPicker.style.display = 'flex';
+    } else {
+      monthPicker.style.display = 'none';
+    }
+  }
 
   refreshCurrentTabData();
 }
