@@ -1,3 +1,9 @@
+// [merchants.js]
+// - 요약: 가맹점 이름 기반 카테고리 매핑 및 프리셋 데이터 시딩을 처리하는 DB 헬퍼 모듈입니다.
+// - 연결된 파일 목록:
+//   - connection.js (getDB 호출)
+//   - franchise_presets.js (FRANCHISE_PRESETS 로드)
+//   - NotificationParser.kt (안드로이드측 동기화된 가맹점 매칭 로직)
 const { getDB } = require('./connection');
 
 let FRANCHISE_PRESETS = [];
@@ -6,6 +12,13 @@ try {
 } catch (e) {
   console.warn('[DB] franchise_presets.js를 찾을 수 없습니다. 프리셋 없이 실행합니다.', e.message);
 }
+
+// 일반 명사성 키워드 목록: 고유 브랜드명(KFC, 스타벅스, 씨유 등) 뒤에 지점명이 붙을 때 오매칭 방지 로직에 걸려 분류가 누락되는 현상을 방지
+const COMMON_NOUNS = new Set([
+  '마트', '슈퍼', '상회', '유통', '청과', '정육', '수산', '시장', 
+  '카페', '커피', '식당', '제과', '베이커리', '약국', '병원', '의원', 
+  '상사', '산업', '건설', '학원', '독서실', '헬스', '미용', '뷰티'
+]);
 
 async function findCategoryByMerchant(db, merchantName) {
   if (!merchantName) return null;
@@ -28,7 +41,9 @@ async function findCategoryByMerchant(db, merchantName) {
         }
         const nextChar = upperMerchant.charAt(idx + upperKeyword.length);
         if (nextChar && /^[가-힣]$/.test(nextChar)) {
-          continue;
+          if (COMMON_NOUNS.has(upperKeyword)) {
+            continue;
+          }
         }
         return row.category;
       }

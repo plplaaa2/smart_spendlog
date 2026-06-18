@@ -188,6 +188,10 @@
     width: 100%;
   }
 
+  .btn-sm {
+    width: auto !important;
+  }
+
   /* stats-grid 모바일 2열 레이아웃 */
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
