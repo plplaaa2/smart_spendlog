@@ -1107,51 +1107,36 @@
 
           <!-- 4) 잔액 설정 서브 탭 -->
           <div id="subtab-balance" class="sub-settings-content" style="width: 100%;">
-            <div style="display: flex; flex-direction: column; gap: 2rem;">
-              <div class="card glass settings-form-card">
-                <h3>잔액 및 포인트 설정</h3>
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+              <!-- 1) 글로벌 잔액 설정 -->
+              <div class="card glass settings-form-card" style="padding: 1.25rem;">
+                <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem;">기본 초기 잔액</h3>
                 <form id="balance-form">
-                  <div class="form-group">
-                    <label for="settings-initial-balance">초기 보유 잔액 설정 (원)</label>
-                    <div class="info-box">
-                      <p>서비스 사용 시작 시점의 기본 보유 자산을 설정합니다. 수입이 없는 상태에서도 대시보드 순이익/저축액에 합산됩니다.</p>
-                    </div>
-                    <input type="number" id="settings-initial-balance" placeholder="0" min="0">
-                  </div>
-                  <div class="form-group">
-                    <label>결제 수단별 초기 잔액 설정 (원)</label>
-                    <div class="info-box">
-                      <p>각 은행의 초기 잔액이나 현금, 페이의 잔액을 개별 설정합니다. 자산별 잔액 계산에 합산됩니다.</p>
-                    </div>
-                    <div id="settings-initial-balances-container"
-                      style="display:flex; flex-direction:column; gap:0.5rem; max-height:250px; overflow-y:auto; padding:0.5rem; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.06); border-radius:6px; margin-top:0.5rem;">
-                      <p class="text-secondary text-xs" style="text-align:center; padding:1rem;">결제 수단을 불러오는 중...</p>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label for="settings-initial-balance" style="font-size: 0.8rem;">서비스 사용 시작 시점의 기본 보유 자산 (원)</label>
+                    <div style="display: flex; gap: 0.75rem; align-items: center; margin-top: 0.5rem;">
+                      <input type="number" id="settings-initial-balance" placeholder="0" min="0" style="flex: 1; margin-bottom: 0; padding: 0.45rem 0.75rem; font-size: 0.85rem;">
+                      <button type="submit" class="btn btn-primary" style="margin-top: 0; white-space: nowrap; padding: 0.45rem 1rem; font-size: 0.85rem;">저장</button>
                     </div>
                   </div>
-                  <!-- 카드 포인트/지원금 우선 차감 설정 영역 신설 -->
-                  <div class="form-group" style="margin-top: 1.5rem;">
-                    <label>카드별 연동 지원금/포인트 설정 (원)</label>
-                    <div class="info-box">
-                      <p>정부지원금 등이 연결된 카드의 초기 포인트 한도를 설정합니다. 결제 시 포인트에서 우선 차감되며, 모두 소모되면 실제 카드 잔액으로 계산됩니다.</p>
-                    </div>
-                    <div id="settings-initial-points-container"
-                      style="display:flex; flex-direction:column; gap:0.5rem; max-height:250px; overflow-y:auto; padding:0.5rem; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.06); border-radius:6px; margin-top:0.5rem;">
-                      <p class="text-secondary text-xs" style="text-align:center; padding:1rem;">결제 수단을 불러오는 중...</p>
-                    </div>
-                  </div>
-                  <!-- 카드 실적 목표 설정 영역 신설 -->
-                  <div class="form-group" style="margin-top: 1.5rem;">
-                    <label>카드별 월 목표 실적 설정 (원)</label>
-                    <div class="info-box">
-                      <p>각 카드의 혜택 기준이 되는 월 실적 목표 금액을 설정합니다. 대시보드 탭에서 목표 달성 현황을 직관적으로 확인할 수 있습니다.</p>
-                    </div>
-                    <div id="settings-card-performance-goals-container"
-                      style="display:flex; flex-direction:column; gap:0.5rem; max-height:250px; overflow-y:auto; padding:0.5rem; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.06); border-radius:6px; margin-top:0.5rem;">
-                      <p class="text-secondary text-xs" style="text-align:center; padding:1rem;">결제 수단을 불러오는 중...</p>
-                    </div>
-                  </div>
-                  <button type="submit" class="btn btn-primary" style="margin-top: 1.5rem;">잔액, 포인트 및 실적 설정 저장</button>
                 </form>
+              </div>
+
+              <!-- 2) 자산 및 카드 목록 카드형 UI -->
+              <div class="card glass settings-form-card" style="padding: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <h3 style="font-size: 1.1rem; margin-bottom: 0;">자산 및 결제수단 관리</h3>
+                  <button class="btn btn-primary" id="btn-add-asset" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.25rem;">
+                    <span>+</span> 자산/카드 추가
+                  </button>
+                </div>
+                <div class="info-box" style="margin-bottom: 1.25rem; padding: 0.5rem 0.75rem; font-size: 0.8rem;">
+                  <p>등록된 은행 계좌나 신용/체크카드를 관리합니다. 결제일 및 이용기간을 설정하여 해외 결제(달러) 정산 및 카드 실적 관리에 활용할 수 있습니다.</p>
+                </div>
+                
+                <div id="settings-assets-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem;">
+                  <!-- 자산 카드 동적 생성 영역 -->
+                </div>
               </div>
             </div>
           </div>
@@ -1593,6 +1578,66 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" id="pkm-modal-cancel">취소</button>
+          <button type="submit" class="btn btn-primary">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 자산 및 결제수단 추가/수정 모달 -->
+  <div id="asset-modal" class="modal">
+    <div class="modal-content glass" style="max-width: 450px;">
+      <div class="modal-header">
+        <h3 id="asset-modal-title">자산 및 결제수단 추가</h3>
+        <button class="close-btn" id="asset-modal-close">&times;</button>
+      </div>
+      <form id="asset-modal-form" style="padding-top: 1rem;">
+        <input type="hidden" id="asset-modal-mode" value="add"> <!-- add or edit -->
+        <input type="hidden" id="asset-modal-original-name"> <!-- when editing name -->
+        
+        <div class="form-group">
+          <label for="asset-modal-name">자산/결제수단명 *</label>
+          <input type="text" id="asset-modal-name" placeholder="예: 카카오뱅크, 현대카드" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="asset-modal-type">유형 *</label>
+          <select id="asset-modal-type" required>
+            <option value="bank">계좌 (은행/페이/현금 등)</option>
+            <option value="card">카드 (신용/체크카드)</option>
+          </select>
+        </div>
+        
+        <!-- 계좌용 필드 -->
+        <div id="asset-field-bank-group" class="form-group">
+          <label for="asset-modal-initial-balance">초기 잔액 (원)</label>
+          <input type="number" id="asset-modal-initial-balance" placeholder="0" min="0" value="0">
+        </div>
+        
+        <!-- 카드용 필드 -->
+        <div id="asset-field-card-group" style="display: none; flex-direction: column; gap: 1rem;">
+          <div class="form-group">
+            <label for="asset-modal-initial-point">연동 지원금/포인트 한도 (원)</label>
+            <input type="number" id="asset-modal-initial-point" placeholder="0" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label for="asset-modal-performance-goal">월 목표 실적 (원)</label>
+            <input type="number" id="asset-modal-performance-goal" placeholder="0" min="0" value="0">
+          </div>
+          <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
+            <div class="form-group" style="flex: 1; margin-bottom: 0;">
+              <label for="asset-modal-performance-day">이용기간 시작일 (일)</label>
+              <input type="number" id="asset-modal-performance-day" placeholder="1" min="1" max="28" value="1">
+            </div>
+            <div class="form-group" style="flex: 1; margin-bottom: 0;">
+              <label for="asset-modal-payment-day">결제일 (일)</label>
+              <input type="number" id="asset-modal-payment-day" placeholder="14" min="1" max="28" value="14">
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer" style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary" id="asset-modal-cancel">취소</button>
           <button type="submit" class="btn btn-primary">저장</button>
         </div>
       </form>

@@ -575,11 +575,6 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       for (const name of defaults.pay_methods) {
         await dbInstance.run('INSERT OR IGNORE INTO pay_methods (name) VALUES (?)', [name]);
       }
-      const placeholders = defaults.pay_methods.map(() => '?').join(',');
-      await dbInstance.run(
-        `DELETE FROM pay_methods WHERE name NOT IN (${placeholders})`,
-        defaults.pay_methods
-      );
     }
 
     if (defaults.rules && username === 'admin') {

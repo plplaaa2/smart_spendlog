@@ -150,183 +150,378 @@ async function loadSettingsTab() {
   }
 }
 
+let isAssetModalBound = false;
+
+function bindAssetModalEvents() {
+  if (isAssetModalBound) return;
+  isAssetModalBound = true;
+
+  const modal = document.getElementById('asset-modal');
+  const form = document.getElementById('asset-modal-form');
+  const typeSelect = document.getElementById('asset-modal-type');
+  const bankGroup = document.getElementById('asset-field-bank-group');
+  const cardGroup = document.getElementById('asset-field-card-group');
+  
+  // 유형 선택 시 필드 토글
+  typeSelect.addEventListener('change', () => {
+    if (typeSelect.value === 'card') {
+      bankGroup.style.display = 'none';
+      cardGroup.style.display = 'flex';
+    } else {
+      bankGroup.style.display = 'block';
+      cardGroup.style.display = 'none';
+    }
+  });
+
+  // 닫기 및 취소 버튼
+  document.getElementById('asset-modal-close').addEventListener('click', closeModal);
+  document.getElementById('asset-modal-cancel').addEventListener('click', closeModal);
+  
+  function closeModal() {
+    modal.classList.remove('active');
+  }
+
+  // 폼 제출
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const mode = document.getElementById('asset-modal-mode').value;
+    const originalName = document.getElementById('asset-modal-original-name').value;
+    const name = document.getElementById('asset-modal-name').value.trim();
+    const type = typeSelect.value;
+
+    if (!name) {
+      alert('자산/결제수단명을 입력해주세요.');
+      return;
+    }
+
+    try {
+      // 1. 결제수단 추가 API 호출 (pay_methods 테이블)
+      if (mode === 'add' || (mode === 'edit' && originalName !== name)) {
+        await fetch('api/pay_methods', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        
+        // 기존 결제수단명이 변경된 경우, 이전 이름의 데이터 삭제 처리
+        if (mode === 'edit' && originalName !== name) {
+          await fetch(`api/pay_methods/${encodeURIComponent(originalName)}`, {
+            method: 'DELETE'
+          });
+        }
+      }
+
+      // 2. settings 설정 객체 로드 및 업데이트
+      const settings = await fetch('api/settings').then(r => r.json());
+      
+      let initialBalances = settings.initial_balances ? (typeof settings.initial_balances === 'string' ? JSON.parse(settings.initial_balances) : settings.initial_balances) : {};
+      let initialPoints = settings.initial_points ? (typeof settings.initial_points === 'string' ? JSON.parse(settings.initial_points) : settings.initial_points) : {};
+      let cardPerformanceGoals = settings.card_performance_goals ? (typeof settings.card_performance_goals === 'string' ? JSON.parse(settings.card_performance_goals) : settings.card_performance_goals) : {};
+      let cardPerformanceDays = settings.card_performance_days ? (typeof settings.card_performance_days === 'string' ? JSON.parse(settings.card_performance_days) : settings.card_performance_days) : {};
+      let cardPaymentDays = settings.card_payment_days ? (typeof settings.card_payment_days === 'string' ? JSON.parse(settings.card_payment_days) : settings.card_payment_days) : {};
+
+      if (type === 'bank') {
+        const initBal = parseInt(document.getElementById('asset-modal-initial-balance').value, 10) || 0;
+        initialBalances[name] = initBal;
+        
+        // 카드 관련 값 제거
+        delete initialPoints[name];
+        delete cardPerformanceGoals[name];
+        delete cardPerformanceDays[name];
+        delete cardPaymentDays[name];
+      } else {
+        const initPt = parseInt(document.getElementById('asset-modal-initial-point').value, 10) || 0;
+        const perfGoal = parseInt(document.getElementById('asset-modal-performance-goal').value, 10) || 0;
+        const perfDay = Math.max(1, Math.min(28, parseInt(document.getElementById('asset-modal-performance-day').value, 10) || 1));
+        const payDay = Math.max(1, Math.min(28, parseInt(document.getElementById('asset-modal-payment-day').value, 10) || 14));
+
+        initialPoints[name] = initPt;
+        cardPerformanceGoals[name] = perfGoal;
+        cardPerformanceDays[name] = perfDay;
+        cardPaymentDays[name] = payDay;
+        
+        // 계좌 관련 값 제거
+        delete initialBalances[name];
+      }
+
+      if (mode === 'edit' && originalName !== name) {
+        delete initialBalances[originalName];
+        delete initialPoints[originalName];
+        delete cardPerformanceGoals[originalName];
+        delete cardPerformanceDays[originalName];
+        delete cardPaymentDays[originalName];
+      }
+
+      const res = await fetch('api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          initial_balances: JSON.stringify(initialBalances),
+          initial_points: JSON.stringify(initialPoints),
+          card_performance_goals: JSON.stringify(cardPerformanceGoals),
+          card_performance_days: JSON.stringify(cardPerformanceDays),
+          card_payment_days: JSON.stringify(cardPaymentDays)
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error('설정 저장 중 오류가 발생했습니다.');
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        modal.classList.remove('active');
+        await loadMetadata();
+        await loadBalanceSettings();
+        if (state.currentTab === 'dashboard') {
+          loadDashboardData();
+        }
+      } else {
+        alert('저장 실패: ' + (data.error || '알 수 없는 오류'));
+      }
+
+    } catch (err) {
+      alert('저장 중 에러 발생: ' + err.message);
+    }
+  });
+}
+
+function getBillingCycleText(startDay) {
+  startDay = parseInt(startDay, 10) || 1;
+  if (startDay === 1) {
+    return '매달 1일 ~ 말일';
+  } else {
+    const endDay = startDay - 1;
+    return `전월 ${startDay}일 ~ 당월 ${endDay}일`;
+  }
+}
+
 async function loadBalanceSettings() {
   try {
+    bindAssetModalEvents();
+
     const settings = await fetch('api/settings').then(r => r.json());
+    
     const balanceEl = document.getElementById('settings-initial-balance');
     if (balanceEl) balanceEl.value = settings.initial_balance || 0;
 
-    // 개별 결제 수단별 초기 잔액 입력창 그리기
-    const container = document.getElementById('settings-initial-balances-container');
-    if (container) {
-      container.innerHTML = '';
-      
-      // 이미 저장된 개별 잔액 데이터
-      let initialBalances = {};
-      if (settings.initial_balances) {
-        try {
-          initialBalances = typeof settings.initial_balances === 'string' ? JSON.parse(settings.initial_balances) : settings.initial_balances;
-        } catch (e) {
-          initialBalances = {};
-        }
-      }
+    const grid = document.getElementById('settings-assets-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
 
-      // payMethods 목록은 전역 state.payMethods에 저장되어 있음 (loadMetadata()를 통해 최신화됨)
-      let payMethods = state.payMethods;
-      if (!payMethods || payMethods.length === 0) {
-        payMethods = await fetch('api/pay_methods').then(r => r.json());
-        state.payMethods = payMethods;
-      }
+    let initialBalances = {};
+    if (settings.initial_balances) {
+      try {
+        initialBalances = typeof settings.initial_balances === 'string' ? JSON.parse(settings.initial_balances) : settings.initial_balances;
+      } catch (e) { initialBalances = {}; }
+    }
+    let initialPoints = {};
+    if (settings.initial_points) {
+      try {
+        initialPoints = typeof settings.initial_points === 'string' ? JSON.parse(settings.initial_points) : settings.initial_points;
+      } catch (e) { initialPoints = {}; }
+    }
+    let cardPerformanceGoals = {};
+    if (settings.card_performance_goals) {
+      try {
+        cardPerformanceGoals = typeof settings.card_performance_goals === 'string' ? JSON.parse(settings.card_performance_goals) : settings.card_performance_goals;
+      } catch (e) { cardPerformanceGoals = {}; }
+    }
+    let cardPerformanceDays = {};
+    if (settings.card_performance_days) {
+      try {
+        cardPerformanceDays = typeof settings.card_performance_days === 'string' ? JSON.parse(settings.card_performance_days) : settings.card_performance_days;
+      } catch (e) { cardPerformanceDays = {}; }
+    }
+    let cardPaymentDays = {};
+    if (settings.card_payment_days) {
+      try {
+        cardPaymentDays = typeof settings.card_payment_days === 'string' ? JSON.parse(settings.card_payment_days) : settings.card_payment_days;
+      } catch (e) { cardPaymentDays = {}; }
+    }
 
-      // 카드 및 계좌이체 명칭을 제외한 모든 결제 수단을 자산(초기 잔액 설정 대상)으로 분류하도록 유연하게 필터링 적용
-      // 의존성: routes/analytics.js의 api/stats 엔드포인트 내 자산 판정(isAsset) 로직과 완벽히 호환되어야 합니다.
-      const filteredPayMethods = payMethods.filter(pm => {
+    let payMethods = state.payMethods;
+    if (!payMethods || payMethods.length === 0) {
+      payMethods = await fetch('api/pay_methods').then(r => r.json());
+      state.payMethods = payMethods;
+    }
+
+    const displayMethods = payMethods.filter(pm => pm.name !== '계좌이체' && pm.name !== '신용카드' && pm.name !== '체크카드');
+
+    if (displayMethods.length === 0) {
+      grid.innerHTML = '<p class="text-secondary text-xs" style="grid-column: 1/-1; text-align:center; padding:2rem;">등록된 결제 수단이 없습니다. 자산/카드 추가 버튼을 눌러 등록하세요.</p>';
+    } else {
+      displayMethods.forEach(pm => {
         const name = pm.name;
-        if (name.includes('카드') || name === '계좌이체' || name.includes('페이') || name.includes('머니')) {
-          return false;
-        }
-        return true;
+        const isCard = name.includes('카드') || name.includes('페이') || name.includes('머니');
+        
+        const initBal = initialBalances[name] || 0;
+        const initPt = initialPoints[name] || 0;
+        const perfGoal = cardPerformanceGoals[name] || 0;
+        const perfDay = cardPerformanceDays[name] || 1;
+        const payDay = cardPaymentDays[name] || 14;
+
+        const cardEl = document.createElement('div');
+        cardEl.className = `asset-card-item glass ${isCard ? 'card-type' : 'bank-type'}`;
+        cardEl.style.cssText = 'padding: 1.25rem; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; position: relative; min-height: 140px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); transition: transform 0.2s;';
+        
+        cardEl.onmouseover = () => { cardEl.style.transform = 'translateY(-2px)'; };
+        cardEl.onmouseout = () => { cardEl.style.transform = 'translateY(0)'; };
+
+        cardEl.innerHTML = `
+          <button class="btn-delete-asset" data-name="${name}" style="position: absolute; top: 0.75rem; right: 0.75rem; background: none; border: none; color: #f43f5e; opacity: 0.6; cursor: pointer; padding: 0.25rem; display: flex; align-items: center; justify-content: center; z-index: 10;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+          </button>
+
+          <div class="asset-card-click-area" style="cursor: pointer; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+              <div style="background: ${isCard ? 'rgba(99, 102, 241, 0.15)' : 'rgba(16, 185, 129, 0.15)'}; color: ${isCard ? '#818cf8' : '#34d399'}; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                ${isCard ? 
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-credit-card"><rect width="20" height="14" rx="2" y="5" x="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>` : 
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-landmark"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 3 7 21 7"/></svg>`
+                }
+              </div>
+              <div style="display: flex; flex-direction: column; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <span class="asset-card-name" style="font-weight: 600; font-size: 0.9rem; color: var(--text-color);">${name}</span>
+                <span style="font-size: 0.7rem; color: ${isCard ? '#818cf8' : '#34d399'}; font-weight: 600; margin-top: 1px;">
+                  ${isCard ? '카드' : '계좌'}
+                </span>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.35rem; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 0.5rem; flex: 1; justify-content: center;">
+              ${isCard ? `
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary);">
+                  <span>포인트 한도</span>
+                  <span style="font-weight: 600; color: var(--text-color);">${formatCurrency(initPt)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary);">
+                  <span>목표 실적</span>
+                  <span style="font-weight: 600; color: var(--text-color);">${formatCurrency(perfGoal)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary);">
+                  <span>결제일 / 시작일</span>
+                  <span style="font-weight: 600; color: var(--text-color);">${payDay}일 / ${perfDay}일</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.68rem; color: #a5b4fc; background: rgba(99, 102, 241, 0.06); padding: 0.15rem 0.4rem; border-radius: 4px; margin-top: 0.2rem;">
+                  <span>이용기간 범위</span>
+                  <span style="font-weight: 500;">${getBillingCycleText(perfDay)}</span>
+                </div>
+              ` : `
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary);">
+                  <span>초기 잔액</span>
+                  <span style="font-weight: 600; color: var(--text-color);">${formatCurrency(initBal)}</span>
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+        
+        cardEl.querySelector('.asset-card-click-area').addEventListener('click', () => {
+          openAssetModal('edit', {
+            name,
+            isCard,
+            initBal,
+            initPt,
+            perfGoal,
+            perfDay,
+            payDay
+          });
+        });
+
+        const delBtn = cardEl.querySelector('.btn-delete-asset');
+        delBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (confirm(`정말 '${name}' 자산/결제수단을 삭제하시겠습니까? 관련 설정도 함께 삭제됩니다.`)) {
+            try {
+              const res = await fetch(`api/pay_methods/${encodeURIComponent(name)}`, {
+                method: 'DELETE'
+              });
+              if (res.ok) {
+                await loadMetadata();
+                await loadBalanceSettings();
+                if (state.currentTab === 'dashboard') {
+                  loadDashboardData();
+                }
+              } else {
+                alert('삭제 실패');
+              }
+            } catch (err) {
+              alert('삭제 에러: ' + err.message);
+            }
+          }
+        });
+
+        grid.appendChild(cardEl);
       });
-
-      if (filteredPayMethods.length === 0) {
-        container.innerHTML = '<p class="text-secondary text-xs" style="text-align:center; padding:1rem;">등록된 결제 수단이 없습니다. 규칙을 먼저 생성하거나 결제 수단을 추가하세요.</p>';
-      } else {
-        filteredPayMethods.forEach(pm => {
-          const val = initialBalances[pm.name] || 0;
-          const row = document.createElement('div');
-          row.style.display = 'flex';
-          row.style.justifyContent = 'space-between';
-          row.style.alignItems = 'center';
-          row.style.gap = '1rem';
-          row.style.padding = '0.4rem 0';
-          row.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
-
-          row.innerHTML = `
-            <span style="font-size: 0.85rem; color: var(--text-color); font-weight: 500;">${pm.name}</span>
-            <input type="number" class="settings-initial-balance-input" data-name="${pm.name}" value="${val}" min="0" placeholder="0" 
-                   style="width: 150px; font-size: 0.85rem; padding: 0.35rem 0.5rem; text-align: right; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-color);">
-          `;
-          container.appendChild(row);
-        });
-      }
     }
 
-    // 카드사 결제수단만 필터링하여 초기 포인트(지원금) 입력창 그리기
-    // 의존성: public/app.js의 balance-form submit 이벤트 및 index.js의 settings API와 결합해 작동합니다.
-    const pointsContainer = document.getElementById('settings-initial-points-container');
-    if (pointsContainer) {
-      pointsContainer.innerHTML = '';
-      
-      let initialPoints = {};
-      if (settings.initial_points) {
-        try {
-          initialPoints = typeof settings.initial_points === 'string' ? JSON.parse(settings.initial_points) : settings.initial_points;
-        } catch (e) {
-          initialPoints = {};
-        }
-      }
-
-      let payMethods = state.payMethods;
-      if (!payMethods || payMethods.length === 0) {
-        payMethods = await fetch('api/pay_methods').then(r => r.json());
-        state.payMethods = payMethods;
-      }
-
-      const cardPayMethods = payMethods.filter(pm => pm.name.includes('카드'));
-
-      if (cardPayMethods.length === 0) {
-        pointsContainer.innerHTML = '<p class="text-secondary text-xs" style="text-align:center; padding:1rem;">등록된 카드사 결제 수단이 없습니다.</p>';
-      } else {
-        cardPayMethods.forEach(pm => {
-          const val = initialPoints[pm.name] || 0;
-          const row = document.createElement('div');
-          row.style.display = 'flex';
-          row.style.justifyContent = 'space-between';
-          row.style.alignItems = 'center';
-          row.style.gap = '1rem';
-          row.style.padding = '0.4rem 0';
-          row.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
-
-          row.innerHTML = `
-            <span style="font-size: 0.85rem; color: var(--text-color); font-weight: 500;">${pm.name} 연동 포인트</span>
-            <input type="number" class="settings-initial-point-input" data-name="${pm.name}" value="${val}" min="0" placeholder="0" 
-                   style="width: 150px; font-size: 0.85rem; padding: 0.35rem 0.5rem; text-align: right; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-color);">
-          `;
-          pointsContainer.appendChild(row);
-        });
-      }
+    const addBtn = document.getElementById('btn-add-asset');
+    if (addBtn) {
+      addBtn.onclick = () => {
+        openAssetModal('add');
+      };
     }
 
-    // 카드사 결제수단만 필터링하여 카드 실적 목표 입력창 그리기
-    const performanceGoalsContainer = document.getElementById('settings-card-performance-goals-container');
-    if (performanceGoalsContainer) {
-      performanceGoalsContainer.innerHTML = '';
-      
-      let cardPerformanceGoals = {};
-      if (settings.card_performance_goals) {
-        try {
-          cardPerformanceGoals = typeof settings.card_performance_goals === 'string' ? JSON.parse(settings.card_performance_goals) : settings.card_performance_goals;
-        } catch (e) {
-          cardPerformanceGoals = {};
-        }
-      }
-
-      let cardPerformanceDays = {};
-      if (settings.card_performance_days) {
-        try {
-          cardPerformanceDays = typeof settings.card_performance_days === 'string' ? JSON.parse(settings.card_performance_days) : settings.card_performance_days;
-        } catch (e) {
-          cardPerformanceDays = {};
-        }
-      }
-
-      let payMethods = state.payMethods;
-      if (!payMethods || payMethods.length === 0) {
-        payMethods = await fetch('api/pay_methods').then(r => r.json());
-        state.payMethods = payMethods;
-      }
-
-      const cardPayMethods = payMethods.filter(pm => pm.name.includes('카드'));
-
-      if (cardPayMethods.length === 0) {
-        performanceGoalsContainer.innerHTML = '<p class="text-secondary text-xs" style="text-align:center; padding:1rem;">등록된 카드사 결제 수단이 없습니다.</p>';
-      } else {
-        cardPayMethods.forEach(pm => {
-          const val = cardPerformanceGoals[pm.name] || 0;
-          const dayVal = cardPerformanceDays[pm.name] || 1;
-          const row = document.createElement('div');
-          row.style.display = 'flex';
-          row.style.justifyContent = 'space-between';
-          row.style.alignItems = 'center';
-          row.style.gap = '1rem';
-          row.style.padding = '0.5rem 0';
-          row.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
-
-          row.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 0.15rem;">
-              <span style="font-size: 0.85rem; color: var(--text-color); font-weight: 500;">${pm.name}</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <div style="display: flex; align-items: center; gap: 0.35rem;">
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">목표:</span>
-                <input type="number" class="settings-card-performance-goal-input" data-name="${pm.name}" value="${val}" min="0" placeholder="0" 
-                       style="width: 100px; font-size: 0.85rem; padding: 0.35rem 0.5rem; text-align: right; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-color);">
-              </div>
-              <div style="display: flex; align-items: center; gap: 0.35rem;">
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">시작일:</span>
-                <input type="number" class="settings-card-performance-day-input" data-name="${pm.name}" value="${dayVal}" min="1" max="28" placeholder="1" 
-                       style="width: 50px; font-size: 0.85rem; padding: 0.35rem 0.5rem; text-align: right; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; color: var(--text-color);">
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">일</span>
-              </div>
-            </div>
-          `;
-          performanceGoalsContainer.appendChild(row);
-        });
-      }
-    }
   } catch (err) {
     console.error('잔액/포인트/실적 설정 로드 실패:', err);
   }
+}
+
+function openAssetModal(mode, data = {}) {
+  const modal = document.getElementById('asset-modal');
+  const title = document.getElementById('asset-modal-title');
+  const form = document.getElementById('asset-modal-form');
+  
+  const modeInput = document.getElementById('asset-modal-mode');
+  const origNameInput = document.getElementById('asset-modal-original-name');
+  const nameInput = document.getElementById('asset-modal-name');
+  const typeSelect = document.getElementById('asset-modal-type');
+  
+  const initBalInput = document.getElementById('asset-modal-initial-balance');
+  const initPtInput = document.getElementById('asset-modal-initial-point');
+  const goalInput = document.getElementById('asset-modal-performance-goal');
+  const perfDayInput = document.getElementById('asset-modal-performance-day');
+  const payDayInput = document.getElementById('asset-modal-payment-day');
+  
+  const bankGroup = document.getElementById('asset-field-bank-group');
+  const cardGroup = document.getElementById('asset-field-card-group');
+
+  form.reset();
+  
+  if (mode === 'add') {
+    title.textContent = '자산 및 결제수단 추가';
+    modeInput.value = 'add';
+    origNameInput.value = '';
+    typeSelect.disabled = false;
+    
+    typeSelect.value = 'bank';
+    bankGroup.style.display = 'block';
+    cardGroup.style.display = 'none';
+  } else {
+    title.textContent = '자산 및 결제수단 편집';
+    modeInput.value = 'edit';
+    origNameInput.value = data.name || '';
+    nameInput.value = data.name || '';
+    typeSelect.value = data.isCard ? 'card' : 'bank';
+    typeSelect.disabled = true;
+
+    if (data.isCard) {
+      bankGroup.style.display = 'none';
+      cardGroup.style.display = 'flex';
+      initPtInput.value = data.initPt || 0;
+      goalInput.value = data.perfGoal || 0;
+      perfDayInput.value = data.perfDay || 1;
+      payDayInput.value = data.payDay || 14;
+    } else {
+      bankGroup.style.display = 'block';
+      cardGroup.style.display = 'none';
+      initBalInput.value = data.initBal || 0;
+    }
+  }
+
+  modal.classList.add('active');
 }
 
 // 사용처별 카테고리 매핑 목록 로드 및 렌더링

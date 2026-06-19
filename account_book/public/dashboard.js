@@ -366,6 +366,20 @@ function renderAssetGrid(assets) {
           cardPerformanceDays = {};
         }
       }
+
+      let cardPaymentDays = {};
+      if (state.settings.card_payment_days) {
+        try {
+          cardPaymentDays = typeof state.settings.card_payment_days === 'string'
+            ? JSON.parse(state.settings.card_payment_days)
+            : state.settings.card_payment_days;
+        } catch (e) {
+          cardPaymentDays = {};
+        }
+      }
+
+      const payDay = cardPaymentDays[asset.name] || 14;
+      const startDay = parseInt(cardPerformanceDays[asset.name] || 1, 10);
       
       const goalAmount = cardGoals[asset.name] ? parseInt(cardGoals[asset.name], 10) || 0 : 0;
       const hasGoal = goalAmount > 0;
@@ -382,7 +396,6 @@ function renderAssetGrid(assets) {
         }
 
         let periodText = '';
-        const startDay = parseInt(cardPerformanceDays[asset.name] || 1, 10);
         if (startDay > 1) {
           const [yearStr, monthStr] = state.currentMonth.split('-');
           const yearVal = parseInt(yearStr, 10);
@@ -414,6 +427,12 @@ function renderAssetGrid(assets) {
         `;
       }
 
+      function localGetBillingCycleText(day) {
+        day = parseInt(day, 10) || 1;
+        if (day === 1) return '매달 1일~말일';
+        return `전월 ${day}일~당월 ${day - 1}일`;
+      }
+
       card.innerHTML = `
         <div class="asset-card-item-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -436,7 +455,14 @@ function renderAssetGrid(assets) {
           </div>
           ${pointHtml}
           ${performanceGoalHtml}
-          <div class="asset-card-footer-row" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: ${(hasPoint || hasGoal) ? '0.5rem' : '0px'}">
+          
+          <!-- 결제일 및 이용기간 정보 -->
+          <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-secondary); border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: 0.5rem;">
+            <span>결제일 / 이용기간</span>
+            <span style="font-weight: 500; color: var(--text-color);">${payDay}일 / ${localGetBillingCycleText(startDay)}</span>
+          </div>
+          
+          <div class="asset-card-footer-row" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: 0.5rem;">
             <span class="asset-card-subtext" style="font-size: 0.75rem; color: var(--text-secondary);">이번 달 신용/체크 누적 사용 금액</span>
           </div>
         </div>

@@ -977,51 +977,18 @@ function initEventListeners() {
     });
   }
 
-  // 잔액 설정 폼 서브밋
-  // 의존성: 이 폼은 public/settings.js의 렌더링 영역 및 index.js의 settings 저장 API와 직접 연결됩니다.
+  // 잔액 설정 폼 서브밋 (글로벌 초기 잔액만)
   const balanceForm = document.getElementById('balance-form');
   if (balanceForm) {
     balanceForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const initial_balance = parseInt(document.getElementById('settings-initial-balance').value, 10) || 0;
 
-      // 결제 수단별 개별 초기 잔액 객체 구성
-      const initial_balances = {};
-      document.querySelectorAll('.settings-initial-balance-input').forEach(input => {
-        const name = input.dataset.name;
-        const val = parseInt(input.value, 10) || 0;
-        initial_balances[name] = val;
-      });
-
-      // 카드사별 개별 초기 포인트(지원금) 객체 구성
-      const initial_points = {};
-      document.querySelectorAll('.settings-initial-point-input').forEach(input => {
-        const name = input.dataset.name;
-        const val = parseInt(input.value, 10) || 0;
-        initial_points[name] = val;
-      });
-
-      // 카드사별 월 실적 목표 객체 구성
-      const card_performance_goals = {};
-      document.querySelectorAll('.settings-card-performance-goal-input').forEach(input => {
-        const name = input.dataset.name;
-        const val = parseInt(input.value, 10) || 0;
-        card_performance_goals[name] = val;
-      });
-
-      // 카드사별 월 실적 기준일 객체 구성
-      const card_performance_days = {};
-      document.querySelectorAll('.settings-card-performance-day-input').forEach(input => {
-        const name = input.dataset.name;
-        const val = Math.max(1, Math.min(28, parseInt(input.value, 10) || 1));
-        card_performance_days[name] = val;
-      });
-
       try {
         const res = await fetch('api/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initial_balance, initial_balances, initial_points, card_performance_goals, card_performance_days })
+          body: JSON.stringify({ initial_balance })
         });
 
         if (!res.ok) {
@@ -1031,17 +998,17 @@ function initEventListeners() {
 
         const data = await res.json();
         if (data.success) {
-          alert('잔액, 포인트 및 실적 설정이 저장되었습니다.');
+          alert('기본 초기 잔액 설정이 저장되었습니다.');
           await loadMetadata();
           await loadBalanceSettings();
           if (state.currentTab === 'dashboard') {
             loadDashboardData();
           }
         } else {
-          alert('잔액 및 포인트 설정 저장 실패: ' + (data.error || '알 수 없는 오류'));
+          alert('설정 저장 실패: ' + (data.error || '알 수 없는 오류'));
         }
       } catch (err) {
-        alert('잔액 및 포인트 설정 저장 실패: ' + err.message);
+        alert('설정 저장 실패: ' + err.message);
       }
     });
   }

@@ -217,6 +217,41 @@ router.post('/pay_methods', async (req, res) => {
   }
 });
 
+// 결제수단 삭제 및 관련 설정 청소
+router.delete('/pay_methods/:name', async (req, res) => {
+  try {
+    const db = await getDB(req.username);
+    const { name } = req.params;
+    if (!name) return res.status(400).json({ error: '결제수단명은 필수입니다.' });
+
+    // 1. 결제수단 테이블에서 삭제
+    await db.run('DELETE FROM pay_methods WHERE name = ?', [name]);
+
+    // 2. 설정 테이블의 관련 객체들에서 키 제거
+    const keysToClean = ['initial_balances', 'initial_points', 'card_performance_goals', 'card_performance_days', 'card_payment_days'];
+    for (const key of keysToClean) {
+      const row = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
+      if (row && row.value) {
+        try {
+          const parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+          if (parsed && typeof parsed === 'object') {
+            if (name in parsed) {
+              delete parsed[name];
+              await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, JSON.stringify(parsed)]);
+            }
+          }
+        } catch (e) {
+          console.error(`[PayMethod Delete] 설정 키 ${key} 청소 실패:`, e);
+        }
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 사용처별 카테고리 매핑 조회
 router.get('/merchant_categories', async (req, res) => {
   try {

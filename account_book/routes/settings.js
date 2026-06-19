@@ -146,7 +146,7 @@ router.post('/settings', async (req, res) => {
     const db = await getDB(req.username);
     const { 
       ws_sensor_entity, monthly_budget, initial_balance, initial_balances, initial_points, 
-      card_performance_goals, card_performance_days, user_real_name, auto_rule_generation, 
+      card_performance_goals, card_performance_days, card_payment_days, user_real_name, auto_rule_generation, 
       pay_methods_order, auto_backup, backup_time, backup_days,
       network_backup_enabled, network_backup_type, network_backup_path, 
       network_backup_path_username, network_backup_path_password,
@@ -174,6 +174,9 @@ router.post('/settings', async (req, res) => {
     }
     if (card_performance_days !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('card_performance_days', ?)", [typeof card_performance_days === 'string' ? card_performance_days : JSON.stringify(card_performance_days)]);
+    }
+    if (card_payment_days !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('card_payment_days', ?)", [typeof card_payment_days === 'string' ? card_payment_days : JSON.stringify(card_payment_days)]);
     }
     if (user_real_name !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('user_real_name', ?)", [user_real_name]);
