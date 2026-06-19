@@ -325,30 +325,33 @@ async function migrateCategoriesAndData(dbInstance, username) {
   } catch (e) {}
 
   try {
-    const defaultPackageMappings = [
-      { package: 'viva.republica.toss', pay_method: '토스' },
-      { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
-      { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
-      { package: 'com.hanabank.oqf', pay_method: '하나은행' },
-      { package: 'com.shcard.smartpay', pay_method: '신한카드' },
-      { package: 'com.wooricard.smartapp', pay_method: '우리카드' },
-      { package: 'com.hyundaicard.appcard', pay_method: '현대카드' },
-      { package: 'kr.co.samsungcard.mpocket', pay_method: '삼성카드' },
-      { package: 'com.lcacApp', pay_method: '롯데카드' },
-      { package: 'com.nhcard.smartpay', pay_method: 'NH농협카드' },
-      { package: 'com.kbcard.cxh.appcard', pay_method: 'KB국민카드' },
-      { package: 'com.shinhan.sbanking', pay_method: '신한은행' },
-      { package: 'com.wooribank.pib.smart', pay_method: '우리은행' },
-      { package: 'com.nonghyup.smnhb', pay_method: '농협은행' },
-      { package: 'com.ibk.neobanking', pay_method: '기업은행' },
-      { package: 'com.kakaobank.channel', pay_method: '카카오뱅크' }
-    ];
-    for (const mapping of defaultPackageMappings) {
-      await dbInstance.run('INSERT OR IGNORE INTO pay_methods (name) VALUES (?)', [mapping.pay_method]);
-      await dbInstance.run(
-        'INSERT OR IGNORE INTO package_pay_methods (package, pay_method) VALUES (?, ?)',
-        [mapping.package, mapping.pay_method]
-      );
+    const payMethodsCount = await dbInstance.get('SELECT COUNT(*) as count FROM pay_methods');
+    if (payMethodsCount.count === 0) {
+      const defaultPackageMappings = [
+        { package: 'viva.republica.toss', pay_method: '토스' },
+        { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
+        { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
+        { package: 'com.hanabank.oqf', pay_method: '하나은행' },
+        { package: 'com.shcard.smartpay', pay_method: '신한카드' },
+        { package: 'com.wooricard.smartapp', pay_method: '우리카드' },
+        { package: 'com.hyundaicard.appcard', pay_method: '현대카드' },
+        { package: 'kr.co.samsungcard.mpocket', pay_method: '삼성카드' },
+        { package: 'com.lcacApp', pay_method: '롯데카드' },
+        { package: 'com.nhcard.smartpay', pay_method: 'NH농협카드' },
+        { package: 'com.kbcard.cxh.appcard', pay_method: 'KB국민카드' },
+        { package: 'com.shinhan.sbanking', pay_method: '신한은행' },
+        { package: 'com.wooribank.pib.smart', pay_method: '우리은행' },
+        { package: 'com.nonghyup.smnhb', pay_method: '농협은행' },
+        { package: 'com.ibk.neobanking', pay_method: '기업은행' },
+        { package: 'com.kakaobank.channel', pay_method: '카카오뱅크' }
+      ];
+      for (const mapping of defaultPackageMappings) {
+        await dbInstance.run('INSERT OR IGNORE INTO pay_methods (name) VALUES (?)', [mapping.pay_method]);
+        await dbInstance.run(
+          'INSERT OR IGNORE INTO package_pay_methods (package, pay_method) VALUES (?, ?)',
+          [mapping.package, mapping.pay_method]
+        );
+      }
     }
   } catch (e) {}
 
@@ -616,7 +619,8 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       }
     }
 
-    if (defaults.pay_methods) {
+    const payMethodsCount = await dbInstance.get('SELECT COUNT(*) as count FROM pay_methods');
+    if (payMethodsCount.count === 0 && defaults.pay_methods) {
       for (const name of defaults.pay_methods) {
         await dbInstance.run('INSERT OR IGNORE INTO pay_methods (name) VALUES (?)', [name]);
       }
@@ -708,29 +712,32 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       }
     }
 
-    const defaultPackageMappings = [
-      { package: 'viva.republica.toss', pay_method: '토스' },
-      { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
-      { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
-      { package: 'com.hanabank.oqf', pay_method: '하나은행' },
-      { package: 'com.shcard.smartpay', pay_method: '신한카드' },
-      { package: 'com.wooricard.smartapp', pay_method: '우리카드' },
-      { package: 'com.hyundaicard.appcard', pay_method: '현대카드' },
-      { package: 'kr.co.samsungcard.mpocket', pay_method: '삼성카드' },
-      { package: 'com.lcacApp', pay_method: '롯데카드' },
-      { package: 'com.nhcard.smartpay', pay_method: 'NH농협카드' },
-      { package: 'com.kbcard.cxh.appcard', pay_method: 'KB국민카드' },
-      { package: 'com.shinhan.sbanking', pay_method: '신한은행' },
-      { package: 'com.wooribank.pib.smart', pay_method: '우리은행' },
-      { package: 'com.nonghyup.smnhb', pay_method: '농협은행' },
-      { package: 'com.ibk.neobanking', pay_method: '기업은행' },
-      { package: 'com.kakaobank.channel', pay_method: '카카오뱅크' }
-    ];
-    for (const mapping of defaultPackageMappings) {
-      await dbInstance.run(
-        'INSERT OR IGNORE INTO package_pay_methods (package, pay_method) VALUES (?, ?)',
-        [mapping.package, mapping.pay_method]
-      );
+    const pkgPayMethodsCount = await dbInstance.get('SELECT COUNT(*) as count FROM package_pay_methods');
+    if (pkgPayMethodsCount.count === 0) {
+      const defaultPackageMappings = [
+        { package: 'viva.republica.toss', pay_method: '토스' },
+        { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
+        { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
+        { package: 'com.hanabank.oqf', pay_method: '하나은행' },
+        { package: 'com.shcard.smartpay', pay_method: '신한카드' },
+        { package: 'com.wooricard.smartapp', pay_method: '우리카드' },
+        { package: 'com.hyundaicard.appcard', pay_method: '현대카드' },
+        { package: 'kr.co.samsungcard.mpocket', pay_method: '삼성카드' },
+        { package: 'com.lcacApp', pay_method: '롯데카드' },
+        { package: 'com.nhcard.smartpay', pay_method: 'NH농협카드' },
+        { package: 'com.kbcard.cxh.appcard', pay_method: 'KB국민카드' },
+        { package: 'com.shinhan.sbanking', pay_method: '신한은행' },
+        { package: 'com.wooribank.pib.smart', pay_method: '우리은행' },
+        { package: 'com.nonghyup.smnhb', pay_method: '농협은행' },
+        { package: 'com.ibk.neobanking', pay_method: '기업은행' },
+        { package: 'com.kakaobank.channel', pay_method: '카카오뱅크' }
+      ];
+      for (const mapping of defaultPackageMappings) {
+        await dbInstance.run(
+          'INSERT OR IGNORE INTO package_pay_methods (package, pay_method) VALUES (?, ?)',
+          [mapping.package, mapping.pay_method]
+        );
+      }
     }
 
     if (username === 'admin') {
