@@ -118,7 +118,7 @@ html[data-theme="light"] body {
 }
 
 .text-expense {
-  color: #f8fafc !important;
+  color: var(--text-primary) !important;
 }
 
 .text-up {

@@ -64,6 +64,9 @@ async function loadFixedAnalytics(year, month) {
 
 // 6개월 고정지출 추이 바 차트
 function renderFixedMonthlyTrendChart(trendData) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('fixedMonthlyTrendChart').getContext('2d');
   if (fixedMonthlyTrendChartInstance) {
     fixedMonthlyTrendChartInstance.destroy();
@@ -82,7 +85,7 @@ function renderFixedMonthlyTrendChart(trendData) {
       datasets: [{
         label: '고정지출 합계',
         data,
-        backgroundColor: '#3b82f6',
+        backgroundColor: '#ef4444',
         borderRadius: 4,
         maxBarThickness: 25
       }]
@@ -91,11 +94,11 @@ function renderFixedMonthlyTrendChart(trendData) {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: textSecondary } },
         y: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: gridColor },
           ticks: {
-            color: '#94a3b8',
+            color: textSecondary,
             precision: 0,
             callback: function(value) {
               if (Math.floor(value) !== value) return null;
@@ -123,6 +126,9 @@ function renderFixedMonthlyTrendChart(trendData) {
 
 // 고정지출 카테고리별 비중 도넛 차트
 function renderFixedCategoryChart(categories) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('fixedCategoryChart').getContext('2d');
   if (fixedCategoryChartInstance) {
     fixedCategoryChartInstance.destroy();
@@ -142,7 +148,7 @@ function renderFixedCategoryChart(categories) {
       type: 'doughnut',
       data: {
         labels: ['데이터 없음'],
-        datasets: [{ data: [1], backgroundColor: ['rgba(255,255,255,0.05)'], borderWidth: 0 }]
+        datasets: [{ data: [1], backgroundColor: [gridColor], borderWidth: 0 }]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
@@ -169,7 +175,7 @@ function renderFixedCategoryChart(categories) {
         legend: {
           position: 'right',
           labels: {
-            color: '#f8fafc',
+            color: textColor,
             font: { size: 10 },
             boxWidth: 10,
             padding: 6

@@ -296,7 +296,7 @@ function renderAssetGrid(assets) {
     card.className = `asset-card-item glass ${asset.isCard ? 'card-type' : 'bank-type'}`;
     card.style.padding = '1.25rem';
     card.style.borderRadius = '12px';
-    card.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+    card.style.border = '1px solid var(--glass-border)';
 
     if (!asset.isTotal) {
       card.dataset.name = asset.name;
@@ -315,11 +315,11 @@ function renderAssetGrid(assets) {
       // 마우스 호버 마이크로 애니메이션 효과
       card.addEventListener('mouseenter', () => {
         card.style.transform = 'translateY(-3px)';
-        card.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+        card.style.border = '1px solid var(--accent-color)';
       });
       card.addEventListener('mouseleave', () => {
         card.style.transform = 'translateY(0)';
-        card.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+        card.style.border = '1px solid var(--glass-border)';
       });
     }
     
@@ -329,7 +329,7 @@ function renderAssetGrid(assets) {
       let pointHtml = '';
       if (hasPoint) {
         pointHtml = `
-          <div class="asset-card-detail-rows" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem;">
+          <div class="asset-card-detail-rows" style="border-top: 1px solid var(--glass-border); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem;">
             <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.75rem;">
               <span style="color: var(--text-secondary);">지원금/포인트 한도</span>
               <span style="color: var(--text-color); font-weight: 500;">${formatCurrency(asset.initialPoint)}</span>
@@ -411,12 +411,12 @@ function renderAssetGrid(assets) {
         }
         
         performanceGoalHtml = `
-          <div class="asset-card-detail-rows" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem;">
+          <div class="asset-card-detail-rows" style="border-top: 1px solid var(--glass-border); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem;">
             <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.75rem;">
               <span style="color: var(--text-secondary);">월 실적 달성률 (${percent}%)${periodText}</span>
               <span style="color: var(--text-color); font-weight: 500;">${formatCurrency(spent)} / ${formatCurrency(goalAmount)}</span>
             </div>
-            <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; margin-top: 0.15rem;">
+            <div style="width: 100%; height: 6px; background: var(--glass-border); border-radius: 3px; overflow: hidden; margin-top: 0.15rem;">
               <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); border-radius: 3px; transition: width 0.3s ease;"></div>
             </div>
             <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.7rem; margin-top: 0.15rem;">
@@ -456,12 +456,12 @@ function renderAssetGrid(assets) {
           ${performanceGoalHtml}
           
           <!-- 결제일 및 이용기간 정보 -->
-          <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-secondary); border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: 0.5rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-secondary); border-top: 1px solid var(--glass-border); padding-top: 0.5rem; margin-top: 0.5rem;">
             <span>결제일 / 이용기간</span>
             <span style="font-weight: 500; color: var(--text-color);">${payDay}일 / ${localGetBillingCycleText(startDay)}</span>
           </div>
           
-          <div class="asset-card-footer-row" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; margin-top: 0.5rem;">
+          <div class="asset-card-footer-row" style="border-top: 1px solid var(--glass-border); padding-top: 0.5rem; margin-top: 0.5rem;">
             <span class="asset-card-subtext" style="font-size: 0.75rem; color: var(--text-secondary);">이번 달 신용/체크 누적 사용 금액</span>
           </div>
         </div>
@@ -487,7 +487,7 @@ function renderAssetGrid(assets) {
             <span class="asset-card-label" style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">현재 총 잔액</span>
             <span class="asset-card-value" style="font-weight: 800; font-size: 1.25rem; color: ${balanceColor};">${formatCurrency(asset.currentBalance)}</span>
           </div>
-          <div class="asset-card-detail-rows" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
+          <div class="asset-card-detail-rows" style="border-top: 1px solid var(--glass-border); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
             <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.75rem;">
               <span style="color: var(--text-secondary);">총 입금 (수입)</span>
               <span class="text-income" style="color: #10b981; font-weight: 500;">+${formatCurrency(asset.monthIncome)}</span>
@@ -521,7 +521,7 @@ function renderAssetGrid(assets) {
             <span class="asset-card-label" style="font-size: 0.8rem; color: var(--text-secondary);">현재 잔액</span>
             <span class="asset-card-value" style="font-weight: 700; font-size: 1.1rem; color: ${balanceColor};">${formatCurrency(asset.currentBalance)}</span>
           </div>
-          <div class="asset-card-detail-rows" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
+          <div class="asset-card-detail-rows" style="border-top: 1px solid var(--glass-border); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
             <div class="asset-card-detail-row" style="display: flex; justify-content: space-between; font-size: 0.75rem;">
               <span style="color: var(--text-secondary);">이번 달 입금 (수입)</span>
               <span class="text-income" style="color: #10b981; font-weight: 500;">+${formatCurrency(asset.monthIncome)}</span>
@@ -548,6 +548,9 @@ function renderAssetGrid(assets) {
 
 // 1-A. 카테고리 파이 차트
 function renderCategoryChart(categories) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('categoryChart').getContext('2d');
   
   if (categoryChartInstance) {
@@ -613,7 +616,7 @@ function renderCategoryChart(categories) {
         legend: {
           position: 'right',
           labels: {
-            color: '#f8fafc',
+            color: textColor,
             font: { family: 'Outfit, Noto Sans KR', size: 11 },
             boxWidth: 12,
             padding: 8
@@ -636,6 +639,9 @@ function renderCategoryChart(categories) {
 
 // 1-B. 일별 추이 라인 차트
 function renderTrendChart(dailyData, year, month) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('trendChart').getContext('2d');
   
   if (trendChartInstance) {
@@ -682,12 +688,12 @@ function renderTrendChart(dailyData, year, month) {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: '#94a3b8', font: { size: 10 } }
+          ticks: { color: textSecondary, font: { size: 10 } }
         },
         y: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: gridColor },
           ticks: { 
-            color: '#94a3b8', 
+            color: textSecondary, 
             font: { size: 10 },
             precision: 0,
             callback: function(value) {
@@ -706,7 +712,7 @@ function renderTrendChart(dailyData, year, month) {
       plugins: {
         legend: {
           display: true,
-          labels: { color: '#94a3b8', font: { size: 10 } }
+          labels: { color: textSecondary, font: { size: 10 } }
         },
         tooltip: {
           mode: 'index',

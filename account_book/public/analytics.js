@@ -145,6 +145,9 @@ async function loadAnalytics() {
 
 // 1. 연간 월별 비교 차트 (Grouped Bar Chart)
 function renderAnalyticsYearlyChart(monthlyData) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('analyticsYearlyChart').getContext('2d');
   if (analyticsYearlyChartInstance) {
     analyticsYearlyChartInstance.destroy();
@@ -189,11 +192,11 @@ function renderAnalyticsYearlyChart(monthlyData) {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: textSecondary } },
         y: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: gridColor },
           ticks: {
-            color: '#94a3b8',
+            color: textSecondary,
             precision: 0,
             callback: function(value) {
               if (Math.floor(value) !== value) {
@@ -209,7 +212,7 @@ function renderAnalyticsYearlyChart(monthlyData) {
         }
       },
       plugins: {
-        legend: { labels: { color: '#f8fafc' } },
+        legend: { labels: { color: textColor } },
         tooltip: {
           callbacks: {
             label: function(context) {
@@ -224,6 +227,9 @@ function renderAnalyticsYearlyChart(monthlyData) {
 
 // 1-2. 월간 일별 수입 vs 지출 비교 차트 (Grouped Bar Chart)
 function renderAnalyticsDailyChart(dailyData, month) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('analyticsYearlyChart').getContext('2d');
   if (analyticsYearlyChartInstance) {
     analyticsYearlyChartInstance.destroy();
@@ -274,16 +280,16 @@ function renderAnalyticsDailyChart(dailyData, month) {
         x: { 
           grid: { display: false }, 
           ticks: { 
-            color: '#94a3b8',
+            color: textSecondary,
             font: { size: 9 },
             autoSkip: true,
             maxRotation: 0
           } 
         },
         y: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: gridColor },
           ticks: {
-            color: '#94a3b8',
+            color: textSecondary,
             precision: 0,
             callback: function(value) {
               if (Math.floor(value) !== value) {
@@ -299,7 +305,7 @@ function renderAnalyticsDailyChart(dailyData, month) {
         }
       },
       plugins: {
-        legend: { labels: { color: '#f8fafc' } },
+        legend: { labels: { color: textColor } },
         tooltip: {
           callbacks: {
             label: function(context) {
@@ -314,6 +320,9 @@ function renderAnalyticsDailyChart(dailyData, month) {
 
 // 2. 카테고리별 누적 소비 차트 (Doughnut Chart / Horizontal Bar)
 function renderAnalyticsCategoryChart(categories, isMonthly = false) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('analyticsCategoryChart').getContext('2d');
   if (analyticsCategoryChartInstance) {
     analyticsCategoryChartInstance.destroy();
@@ -350,7 +359,7 @@ function renderAnalyticsCategoryChart(categories, isMonthly = false) {
       type: 'doughnut',
       data: {
         labels: ['데이터 없음'],
-        datasets: [{ data: [1], backgroundColor: ['rgba(255,255,255,0.05)'], borderWidth: 0 }]
+        datasets: [{ data: [1], backgroundColor: [gridColor], borderWidth: 0 }]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
@@ -377,7 +386,7 @@ function renderAnalyticsCategoryChart(categories, isMonthly = false) {
         legend: {
           position: 'right',
           labels: {
-            color: '#f8fafc',
+            color: textColor,
             font: { size: 10 },
             boxWidth: 10,
             padding: 6
@@ -400,6 +409,9 @@ function renderAnalyticsCategoryChart(categories, isMonthly = false) {
 
 // 3. 최근 12개월 추이 차트 (Line Chart)
 function renderAnalyticsMonthlyChart(monthlyData) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('analyticsMonthlyChart').getContext('2d');
   if (analyticsMonthlyChartInstance) {
     analyticsMonthlyChartInstance.destroy();
@@ -443,11 +455,11 @@ function renderAnalyticsMonthlyChart(monthlyData) {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: textSecondary } },
         y: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: gridColor },
           ticks: {
-            color: '#94a3b8',
+            color: textSecondary,
             precision: 0,
             callback: function(value) {
               if (Math.floor(value) !== value) {
@@ -463,7 +475,7 @@ function renderAnalyticsMonthlyChart(monthlyData) {
         }
       },
       plugins: {
-        legend: { labels: { color: '#f8fafc' } },
+        legend: { labels: { color: textColor } },
         tooltip: {
           mode: 'index',
           intersect: false,

@@ -141,6 +141,9 @@ function renderGeneralCategorySummaryTable(categories, totalSpent, generalTotal,
 
 // 6개월 일반지출 추이 바 차트
 function renderGeneralMonthlyTrendChart(trendData) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('generalMonthlyTrendChart').getContext('2d');
   if (generalMonthlyTrendChartInstance) {
     generalMonthlyTrendChartInstance.destroy();
@@ -168,11 +171,11 @@ function renderGeneralMonthlyTrendChart(trendData) {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: textSecondary } },
         y: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: gridColor },
           ticks: {
-            color: '#94a3b8',
+            color: textSecondary,
             precision: 0,
             callback: function(value) {
               if (Math.floor(value) !== value) return null;
@@ -200,6 +203,9 @@ function renderGeneralMonthlyTrendChart(trendData) {
 
 // 일반지출 카테고리별 비중 도넛 차트
 function renderGeneralCategoryChart(categories) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('generalCategoryChart').getContext('2d');
   if (generalCategoryChartInstance) {
     generalCategoryChartInstance.destroy();
@@ -219,7 +225,7 @@ function renderGeneralCategoryChart(categories) {
       type: 'doughnut',
       data: {
         labels: ['데이터 없음'],
-        datasets: [{ data: [1], backgroundColor: ['rgba(255,255,255,0.05)'], borderWidth: 0 }]
+        datasets: [{ data: [1], backgroundColor: [gridColor], borderWidth: 0 }]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
@@ -246,7 +252,7 @@ function renderGeneralCategoryChart(categories) {
         legend: {
           position: 'right',
           labels: {
-            color: '#f8fafc',
+            color: textColor,
             font: { size: 10 },
             boxWidth: 10,
             padding: 6

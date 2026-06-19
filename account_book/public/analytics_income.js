@@ -88,6 +88,9 @@ async function loadIncomeAnalytics(year, month) {
 
 // 6개월 수입 추이 바 차트
 function renderIncomeMonthlyTrendChart(trendData) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('incomeMonthlyTrendChart').getContext('2d');
   if (incomeMonthlyTrendChartInstance) {
     incomeMonthlyTrendChartInstance.destroy();
@@ -104,7 +107,7 @@ function renderIncomeMonthlyTrendChart(trendData) {
     data: {
       labels,
       datasets: [{
-        label: '수입 합계',
+        label: '소득 합계',
         data,
         backgroundColor: '#10b981',
         borderRadius: 4,
@@ -115,11 +118,11 @@ function renderIncomeMonthlyTrendChart(trendData) {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+        x: { grid: { display: false }, ticks: { color: textSecondary } },
         y: {
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: gridColor },
           ticks: {
-            color: '#94a3b8',
+            color: textSecondary,
             precision: 0,
             callback: function(value) {
               if (Math.floor(value) !== value) return null;
@@ -136,7 +139,7 @@ function renderIncomeMonthlyTrendChart(trendData) {
         tooltip: {
           callbacks: {
             label: function(context) {
-              return ` 수입: ${formatCurrency(context.raw)}`;
+              return ` 소득: ${formatCurrency(context.raw)}`;
             }
           }
         }
@@ -147,6 +150,9 @@ function renderIncomeMonthlyTrendChart(trendData) {
 
 // 수입 카테고리별 비중 도넛 차트
 function renderIncomeCategoryChart(categories) {
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#f8fafc';
+  const textSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#94a3b8';
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--glass-border').trim() || 'rgba(255,255,255,0.05)';
   const ctx = document.getElementById('incomeCategoryChart').getContext('2d');
   if (incomeCategoryChartInstance) {
     incomeCategoryChartInstance.destroy();
@@ -166,7 +172,7 @@ function renderIncomeCategoryChart(categories) {
       type: 'doughnut',
       data: {
         labels: ['데이터 없음'],
-        datasets: [{ data: [1], backgroundColor: ['rgba(255,255,255,0.05)'], borderWidth: 0 }]
+        datasets: [{ data: [1], backgroundColor: [gridColor], borderWidth: 0 }]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
@@ -193,7 +199,7 @@ function renderIncomeCategoryChart(categories) {
         legend: {
           position: 'right',
           labels: {
-            color: '#f8fafc',
+            color: textColor,
             font: { size: 10 },
             boxWidth: 10,
             padding: 6
