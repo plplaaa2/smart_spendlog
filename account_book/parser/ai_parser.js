@@ -453,21 +453,21 @@ ${dataText}
 3. content (리포트 본문) 구성 규칙:
    - 가독성과 심미성을 극대화하기 위해, 텍스트(마크다운) 설명과 함께 인라인 스타일(style="...")이 지정된 HTML/CSS 기반의 동적 그래프(차트) 및 분석 카드를 적극 활용하여 렌더링하도록 마크업을 설계하십시오.
    - 중요: 리포트 내에 포함되는 모든 HTML/CSS 요소(하위 예시 1, 예시 2 전체 구조 포함)는 코드 내부에 줄바꿈(\n)을 절대로 포함하지 말고, 반드시 단 한 줄의 길고 완성된 단일 행(Single Line) 텍스트로 합쳐서 출력하십시오. 줄 단위 마크다운 분석 파서가 각 행을 쪼개는 과정에서 HTML 구조 내부에 원치 않는 문단 태그(<p>)를 주입하거나 닫는 태그를 오인하여 레이아웃이 깨지고 깨진 빈 여백만 잔뜩 노출되는 현상을 근본적으로 차단하기 위함입니다.
-   - 모던하고 세련된 다크 모드 가계부 UI에 자연스럽게 어우러지도록 부드러운 반투명 카드 테두리(rgba), 그리고 HSL/RGB 기반의 선명한 그라데이션 및 색상 매핑을 적용하십시오.
+   - 모던하고 세련된 가계부 UI에 자연스럽게 어우러지고 다크/라이트 테마에 동적으로 반응하도록 테마 변수(예: `var(--text-primary)`, `var(--text-secondary)`, `var(--glass-bg)`, `var(--glass-border)`)를 적극 사용하여 마크업을 설계하십시오. 글씨 색상에 하드코딩된 흰색(rgba(255,255,255,x) 또는 #fff 등)을 절대 사용하지 마십시오.
    - [시각화 요소 예시 1 - 카테고리별 비중 가로 막대 그래프]:
-     <div style="background: rgba(255,255,255,0.04); border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.06);">
-       <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; color: rgba(255,255,255,0.95);">
+     <div style="background: var(--glass-bg); border-radius: 8px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--glass-border);">
+       <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; color: var(--text-primary);">
          <span>🍔 식비 (지출 비중 45.3%)</span>
          <strong style="color: #6366f1;">453,000원</strong>
        </div>
-       <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
+       <div style="width: 100%; height: 8px; background: var(--glass-border); border-radius: 4px; overflow: hidden;">
          <div style="width: 45.3%; height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); border-radius: 4px;"></div>
        </div>
      </div>
    - [시각화 요소 예시 2 - 지출 비교 및 도넛형 conic-gradient 차트]:
-     <div style="display: flex; justify-content: center; margin: 16px 0; gap: 20px; align-items: center; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+     <div style="display: flex; justify-content: center; margin: 16px 0; gap: 20px; align-items: center; background: var(--glass-bg); padding: 16px; border-radius: 10px; border: 1px solid var(--glass-border);">
        <div style="width: 100px; height: 100px; border-radius: 50%; background: conic-gradient(#6366f1 0% 50%, #ec4899 50% 80%, #3b82f6 80% 100%); flex-shrink: 0;"></div>
-       <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px; color: rgba(255,255,255,0.75);">
+       <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
          <div><span style="display:inline-block; width:10px; height:10px; background:#6366f1; border-radius:50%; margin-right:6px;"></span>🍔 식비: 50%</div>
          <div><span style="display:inline-block; width:10px; height:10px; background:#ec4899; border-radius:50%; margin-right:6px;"></span>🛍️ 쇼핑: 30%</div>
          <div><span style="display:inline-block; width:10px; height:10px; background:#3b82f6; border-radius:50%; margin-right:6px;"></span>기타: 20%</div>
@@ -490,7 +490,7 @@ ${dataText}
 예시 출력 형식:
 {
   "summary": "온라인 쇼핑이 급증했으나 외식비를 아껴 전체 예산을 방어했습니다.",
-  "content": "## 📊 가계부 종합 요약\\n이번 달 총 지출은...\\n<div style=\\"background: rgba(255,255,255,0.04); ...\\n\\n## 🔍 주요 소비 카테고리 분석\\n- **외식비**: 지난 달 대비...\\n"
+  "content": "## 📊 가계부 종합 요약\\n이번 달 총 지출은...\\n<div style=\\"background: var(--glass-bg); ...\\n\\n## 🔍 주요 소비 카테고리 분석\\n- **외식비**: 지난 달 대비...\\n"
 }
 `;
 

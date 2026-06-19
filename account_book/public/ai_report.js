@@ -294,6 +294,16 @@ function parseMarkdownToHtml(markdown) {
   // HTML 태그 및 그래프 렌더링을 허용하기 위해 이스케이프 완화
   let html = markdown;
 
+  // 다크 테마용 하드코딩된 투명도 텍스트/배경색들을 라이트/다크 테마 변수로 동적 변환 (과거 보고서 호환성 보장)
+  html = html.replace(/rgba\(255,\s*255,\s*255,\s*0\.95\)/g, 'var(--text-primary)');
+  html = html.replace(/rgba\(255,\s*255,\s*255,\s*0\.85\)/g, 'var(--text-primary)');
+  html = html.replace(/rgba\(255,\s*255,\s*255,\s*0\.75\)/g, 'var(--text-secondary)');
+  html = html.replace(/rgba\(255,\s*255,\s*255,\s*0\.04\)/g, 'var(--glass-bg)');
+  html = html.replace(/rgba\(255,\s*255,\s*255,\s*0\.03\)/g, 'var(--glass-bg)');
+  html = html.replace(/rgba\(255,\s*255,\s*255,\s*0\.08\)/g, 'var(--glass-border)');
+  html = html.replace(/rgba\(255,\s*255,\s*255,\s*0\.06\)/g, 'var(--glass-border)');
+  html = html.replace(/rgba\(255,\s*255,\s*255,\s*0\.05\)/g, 'var(--glass-border)');
+
   // 1. Bold 파싱: **text**
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
@@ -302,14 +312,14 @@ function parseMarkdownToHtml(markdown) {
 
   // 3. Headers 파싱 (H5, H4, H3 순서대로 매칭)
   html = html.replace(/^### (.*?)$/gm, '<h5 style="font-size: 1.05rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">$1</h5>');
-  html = html.replace(/^## (.*?)$/gm, '<h4 style="font-size: 1.15rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--primary-color); padding-bottom: 0.25rem; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; gap: 8px;">$1</h4>');
+  html = html.replace(/^## (.*?)$/gm, '<h4 style="font-size: 1.15rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--primary-color); padding-bottom: 0.25rem; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; gap: 8px;">$1</h4>');
   html = html.replace(/^# (.*?)$/gm, '<h3 style="font-size: 1.3rem; font-weight: 700; margin-top: 1.75rem; margin-bottom: 1rem; color: var(--accent-color);">$1</h3>');
 
   // 4. 리스트 아이템 파싱
   // Unordered list: - item
-  html = html.replace(/^\s*-\s+(.*?)$/gm, '<li style="margin-left: 1.25rem; margin-bottom: 0.5rem; list-style-type: disc; color: rgba(255, 255, 255, 0.8); line-height: 1.6;">$1</li>');
+  html = html.replace(/^\s*-\s+(.*?)$/gm, '<li style="margin-left: 1.25rem; margin-bottom: 0.5rem; list-style-type: disc; color: var(--text-secondary); line-height: 1.6;">$1</li>');
   // Ordered list: 1. item
-  html = html.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li style="margin-left: 1.25rem; margin-bottom: 0.5rem; list-style-type: decimal; color: rgba(255, 255, 255, 0.8); line-height: 1.6;">$2</li>');
+  html = html.replace(/^\s*(\d+)\.\s+(.*?)$/gm, '<li style="margin-left: 1.25rem; margin-bottom: 0.5rem; list-style-type: decimal; color: var(--text-secondary); line-height: 1.6;">$2</li>');
 
   // 5. 단락 구분 및 줄바꿈 처리
   const lines = html.split('\n');
@@ -346,7 +356,7 @@ function parseMarkdownToHtml(markdown) {
       if (line.startsWith('<h') || isHtml) {
         result.push(line);
       } else {
-        result.push(`<p style="margin-bottom: 0.75rem; line-height: 1.65; color: rgba(255, 255, 255, 0.85);">${line}</p>`);
+        result.push(`<p style="margin-bottom: 0.75rem; line-height: 1.65; color: var(--text-primary);">${line}</p>`);
       }
     }
   }
