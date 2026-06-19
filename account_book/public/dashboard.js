@@ -8,7 +8,35 @@ async function loadDashboardData() {
     const recent = await fetch(`api/transactions?month=${state.currentMonth}`).then(r => r.json());
 
     // 상단 카드 세팅 (수입, 지출, 예산, 저축액)
-    document.getElementById('dashboard-total-income').textContent = formatCurrency(stats.totalIncome || 0);
+    // 요약: 이번 달 수입이 0원일 때, 최근 6개월간 실제 수입이 발생한 달들의 월 평균 수입을 대체 표시하고 푸터를 변경합니다.
+    // 의존성: public/index.html의 #dashboard-total-income, #dashboard-income-footer 요소와 연동됩니다.
+    const totalIncome = stats.totalIncome || 0;
+    const incomeEl = document.getElementById('dashboard-total-income');
+    const incomeFooterEl = document.getElementById('dashboard-income-footer');
+
+    if (totalIncome === 0) {
+      const priorIncomeMonths = (stats.trend || []).filter(t => t.month < state.currentMonth && t.income > 0);
+      if (priorIncomeMonths.length > 0) {
+        const sumPriorIncome = priorIncomeMonths.reduce((sum, t) => sum + t.income, 0);
+        const avgPriorIncome = Math.round(sumPriorIncome / priorIncomeMonths.length);
+        
+        incomeEl.textContent = `(평균) ${formatCurrency(avgPriorIncome)}`;
+        if (incomeFooterEl) {
+          incomeFooterEl.textContent = '이번 달 수입이 없어 월 평균 수입 표시';
+        }
+      } else {
+        incomeEl.textContent = formatCurrency(0);
+        if (incomeFooterEl) {
+          incomeFooterEl.textContent = '이번 달 입금 금액 합계';
+        }
+      }
+    } else {
+      incomeEl.textContent = formatCurrency(totalIncome);
+      if (incomeFooterEl) {
+        incomeFooterEl.textContent = '이번 달 입금 금액 합계';
+      }
+    }
+
     document.getElementById('dashboard-total-spent').textContent = formatCurrency(stats.totalExpense);
     document.getElementById('dashboard-budget-total').textContent = formatCurrency(stats.budget);
 
