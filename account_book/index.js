@@ -57,7 +57,7 @@ app.use((req, res, next) => {
 // 의존성: 외부 무차별 대입 공격 및 DoS 방어를 위해 Express 전역/개별 라우트에 적용합니다.
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1분
-const GENERAL_LIMIT = 60; // 1분당 일반 API 최대 60회
+const GENERAL_LIMIT = 300; // 1분당 일반 API 최대 300회 (계좌 삭제 및 다중 데이터 수정 지원)
 const SENSITIVE_LIMIT = 10; // 1분당 로그인/웹훅 등 민감 API 최대 10회
 
 const createRateLimiter = (limit, message) => {
