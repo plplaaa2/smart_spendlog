@@ -144,6 +144,9 @@ async function loadSettingsTab() {
     if (budgetEl) budgetEl.value = settings.monthly_budget || 500000;
     if (realNameEl) realNameEl.value = settings.user_real_name || '';
     if (autoRuleEl) autoRuleEl.checked = settings.auto_rule_generation === 'true';
+    
+    const themeEl = document.getElementById('settings-theme');
+    if (themeEl) themeEl.value = settings.theme || 'dark';
 
   } catch (err) {
     console.error('설정 로드 실패:', err);
@@ -303,9 +306,6 @@ async function loadBalanceSettings() {
 
     const settings = await fetch('api/settings').then(r => r.json());
     
-    const balanceEl = document.getElementById('settings-initial-balance');
-    if (balanceEl) balanceEl.value = settings.initial_balance || 0;
-
     const grid = document.getElementById('settings-assets-grid');
     if (!grid) return;
     grid.innerHTML = '';

@@ -321,9 +321,25 @@ function renderAnalyticsCategoryChart(categories, isMonthly = false) {
 
   // 지출 카테고리 중 실적이 있는 것들만 필터링 (월간 데이터는 total, 연간 데이터는 current_year_total)
   const filtered = categories.filter(c => isMonthly ? (c.total > 0) : (c.current_year_total > 0));
-  const labels = filtered.map(c => c.category);
-  const data = filtered.map(c => isMonthly ? c.total : c.current_year_total);
-  const colors = filtered.map(c => {
+  
+  let displayFiltered = [...filtered];
+  if (filtered.length > 11) {
+    const topCategories = filtered.slice(0, 10);
+    const otherTotal = filtered.slice(10).reduce((sum, c) => sum + (isMonthly ? c.total : c.current_year_total), 0);
+    displayFiltered = [
+      ...topCategories,
+      { 
+        category: '기타', 
+        total: otherTotal, 
+        current_year_total: otherTotal 
+      }
+    ];
+  }
+
+  const labels = displayFiltered.map(c => c.category);
+  const data = displayFiltered.map(c => isMonthly ? c.total : c.current_year_total);
+  const colors = displayFiltered.map(c => {
+    if (c.category === '기타') return '#64748b';
     const style = state.categoryMap[c.category];
     return style ? style.color : '#868e96';
   });

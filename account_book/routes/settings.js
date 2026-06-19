@@ -151,7 +151,8 @@ router.post('/settings', async (req, res) => {
       network_backup_enabled, network_backup_type, network_backup_path, 
       network_backup_path_username, network_backup_path_password,
       network_backup_webdav_url, network_backup_webdav_username, network_backup_webdav_password,
-      ai_enabled, ai_parsing_enabled, ai_provider, ai_api_key, ai_local_ip, ai_local_model
+      ai_enabled, ai_parsing_enabled, ai_provider, ai_api_key, ai_local_ip, ai_local_model,
+      theme
     } = req.body;
 
     if (ws_sensor_entity !== undefined) {
@@ -159,9 +160,6 @@ router.post('/settings', async (req, res) => {
     }
     if (monthly_budget !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('monthly_budget', ?)", [String(monthly_budget)]);
-    }
-    if (initial_balance !== undefined) {
-      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('initial_balance', ?)", [String(initial_balance)]);
     }
     if (initial_balances !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('initial_balances', ?)", [typeof initial_balances === 'string' ? initial_balances : JSON.stringify(initial_balances)]);
@@ -183,6 +181,9 @@ router.post('/settings', async (req, res) => {
     }
     if (auto_rule_generation !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_rule_generation', ?)", [String(auto_rule_generation)]);
+    }
+    if (theme !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('theme', ?)", [theme]);
     }
     if (pay_methods_order !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('pay_methods_order', ?)", [pay_methods_order]);
@@ -321,6 +322,7 @@ router.post('/settings/reset-balance', async (req, res) => {
 
     const db = await getDB(req.username);
     await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('initial_balance', '0')");
+    await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('initial_balances', '{}')");
     res.json({ success: true, message: '초기 잔액이 0원으로 초기화되었습니다.' });
     updateHASensors(req.username);
   } catch (err) {

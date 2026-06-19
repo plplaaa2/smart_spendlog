@@ -104,6 +104,12 @@ async function loadMetadata() {
     state.settings = settings;
     state.franchisePresets = presets;
 
+    // 테마 설정 반영
+    if (state.settings && state.settings.theme) {
+      document.documentElement.setAttribute('data-theme', state.settings.theme);
+      localStorage.setItem('ab_theme', state.settings.theme);
+    }
+
     // 카테고리 맵 생성
     state.categoryMap = {};
     categories.forEach(c => {
@@ -854,12 +860,14 @@ function initEventListeners() {
       const monthly_budget = parseInt(document.getElementById('settings-budget').value, 10);
       const user_real_name = document.getElementById('settings-real-name').value.trim();
       const auto_rule_generation = document.getElementById('settings-auto-rule').checked;
+      const themeEl = document.getElementById('settings-theme');
+      const theme = themeEl ? themeEl.value : 'dark';
 
       try {
         const res = await fetch('api/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ws_sensor_entity, monthly_budget, user_real_name, auto_rule_generation })
+          body: JSON.stringify({ ws_sensor_entity, monthly_budget, user_real_name, auto_rule_generation, theme })
         }).then(r => r.json());
 
         if (res.success) {
@@ -977,41 +985,7 @@ function initEventListeners() {
     });
   }
 
-  // 잔액 설정 폼 서브밋 (글로벌 초기 잔액만)
-  const balanceForm = document.getElementById('balance-form');
-  if (balanceForm) {
-    balanceForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const initial_balance = parseInt(document.getElementById('settings-initial-balance').value, 10) || 0;
 
-      try {
-        const res = await fetch('api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initial_balance })
-        });
-
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error || '서버 오류');
-        }
-
-        const data = await res.json();
-        if (data.success) {
-          alert('기본 초기 잔액 설정이 저장되었습니다.');
-          await loadMetadata();
-          await loadBalanceSettings();
-          if (state.currentTab === 'dashboard') {
-            loadDashboardData();
-          }
-        } else {
-          alert('설정 저장 실패: ' + (data.error || '알 수 없는 오류'));
-        }
-      } catch (err) {
-        alert('설정 저장 실패: ' + err.message);
-      }
-    });
-  }
 
   // 사용처별 카테고리 매핑 폼 서브밋
   const mcatForm = document.getElementById('merchant-category-form');
@@ -1131,8 +1105,6 @@ function initEventListeners() {
 
         if (res.success) {
           alert('초기 잔액이 초기화되었습니다.');
-          const balanceEl = document.getElementById('settings-initial-balance');
-          if (balanceEl) balanceEl.value = 0;
           await loadMetadata();
           await loadBalanceSettings();
         } else {

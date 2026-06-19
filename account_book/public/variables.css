@@ -5,7 +5,7 @@
    ========================================== */
 
 :root {
-  /* Color Palette */
+  /* Color Palette (Default Dark) */
   --bg-primary: #0a0e1a;
   --bg-secondary: #0f172a;
   --accent-color: #6366f1; /* Indigo */
@@ -32,6 +32,66 @@
   --border-radius: 16px;
 }
 
+/* Light Theme */
+html[data-theme="light"] {
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #ffffff;
+  --accent-color: #4f46e5;
+  --accent-glow: rgba(79, 70, 229, 0.1);
+  --success-color: #059669;
+  --warning-color: #d97706;
+  --danger-color: #dc2626;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-hover: rgba(0, 0, 0, 0.03);
+  --glass-shadow: rgba(0, 0, 0, 0.05);
+}
+
+/* Emerald Theme */
+html[data-theme="emerald"] {
+  --bg-primary: #061f17;
+  --bg-secondary: #0c2b20;
+  --accent-color: #10b981;
+  --accent-glow: rgba(16, 185, 129, 0.15);
+  --success-color: #34d399;
+  --warning-color: #f59e0b;
+  --danger-color: #f87171;
+  
+  --text-primary: #f0fdf4;
+  --text-secondary: #a7f3d0;
+  --text-muted: #6ee7b7;
+  
+  --glass-bg: rgba(12, 43, 32, 0.6);
+  --glass-border: rgba(52, 211, 153, 0.15);
+  --glass-hover: rgba(52, 211, 153, 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.4);
+}
+
+/* Pink Theme */
+html[data-theme="pink"] {
+  --bg-primary: #1e111a;
+  --bg-secondary: #2a1924;
+  --accent-color: #ec4899;
+  --accent-glow: rgba(236, 72, 153, 0.15);
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #f43f5e;
+  
+  --text-primary: #fdf2f8;
+  --text-secondary: #fbcfe8;
+  --text-muted: #f472b6;
+  
+  --glass-bg: rgba(42, 25, 36, 0.6);
+  --glass-border: rgba(244, 114, 182, 0.15);
+  --glass-hover: rgba(244, 114, 182, 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.4);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -49,6 +109,25 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+}
+
+html[data-theme="light"] body {
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(5, 150, 105, 0.05) 0px, transparent 50%);
+}
+
+html[data-theme="emerald"] body {
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(52, 211, 153, 0.08) 0px, transparent 50%);
+}
+
+html[data-theme="pink"] body {
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(244, 114, 182, 0.08) 0px, transparent 50%);
 }
 
 /* App Container Layout */

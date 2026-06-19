@@ -550,6 +550,51 @@ async function migrateCategoriesAndData(dbInstance, username) {
     console.error('[DB 마이그레이션] 체크카드 은행이관 마이그레이션 실패:', e);
   }
 
+  // [DB 마이그레이션] 기본 초기 잔액 -> 결제 수단별 초기 잔액으로 이관
+  try {
+    const globalBalanceRow = await dbInstance.get("SELECT value FROM settings WHERE key = 'initial_balance'");
+    const globalBalance = globalBalanceRow ? parseInt(globalBalanceRow.value, 10) || 0 : 0;
+    if (globalBalance > 0) {
+      const balancesRow = await dbInstance.get("SELECT value FROM settings WHERE key = 'initial_balances'");
+      let initialBalances = {};
+      if (balancesRow && balancesRow.value) {
+        try {
+          initialBalances = JSON.parse(balancesRow.value);
+        } catch (e) {
+          initialBalances = {};
+        }
+      }
+      
+      // 결제수단별 초기 잔액의 합계 계산
+      let sum = 0;
+      Object.values(initialBalances).forEach(v => {
+        sum += parseInt(v, 10) || 0;
+      });
+
+      // 만약 개별 설정이 비어있거나 합계가 0이면 이관 실행
+      if (sum === 0) {
+        const payMethods = await dbInstance.all("SELECT name FROM pay_methods");
+        if (payMethods && payMethods.length > 0) {
+          // '현금' 결제수단이 존재하면 우선 적용, 없으면 첫 번째 결제수단에 배분
+          const cashMethod = payMethods.find(m => m.name === '현금');
+          const targetMethod = cashMethod ? '현금' : payMethods[0].name;
+          initialBalances[targetMethod] = globalBalance;
+          
+          await dbInstance.run(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('initial_balances', ?)",
+            [JSON.stringify(initialBalances)]
+          );
+          console.log(`[DB 마이그레이션] 기본 초기 잔액(${globalBalance}원)을 결제수단 '${targetMethod}'의 초기 잔액으로 이관하였습니다.`);
+        }
+      }
+      
+      // 이관이 끝났거나 이미 개별 설정이 존재하는 경우에도 통합 설정은 0으로 비움 (더 이상 사용하지 않음)
+      await dbInstance.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('initial_balance', '0')");
+    }
+  } catch (e) {
+    console.error('[DB 마이그레이션] 기본 초기 잔액 이관 마이그레이션 실패:', e);
+  }
+
   await seedDefaultData(dbInstance, username);
 }
 

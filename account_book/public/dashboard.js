@@ -50,7 +50,7 @@ async function loadDashboardData() {
       budgetLeftEl.style.color = '';
     }
 
-    // 개별 결제 수단별 초기 잔액의 합계 계산 후 통합 초기 잔액과 비교하여 보정 적용
+    // 개별 결제 수단별 초기 잔액의 합계 계산
     let initialBalancesSum = 0;
     if (state.settings.initial_balances) {
       try {
@@ -63,8 +63,7 @@ async function loadDashboardData() {
       } catch (e) {}
     }
 
-    const effectiveInitialBalance = Math.max(parseInt(state.settings.initial_balance || 0, 10), initialBalancesSum);
-    const netSavings = effectiveInitialBalance + (stats.totalIncome || 0) - stats.totalExpense;
+    const netSavings = initialBalancesSum + (stats.totalIncome || 0) - stats.totalExpense;
     const monthlyNet = (stats.totalIncome || 0) - stats.totalExpense;
     const savingsEl = document.getElementById('dashboard-net-savings');
     savingsEl.textContent = (monthlyNet > 0 ? '+' : '') + formatCurrency(monthlyNet);
@@ -576,9 +575,20 @@ function renderCategoryChart(categories) {
     return;
   }
 
-  const labels = categories.map(c => c.category);
-  const data = categories.map(c => c.total);
-  const colors = categories.map(c => {
+  let displayCategories = [...categories];
+  if (categories.length > 11) {
+    const topCategories = categories.slice(0, 10);
+    const otherTotal = categories.slice(10).reduce((sum, c) => sum + c.total, 0);
+    displayCategories = [
+      ...topCategories,
+      { category: '기타', total: otherTotal }
+    ];
+  }
+
+  const labels = displayCategories.map(c => c.category);
+  const data = displayCategories.map(c => c.total);
+  const colors = displayCategories.map(c => {
+    if (c.category === '기타') return '#64748b';
     const style = state.categoryMap[c.category];
     return style ? style.color : '#868e96';
   });
