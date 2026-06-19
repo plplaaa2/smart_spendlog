@@ -8,8 +8,8 @@
 .sidebar {
   width: var(--sidebar-width);
   background: 
-    radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 65%),
-    rgba(15, 23, 42, 0.8);
+    radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 65%),
+    var(--glass-bg);
   border-right: 1px solid var(--glass-border);
   backdrop-filter: blur(20px);
   padding: 2rem 1.5rem;
@@ -82,7 +82,7 @@
 }
 
 .nav-item.active {
-  color: var(--text-primary);
+  color: #ffffff !important; /* 라이트 테마에서도 선명한 가독성 확보 */
   background: linear-gradient(135deg, var(--accent-color) 0%, rgba(99, 102, 241, 0.7) 100%);
   box-shadow: 0 4px 15px var(--accent-glow);
 }
@@ -250,8 +250,8 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: var(--glass-hover);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
   margin: 5px 0 !important;
   margin-top: auto !important; /* 항상 아래로 강제 밀착 */
@@ -261,7 +261,7 @@
 .clock-icon {
   width: 32px;
   height: 32px;
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--accent-glow);
   color: var(--accent-color);
   border-radius: 8px;
   display: flex;
@@ -319,7 +319,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px var(--glass-shadow);
   z-index: 99999 !important; /* 항상 최상위에 위치하도록 z-index 극대화 */
   pointer-events: auto !important; /* 터치 이벤트 명시적 강제 활성화 */
   transition: left var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1),

@@ -21,7 +21,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=2.7.27"><!-- 캐시 무효화 버전 갱신 (모바일 더 보기 버튼 너비 수정 v2.7.27) -->
+  <link rel="stylesheet" href="./style.css?v=2.7.29"><!-- 캐시 무효화 버전 갱신 (테마 단일화 및 색상 대비 수정 v2.7.29) -->
   <!-- Chart.js Local -->
   <script src="./chart.js?v=2.3.3"></script>
   <!-- Lucide Icons Local -->
@@ -1071,9 +1071,10 @@
           <div id="subtab-default" class="sub-settings-content active" style="width: 100%;">
             <div style="display: flex; flex-direction: column; gap: 2rem;">
               <!-- Main Settings Form -->
-              <div class="card glass settings-form-card">
-                <h3>사용자 설정</h3>
-                <form id="settings-form">
+              <form id="settings-form">
+                <!-- 사용자 설정 카드 -->
+                <div class="card glass settings-form-card" style="margin-bottom: 1.5rem;">
+                  <h3>사용자 설정</h3>
                   <div class="form-group">
                     <label for="settings-real-name">사용자 이름 (본명)</label>
                     <div class="info-box">
@@ -1098,15 +1099,6 @@
                     <label for="settings-budget">이번 달 예산 설정 (원)</label>
                     <input type="number" id="settings-budget" placeholder="500000" min="0">
                   </div>
-                  <div class="form-group">
-                    <label for="settings-theme">화면 테마 설정</label>
-                    <select id="settings-theme" class="select-filter" style="width: 100%; max-width: 100%;">
-                      <option value="dark">기본 다크 테마 (Dark)</option>
-                      <option value="light">밝은 테마 (Light)</option>
-                      <option value="emerald">에메랄드 테마 (Emerald)</option>
-                      <option value="pink">핑크 테마 (Pink)</option>
-                    </select>
-                  </div>
                   <div class="form-group"
                     style="margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
                     <input type="checkbox" id="settings-auto-rule"
@@ -1115,9 +1107,28 @@
                       style="cursor: pointer; font-size: 0.9rem; font-weight: normal; margin-bottom: 0; display: inline;">알림
                       분석 실패 시 정규식 규칙 자동 생성 및 재시도</label>
                   </div>
-                  <button type="submit" class="btn btn-primary">설정 저장</button>
-                </form>
-              </div>
+                </div>
+
+                <!-- 테마 설정 카드 -->
+                <div class="card glass settings-form-card" style="margin-bottom: 1.5rem;">
+                  <h3>화면 테마 설정</h3>
+                  <div class="info-box" style="margin-bottom: 1rem;">
+                    <p>가계부 서비스의 전반적인 화면 색상 테마(다크/라이트)를 전환합니다.</p>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label for="settings-theme">테마 선택</label>
+                    <select id="settings-theme" class="select-filter" style="width: 100%; max-width: 100%;">
+                      <option value="dark">기본 다크 테마 (Dark)</option>
+                      <option value="light">밝은 테마 (Light)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- 저장 버튼 영역 -->
+                <div style="display: flex; justify-content: flex-end;">
+                  <button type="submit" class="btn btn-primary" style="min-width: 120px;">설정 저장</button>
+                </div>
+              </form>
             </div>
           </div>
 
