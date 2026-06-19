@@ -40,19 +40,24 @@
     width: fit-content !important;
     max-width: calc(100% - 2rem) !important;
     height: 65px !important;
-    background: rgba(15, 23, 42, 0.95) !important; /* 가독성을 위해 불투명도 더 증가 */
+    background: var(--mobile-nav-bg) !important; /* 테마 적용 */
     border: 1px solid var(--glass-border) !important;
     backdrop-filter: blur(20px) !important; /* 블러 강도 증가 */
     z-index: 10000 !important; /* 더 높은 z-index */
     justify-content: flex-start !important;
     align-items: center !important;
     padding: 0 1rem !important;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+    box-shadow: 0 12px 40px var(--mobile-nav-shadow) !important; /* 테마 적용 */
     border-radius: 24px !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     gap: 0.25rem !important;
     pointer-events: auto !important; /* 클릭 방지 해제 */
+  }
+
+  /* 로그인 화면이 활성화되어 있을 때 모바일 하단 메뉴를 완전히 감춤 */
+  body.login-screen .mobile-bottom-nav {
+    display: none !important;
   }
 
   .mobile-bottom-nav::-webkit-scrollbar {

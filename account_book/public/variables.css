@@ -24,6 +24,8 @@
   --glass-border: rgba(255, 255, 255, 0.06);
   --glass-hover: rgba(255, 255, 255, 0.03);
   --glass-shadow: rgba(0, 0, 0, 0.3);
+  --mobile-nav-bg: rgba(15, 23, 42, 0.95);
+  --mobile-nav-shadow: rgba(0, 0, 0, 0.6);
   
   /* Layout Options */
   --sidebar-width: 260px;
@@ -50,6 +52,8 @@ html[data-theme="light"] {
   --glass-border: rgba(0, 0, 0, 0.08);
   --glass-hover: rgba(0, 0, 0, 0.03);
   --glass-shadow: rgba(0, 0, 0, 0.05);
+  --mobile-nav-bg: rgba(255, 255, 255, 0.95);
+  --mobile-nav-shadow: rgba(0, 0, 0, 0.1);
 }
 
 /* Unused themes (Emerald, Pink) removed to simplify to Dark/Light only */

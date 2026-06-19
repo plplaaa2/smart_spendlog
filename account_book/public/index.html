@@ -21,7 +21,7 @@
     href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=2.7.37"><!-- 캐시 무효화 버전 갱신 (대시보드 수입 평균 대체 v2.7.37) -->
+  <link rel="stylesheet" href="./style.css?v=2.7.39"><!-- 캐시 무효화 버전 갱신 (모바일 하단 메뉴 테마 개선 v2.7.39) -->
   <!-- Chart.js Local -->
   <script src="./chart.js?v=2.3.3"></script>
   <!-- Lucide Icons Local -->
@@ -227,7 +227,7 @@
 
           <div class="card glass stat-card">
             <div class="stat-header">
-              <span class="stat-label">이번 달 순수이익</span>
+              <span class="stat-label" id="dashboard-net-savings-label">이번 달 순수이익</span>
               <div class="stat-icon-wrapper savings"><i data-lucide="coins"></i></div>
             </div>
             <div class="stat-value" id="dashboard-net-savings">0원</div>
@@ -1140,7 +1140,7 @@
               <div class="card glass settings-form-card" style="padding: 1.25rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                   <h3 style="font-size: 1.1rem; margin-bottom: 0;">자산 및 결제수단 관리</h3>
-                  <button class="btn btn-primary" id="btn-add-asset" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.25rem;">
+                  <button class="btn btn-primary btn-sm" id="btn-add-asset" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.25rem; width: auto !important;">
                     <span>+</span> 자산/카드 추가
                   </button>
                 </div>
@@ -2082,10 +2082,10 @@
   </div>
 
   <!-- JavaScript files -->
-  <script src="./auth.js?v=2.7.28"></script>
+  <script src="./auth.js?v=2.7.39"></script>
   <script src="./app.js?v=2.7.22"></script>
   <script src="./notifications.js?v=2.3.3"></script>
-  <script src="./dashboard.js?v=2.7.37"></script>
+  <script src="./dashboard.js?v=2.7.38"></script>
   <script src="./transactions.js?v=2.3.3"></script>
   <script src="./card_bank_view.js?v=2.3.3"></script>
   <script src="./rules.js?v=2.7.9"></script>

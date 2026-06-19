@@ -110,6 +110,9 @@ async function attemptLogin(isAuto = false) {
       if (clockCard) clockCard.style.display = 'flex';
       const toggleBtn = document.getElementById('sidebar-collapse-toggle');
       if (toggleBtn) toggleBtn.style.display = 'flex';
+      const mobileNav = document.querySelector('.mobile-bottom-nav');
+      if (mobileNav) mobileNav.style.display = '';
+      document.body.classList.remove('login-screen');
       document.getElementById('current_user_name').textContent = `${currentUser}`;
       const mobileNameEl = document.getElementById('mobile_current_user_name');
       if (mobileNameEl) mobileNameEl.textContent = `${currentUser}`;
@@ -137,11 +140,14 @@ function checkLogin() {
   const overlay = document.getElementById('login_overlay');
   const profile = document.getElementById('user_profile');
   const toggleBtn = document.getElementById('sidebar-collapse-toggle');
+  const mobileNav = document.querySelector('.mobile-bottom-nav');
   if (currentUser) {
     if (overlay) overlay.style.display = 'none';
     const clockCard = document.getElementById('sidebar_clock_card');
     if (clockCard) clockCard.style.display = 'flex';
     if (toggleBtn) toggleBtn.style.display = 'flex';
+    if (mobileNav) mobileNav.style.display = '';
+    document.body.classList.remove('login-screen');
     if (profile) {
       profile.style.display = 'flex';
       const nameEl = document.getElementById('current_user_name');
@@ -156,6 +162,8 @@ function checkLogin() {
     if (clockCard) clockCard.style.display = 'none';
     if (toggleBtn) toggleBtn.style.display = 'none';
     if (profile) profile.style.display = 'none';
+    if (mobileNav) mobileNav.style.display = 'none';
+    document.body.classList.add('login-screen');
     
     if (currentSession) {
       attemptLogin(true);

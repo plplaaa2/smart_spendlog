@@ -91,9 +91,37 @@ async function loadDashboardData() {
       } catch (e) {}
     }
 
+    // 요약: 이번 달 수입이 0원일 때, 월 평균 수입을 적용하여 예상 순수이익으로 대체 표시합니다.
+    // 의존성: public/index.html의 #dashboard-net-savings, #dashboard-net-savings-label, #dashboard-net-savings-footer 요소와 연동됩니다.
     const netSavings = initialBalancesSum + (stats.totalIncome || 0) - stats.totalExpense;
-    const monthlyNet = (stats.totalIncome || 0) - stats.totalExpense;
+    let monthlyNet = (stats.totalIncome || 0) - stats.totalExpense;
     const savingsEl = document.getElementById('dashboard-net-savings');
+    const savingsLabelEl = document.getElementById('dashboard-net-savings-label');
+    const savingsFooterEl = document.getElementById('dashboard-net-savings-footer');
+
+    let isUsingAverageIncome = false;
+    let avgPriorIncome = 0;
+
+    if (totalIncome === 0) {
+      const priorIncomeMonths = (stats.trend || []).filter(t => t.month < state.currentMonth && t.income > 0);
+      if (priorIncomeMonths.length > 0) {
+        const sumPriorIncome = priorIncomeMonths.reduce((sum, t) => sum + t.income, 0);
+        avgPriorIncome = Math.round(sumPriorIncome / priorIncomeMonths.length);
+        isUsingAverageIncome = true;
+      }
+    }
+
+    if (isUsingAverageIncome) {
+      monthlyNet = avgPriorIncome - stats.totalExpense;
+      if (savingsLabelEl) {
+        savingsLabelEl.textContent = '예상 순수이익';
+      }
+    } else {
+      if (savingsLabelEl) {
+        savingsLabelEl.textContent = '이번 달 순수이익';
+      }
+    }
+
     savingsEl.textContent = (monthlyNet > 0 ? '+' : '') + formatCurrency(monthlyNet);
     if (monthlyNet < 0) {
       savingsEl.style.color = 'var(--danger-color)';
@@ -101,11 +129,12 @@ async function loadDashboardData() {
       savingsEl.style.color = 'var(--success-color)';
     }
 
-    const savingsFooterEl = document.getElementById('dashboard-net-savings-footer');
     if (savingsFooterEl) {
-      // 요약: 이번 달 순수이익 외에 누적 저축액도 하단 푸터에 함께 표시하여 가시성을 높임
-      // 의존성: public/index.html의 #dashboard-net-savings-footer 요소와 연동됩니다.
-      savingsFooterEl.innerHTML = `<span class="text-secondary">누적 저축액: ${formatCurrency(netSavings)}</span>`;
+      if (isUsingAverageIncome) {
+        savingsFooterEl.innerHTML = `<span class="text-secondary">누적 저축액: ${formatCurrency(netSavings)} (평균 수입 기준)</span>`;
+      } else {
+        savingsFooterEl.innerHTML = `<span class="text-secondary">누적 저축액: ${formatCurrency(netSavings)}</span>`;
+      }
     }
 
     const [year, month] = state.currentMonth.split('-');
