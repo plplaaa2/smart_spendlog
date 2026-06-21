@@ -561,7 +561,7 @@ async function loadMerchantCategories() {
       } else {
         list.forEach(item => {
           const tr = document.createElement('tr');
-          tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+          tr.style.borderBottom = '1px solid var(--inner-border-light)';
           
           // 카테고리 배지 렌더링을 위해 색상 맵 활용
           const catMeta = state.categoryMap[item.category] || { color: '#868e96' };
@@ -716,7 +716,7 @@ async function loadPackagePayMethods() {
 
       list.forEach(item => {
         const tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid rgba(255,255,255,0.04)';
+        tr.style.borderBottom = '1px solid var(--inner-border-light)';
         
         tr.innerHTML = `
           <td data-label="앱 패키지명(Package)" style="padding: 10px 12px; font-weight: 500; color: var(--text-color); font-family: monospace; font-size: 0.85rem;">${item.package}</td>

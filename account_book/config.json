@@ -1,6 +1,6 @@
 {
   "name": "Smart Spendlog",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "slug": "account_book",
   "description": "HA 알림 센서 수신 및 규칙 매핑 기반 가계부 서비스",
   "arch": [

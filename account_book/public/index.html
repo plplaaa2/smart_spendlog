@@ -518,7 +518,7 @@
                 <div
                   style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
                   <span id="merchant-preset-badge"
-                    style="font-size: 0.78rem; color: var(--text-secondary); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 3px 10px;"></span>
+                    style="font-size: 0.78rem; color: var(--text-secondary); background: var(--glass-border); border: 1px solid var(--glass-border); border-radius: 20px; padding: 3px 10px;"></span>
                   <button type="button" id="btn-seed-presets" onclick="applyFranchisePresets()"
                     style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25)); border: 1px solid rgba(99,102,241,0.4); border-radius: 8px; color: #a5b4fc; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;">
                     <i data-lucide="zap" style="width:14px;height:14px;"></i> 모든 가맹점 프리셋 일괄 배치
@@ -538,7 +538,7 @@
                       </select>
                     </div>
                     <button type="submit" id="btn-mcat-submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
-                    <button type="button" id="btn-mcat-cancel" class="btn" style="display: none; padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary);">취소</button>
+                    <button type="button" id="btn-mcat-cancel" class="btn" style="display: none; padding: 10px 16px; background: var(--glass-hover); border: 1px solid var(--glass-border); color: var(--text-primary);">취소</button>
                   </div>
                 </form>
                 <div
@@ -580,7 +580,7 @@
                       </select>
                     </div>
                     <button type="submit" id="btn-pkm-submit" class="btn btn-primary" style="padding: 10px 16px;">추가/변경</button>
-                    <button type="button" id="btn-pkm-cancel" class="btn" style="display: none; padding: 10px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-primary);">취소</button>
+                    <button type="button" id="btn-pkm-cancel" class="btn" style="display: none; padding: 10px 16px; background: var(--glass-hover); border: 1px solid var(--glass-border); color: var(--text-primary);">취소</button>
                   </div>
                 </form>
                 <div
@@ -1230,7 +1230,7 @@
                       
                       <div id="ha-mounts-selector-container" style="display: none; margin-top: 0.5rem; margin-bottom: 0.75rem;">
                         <label for="settings-ha-mounts-dropdown" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">HA 네트워크 스토리지 간편 선택</label>
-                        <select id="settings-ha-mounts-dropdown" class="select-filter" style="width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-primary); padding: 8px; border-radius: 6px;">
+                        <select id="settings-ha-mounts-dropdown" class="select-filter" style="width: 100%; box-sizing: border-box; background: var(--bg-secondary); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 8px; border-radius: 6px;">
                           <option value="">-- 마운트 선택 안함 (수동 입력) --</option>
                         </select>
                       </div>
@@ -1426,7 +1426,7 @@
 
         <!-- 리포트 데이터 없을 때의 기본 뷰 -->
         <div id="ai-report-empty-view" class="card glass" style="padding: 3rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem;">
-          <div style="background: rgba(255, 255, 255, 0.05); padding: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, 0.08);">
+          <div style="background: var(--card-item-bg); padding: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--glass-border);">
             <i data-lucide="sparkles" style="width: 48px; height: 48px; color: var(--accent-color);"></i>
           </div>
           <div>
@@ -1438,8 +1438,8 @@
         <!-- 로딩 뷰 -->
         <div id="ai-report-loading-view" class="card glass" style="padding: 4rem; text-align: center; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem;">
           <div class="ai-loading-spinner" style="position: relative; width: 80px; height: 80px;">
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 4px solid rgba(255, 255, 255, 0.05); border-top-color: var(--accent-color); animation: spin 1s linear infinite;"></div>
-            <div style="position: absolute; top: 10px; left: 10px; width: 60px; height: 60px; border-radius: 50%; border: 4px solid rgba(255, 255, 255, 0.05); border-bottom-color: var(--primary-color); animation: spin 1.5s linear infinite reverse;"></div>
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; border: 4px solid var(--card-item-bg); border-top-color: var(--accent-color); animation: spin 1s linear infinite;"></div>
+            <div style="position: absolute; top: 10px; left: 10px; width: 60px; height: 60px; border-radius: 50%; border: 4px solid var(--card-item-bg); border-bottom-color: var(--accent-color); animation: spin 1.5s linear infinite reverse;"></div>
           </div>
           <div>
             <h3 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">AI 소비 리포트 생성 중...</h3>
@@ -1450,8 +1450,8 @@
         <!-- 리포트 결과 뷰 -->
         <div id="ai-report-result-view" style="display: none; flex-direction: column; gap: 1.5rem;">
           <!-- 요약 한 줄 평 카드 -->
-          <div class="card glass" style="background: linear-gradient(135deg, rgba(121, 80, 242, 0.15), rgba(12, 166, 120, 0.15)); border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: flex-start; gap: 1rem; padding: 1.5rem;">
-            <div style="background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--accent-color); margin-top: 2px;">
+          <div class="card glass" style="background: linear-gradient(135deg, rgba(121, 80, 242, 0.15), rgba(12, 166, 120, 0.15)); border: 1px solid var(--glass-border); display: flex; align-items: flex-start; gap: 1rem; padding: 1.5rem;">
+            <div style="background: var(--accent-glow); padding: 10px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: var(--accent-color); margin-top: 2px;">
               <i data-lucide="sparkles" style="width: 24px; height: 24px;"></i>
             </div>
             <div style="flex: 1;">
@@ -1611,7 +1611,7 @@
         <div class="form-group">
           <label for="pkm-modal-package">앱 패키지명 (Package)</label>
           <input type="text" id="pkm-modal-package" readonly
-            style="background: rgba(255,255,255,0.05); cursor: not-allowed; opacity: 0.8;">
+            style="background: var(--card-item-bg); cursor: not-allowed; opacity: 0.8;">
         </div>
         <div class="form-group">
           <label for="pkm-modal-pay-method">지정 결제수단 *</label>
@@ -1831,7 +1831,7 @@
 
           <!-- 정규식 작성 가이드 -->
           <div class="regex-guide"
-            style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.08);">
+            style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--inner-border);">
             <h4 class="toggle-guide-title" onclick="toggleRegexGuide(this)"
               style="font-size:0.9rem; color:var(--text-color); margin-bottom:0.75rem; display:flex; align-items:center; justify-content:space-between; font-weight: 600; cursor: pointer; user-select: none;">
               <span style="display:flex; align-items:center; gap:0.25rem;">
@@ -1845,55 +1845,55 @@
               </p>
               <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem;">
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#6366f1; font-weight:bold; font-size:0.8rem;">(?&lt;amount&gt;[\d,]+)</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>금액 추출 (필수)</strong>: 쉼표가 들어간 결제
                     금액을 파싱합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#10b981; font-weight:bold; font-size:0.8rem;">(?&lt;merchant&gt;.+?)</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>사용처 추출</strong>: 돈을 사용한 가맹점명 또는 업종 정보를
                     파싱합니다. (예: 스타벅스, 이마트)</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code
                     style="color:#eab308; font-weight:bold; font-size:0.8rem;">(?&lt;time&gt;\d{2}/\d{2}\s+\d{2}:\d{2})</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>일시 추출</strong>: 결제 날짜와 시간대를
                     파싱합니다. (예: 05/22 14:30)</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#f43f5e; font-weight:bold; font-size:0.8rem;">(?&lt;account&gt;[\d*-]+)</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>계좌번호 추출 (선택)</strong>: 문자 내
                     계좌번호를 파싱하여 가계부 메모에 기록합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#06b6d4; font-weight:bold; font-size:0.8rem;">(?&lt;balance&gt;[\d,]+)</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>잔액 추출 (선택)</strong>: 거래 후 남은
                     잔액을 파싱하여 가계부 메모에 기록합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#a855f7; font-weight:bold; font-size:0.8rem;">(?&lt;cumulative&gt;[\d,]+)</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>누적금액 추출 (선택)</strong>: 당월 누적 사용
                     금액을 파싱하여 가계부 메모에 기록합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#ec4899; font-weight:bold; font-size:0.8rem;">(?&lt;usedPoint&gt;[\d,]+)</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>차감 포인트 추출 (선택)</strong>: 결제 시
                     사용/차감된 지원금 또는 카드 포인트를 파싱합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#3b82f6; font-weight:bold; font-size:0.8rem;">(?&lt;payMethod&gt;[^\s/]+)</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>결제수단 추출 (선택)</strong>: 금액이 빠져나가는 결제처(카드사, 은행명 등)를 파싱합니다. (예: KB국민, 신한카드)</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#f97316; font-weight:bold; font-size:0.8rem;">(?&lt;payType&gt;[^\s/]+)</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>결제방식 추출 (선택)</strong>: 결제 방법(신용, 체크, 이체, 현금 등)을 파싱합니다. (예: 신용, 체크)</span>
                 </div>
@@ -1903,17 +1903,17 @@
               <ul class="text-secondary text-xs"
                 style="padding-left:1.2rem; line-height:1.5; display:flex; flex-direction:column; gap:0.25rem; list-style-type: disc;">
                 <li>대괄호 앞에는 백슬래시 두 개를 써서 에스케이프 해줍니다. (예: <code
-                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\[KB국민\\]</code>)
+                    style="background:var(--card-item-bg-hover); padding:2px 4px; border-radius:3px; font-family: monospace;">\\[KB국민\\]</code>)
                 </li>
                 <li>임의의 텍스트 구간은 <code
-                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">.*</code>
+                    style="background:var(--card-item-bg-hover); padding:2px 4px; border-radius:3px; font-family: monospace;">.*</code>
                   또는 <code
-                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">.*?</code>로
+                    style="background:var(--card-item-bg-hover); padding:2px 4px; border-radius:3px; font-family: monospace;">.*?</code>로
                   넘깁니다.</li>
                 <li>띄어쓰기(공백)는 <code
-                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\s+</code>(1개
+                    style="background:var(--card-item-bg-hover); padding:2px 4px; border-radius:3px; font-family: monospace;">\\s+</code>(1개
                   이상) 또는 <code
-                    style="background:rgba(255,255,255,0.05); padding:2px 4px; border-radius:3px; font-family: monospace;">\\s*</code>(0개
+                    style="background:var(--card-item-bg-hover); padding:2px 4px; border-radius:3px; font-family: monospace;">\\s*</code>(0개
                   이상)를 대입합니다.</li>
               </ul>
             </div>
@@ -1975,7 +1975,7 @@
 
           <!-- 패스 규칙 작성 가이드 -->
           <div class="regex-guide"
-            style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.08);">
+            style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--inner-border);">
             <h4 class="toggle-guide-title" onclick="toggleRegexGuide(this)"
               style="font-size:0.9rem; color:var(--text-color); margin-bottom:0.75rem; display:flex; align-items:center; justify-content:space-between; font-weight: 600; cursor: pointer; user-select: none;">
               <span style="display:flex; align-items:center; gap:0.25rem;">
@@ -1989,32 +1989,32 @@
               </p>
               <div style="display:flex; flex-direction:column; gap:0.5rem; margin-bottom:1rem;">
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#6366f1; font-weight:bold; font-size:0.8rem;">인증\s*번호|본인\s*확인</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>인증/보안 문자 패스</strong>: SMS 본인인증 문자를 무시합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#10b981; font-weight:bold; font-size:0.8rem;">잔액\s*부족|한도\s*초과|승인\s*거절</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>잔액부족/거절 패스</strong>: 결제 실패나 거절 문자를 제외합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#eab308; font-weight:bold; font-size:0.8rem;">\(광고\)|\[광고\]</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>광고 문자 패스</strong>: 스팸 및 광고성 메시지를 필터링합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#f43f5e; font-weight:bold; font-size:0.8rem;">체결안내|분배금\s*입금|자동매수</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>투자/체결 알림 패스</strong>: 주식 체결 및 분배금 입금 등 금융 외 알림을 패스합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#06b6d4; font-weight:bold; font-size:0.8rem;">고지서|명세서|이용요금\s*안내</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>안내/청구서 패스</strong>: 단순 카드대금 청구 안내 등을 제외합니다.</span>
                 </div>
                 <div class="guide-item"
-                  style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; border: 1px solid rgba(255,255,255,0.04);">
+                  style="background:var(--card-item-bg); padding:0.5rem; border-radius:4px; border: 1px solid var(--inner-border-light);">
                   <code style="color:#a855f7; font-weight:bold; font-size:0.8rem;">^[a-zA-Z0-9\.]+$</code>
                   <span class="text-xs text-secondary" style="margin-left:0.5rem;"><strong>패키지명 단독 패스</strong>: 내용 없이 앱 패키지명만 들어오는 알림을 필터링합니다.</span>
                 </div>
