@@ -26,6 +26,37 @@ function safeCompare(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+// 실시간 USD 환율 조회 (실패 시 DB 설정의 default_usd_exchange_rate 값 로드)
+async function getUSDExchangeRate(db) {
+  let exchangeRate = 1350; // 기본 백업값
+  try {
+    const userRateRow = await db.get("SELECT value FROM settings WHERE key = 'default_usd_exchange_rate'");
+    if (userRateRow && userRateRow.value) {
+      exchangeRate = parseFloat(userRateRow.value) || 1350;
+    }
+  } catch (dbErr) {
+    console.warn('[웹훅] DB에서 default_usd_exchange_rate 조회 실패:', dbErr.message);
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3초 타임아웃
+    const response = await fetch('https://open.er-api.com/v6/latest/USD', { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.rates && data.rates.KRW) {
+        exchangeRate = parseFloat(data.rates.KRW);
+        console.log(`[환율 API] 실시간 USD 환율 조회 완료: ${exchangeRate}원`);
+      }
+    }
+  } catch (err) {
+    console.warn(`[환율 API] 실시간 USD 환율 조회 실패(기본값 ${exchangeRate}원 사용):`, err.message);
+  }
+  return exchangeRate;
+}
+
 // 현재 한국 시간(KST, UTC+9) 문자열을 YYYY-MM-DD HH:mm:ss 포맷으로 반환하는 헬퍼 함수
 function getKSTDateString() {
   const now = new Date();
@@ -98,10 +129,6 @@ async function processNotificationCore({ title, text, packageVal, username }) {
 
   if (isPassed) {
     console.log(`[웹훅][${targetUser}] 자동 패스 규칙에 매칭되어 처리를 제외(PASS)합니다. (알림: "${rawText}")`);
-    await db.run(
-      'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [sender, rawText, title, text, 'PASS', matchedPassRuleId]
-    );
     return { success: true, message: '자동 패스 규칙에 의해 처리가 제외되었습니다.', isPassed: true };
   }
 
@@ -364,7 +391,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         console.log(`[파서][${targetUser}] 중복 거래 감지 차단: 기존 거래 ID ${duplicateCheck.id} (${existingMerchant}, ${duplicateCheck.pay_method})와 현재 알림 (${currentMerchant}, ${finalPayMethod})의 금액/시간이 일치하고 체크카드-은행 연계 출금으로 감지되어 이중 등록을 방지합니다.`);
         
         parsedStatus = 'IGNORED_DUPLICATE';
-        const hasAmount = /(\d+[,.\d]*\s*원|₩\s*\d+[,.\d]*|\\\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/.test(rawText);
+        const hasAmount = /(\d+[,.\d]*\s*(?:원|USD|\$)|[₩\\$]\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/i.test(rawText);
         if (hasAmount || parsedStatus === 'SUCCESS') {
           await db.run(
             'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
@@ -377,11 +404,20 @@ async function processNotificationCore({ title, text, packageVal, username }) {
 
     // 가계부 내역 저장
     const finalPayType = result.payment_type || 'CREDIT';
+    let originalAmount = result.original_amount || null;
+    let currency = result.currency || null;
+    let exchangeRate = null;
+
+    if (currency === 'USD' && originalAmount) {
+      exchangeRate = await getUSDExchangeRate(db);
+      result.amount = Math.round(originalAmount * exchangeRate);
+    }
+
     await db.run(
-      'INSERT INTO transactions (type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, finalPayType, result.datetime, result.memo || '', rawText, result.used_point || 0]
+      'INSERT INTO transactions (type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point, original_amount, currency, exchange_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, finalPayType, result.datetime, result.memo || '', rawText, result.used_point || 0, originalAmount, currency, exchangeRate]
     );
-    console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 결제방법: ${finalPayType}, 사용 포인트: ${result.used_point || 0}]`);
+    console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 결제방법: ${finalPayType}, 사용 포인트: ${result.used_point || 0}]${currency === 'USD' ? ` (외화: ${originalAmount} USD, 환율: ${exchangeRate}원)` : ''}`);
 
     if (finalCategory === '기타') {
       const nameTag = targetUser === 'admin' ? '' : ` (${targetUser})`;
@@ -402,7 +438,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
 
     updateHASensors(targetUser);
 
-    const hasAmount = /(\d+[,.\d]*\s*원|₩\s*\d+[,.\d]*|\\\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/.test(rawText);
+    const hasAmount = /(\d+[,.\d]*\s*(?:원|USD|\$)|[₩\\$]\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/i.test(rawText);
     if (hasAmount || parsedStatus === 'SUCCESS') {
       await db.run(
         'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',

@@ -155,7 +155,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.85rem 1rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--card-item-bg);
   border-radius: 12px;
   border: 1px solid var(--glass-border);
   transition: all 0.2s;
@@ -201,7 +201,7 @@
 .tx-pay-method {
   font-size: 0.8rem;
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--card-item-bg-hover);
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
 }
@@ -244,7 +244,7 @@
 }
 
 .rule-item {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--card-item-bg);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   padding: 1rem;
@@ -409,7 +409,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--inner-border);
   padding-bottom: 0.5rem;
 }
 
@@ -430,7 +430,7 @@
   justify-content: space-between;
   align-items: center;
   font-size: 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--inner-border-light);
   padding-bottom: 0.35rem;
 }
 
@@ -469,20 +469,20 @@
   font-size: 0.85rem;
   white-space: pre-wrap;
   word-break: break-all;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--list-container-bg);
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   max-height: 80px;
   overflow-y: auto;
   color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--inner-border-light);
 }
 
 .log-card-footer {
   display: flex;
   gap: 0.5rem;
   margin-top: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--inner-border);
   padding-top: 0.75rem;
 }
 

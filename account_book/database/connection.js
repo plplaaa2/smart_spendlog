@@ -292,6 +292,25 @@ async function migrateCategoriesAndData(dbInstance, username) {
     console.error(`[DB 마이그레이션][${username}] transactions 테이블 pay_type 마이그레이션 실패:`, e.message);
   }
 
+  // transactions 테이블 외화 컬럼 추가 마이그레이션
+  try {
+    const txCols = await dbInstance.all("PRAGMA table_info(transactions)");
+    if (!txCols.some(col => col.name === 'original_amount')) {
+      await dbInstance.exec("ALTER TABLE transactions ADD COLUMN original_amount REAL");
+      console.log(`[DB 마이그레이션][${username}] transactions 테이블에 original_amount 컬럼을 성공적으로 추가했습니다.`);
+    }
+    if (!txCols.some(col => col.name === 'currency')) {
+      await dbInstance.exec("ALTER TABLE transactions ADD COLUMN currency TEXT");
+      console.log(`[DB 마이그레이션][${username}] transactions 테이블에 currency 컬럼을 성공적으로 추가했습니다.`);
+    }
+    if (!txCols.some(col => col.name === 'exchange_rate')) {
+      await dbInstance.exec("ALTER TABLE transactions ADD COLUMN exchange_rate REAL");
+      console.log(`[DB 마이그레이션][${username}] transactions 테이블에 exchange_rate 컬럼을 성공적으로 추가했습니다.`);
+    }
+  } catch (e) {
+    console.error(`[DB 마이그레이션][${username}] transactions 테이블 외화 컬럼 추가 실패:`, e.message);
+  }
+
   try {
     await dbInstance.run("INSERT OR IGNORE INTO categories (name, color, icon, type) VALUES ('이체/송금', '#7950f2', 'arrow-left-right', 'EXPENSE')");
   } catch (e) {}
@@ -701,6 +720,11 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       if (!hasKey) {
         await dbInstance.run("INSERT INTO settings (key, value) VALUES (?, ?)", [item.key, item.val]);
       }
+    }
+
+    const hasDefaultUsdRate = await dbInstance.get("SELECT 1 FROM settings WHERE key='default_usd_exchange_rate'");
+    if (!hasDefaultUsdRate) {
+      await dbInstance.run("INSERT INTO settings (key, value) VALUES ('default_usd_exchange_rate', '1350')");
     }
 
     if (FRANCHISE_PRESETS && FRANCHISE_PRESETS.length > 0) {

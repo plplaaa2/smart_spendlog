@@ -260,16 +260,16 @@
   }
 
   .table tr {
-    background: rgba(15, 23, 42, 0.45);
+    background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     border-radius: 12px;
     margin-bottom: 1rem;
     padding: 1rem;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 15px var(--glass-shadow);
   }
 
   .table td {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--glass-border);
     padding: 0.6rem 0;
     display: flex;
     justify-content: space-between;

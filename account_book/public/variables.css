@@ -26,6 +26,15 @@
   --glass-shadow: rgba(0, 0, 0, 0.3);
   --mobile-nav-bg: rgba(15, 23, 42, 0.95);
   --mobile-nav-shadow: rgba(0, 0, 0, 0.6);
+  --nav-active-bg: linear-gradient(135deg, #6366f1 0%, rgba(99, 102, 241, 0.7) 100%);
+  --list-container-bg: rgba(0, 0, 0, 0.2);
+  --list-container-border: rgba(255, 255, 255, 0.08);
+  --table-header-bg: rgba(255, 255, 255, 0.02);
+  --table-header-border: rgba(255, 255, 255, 0.08);
+  --card-item-bg: rgba(255, 255, 255, 0.02);
+  --card-item-bg-hover: rgba(255, 255, 255, 0.05);
+  --inner-border: rgba(255, 255, 255, 0.05);
+  --inner-border-light: rgba(255, 255, 255, 0.02);
   
   /* Layout Options */
   --sidebar-width: 260px;
@@ -39,7 +48,7 @@ html[data-theme="light"] {
   --bg-primary: #f1f5f9;
   --bg-secondary: #ffffff;
   --accent-color: #4f46e5;
-  --accent-glow: rgba(79, 70, 229, 0.1);
+  --accent-glow: rgba(79, 70, 229, 0.18);
   --success-color: #059669;
   --warning-color: #d97706;
   --danger-color: #dc2626;
@@ -53,7 +62,16 @@ html[data-theme="light"] {
   --glass-hover: rgba(0, 0, 0, 0.03);
   --glass-shadow: rgba(0, 0, 0, 0.05);
   --mobile-nav-bg: rgba(255, 255, 255, 0.95);
-  --mobile-nav-shadow: rgba(0, 0, 0, 0.1);
+  --mobile-nav-shadow: rgba(0, 0, 0, 0.15);
+  --nav-active-bg: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+  --list-container-bg: rgba(0, 0, 0, 0.03);
+  --list-container-border: rgba(0, 0, 0, 0.08);
+  --table-header-bg: rgba(0, 0, 0, 0.015);
+  --table-header-border: rgba(0, 0, 0, 0.08);
+  --card-item-bg: rgba(0, 0, 0, 0.015);
+  --card-item-bg-hover: rgba(0, 0, 0, 0.04);
+  --inner-border: rgba(0, 0, 0, 0.06);
+  --inner-border-light: rgba(0, 0, 0, 0.03);
 }
 
 /* Unused themes (Emerald, Pink) removed to simplify to Dark/Light only */

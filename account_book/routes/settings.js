@@ -152,7 +152,7 @@ router.post('/settings', async (req, res) => {
       network_backup_path_username, network_backup_path_password,
       network_backup_webdav_url, network_backup_webdav_username, network_backup_webdav_password,
       ai_enabled, ai_parsing_enabled, ai_provider, ai_api_key, ai_local_ip, ai_local_model,
-      theme
+      theme, default_usd_exchange_rate
     } = req.body;
 
     if (ws_sensor_entity !== undefined) {
@@ -184,6 +184,9 @@ router.post('/settings', async (req, res) => {
     }
     if (theme !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('theme', ?)", [theme]);
+    }
+    if (default_usd_exchange_rate !== undefined) {
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('default_usd_exchange_rate', ?)", [String(default_usd_exchange_rate)]);
     }
     if (pay_methods_order !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('pay_methods_order', ?)", [pay_methods_order]);

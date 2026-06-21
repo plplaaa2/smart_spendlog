@@ -603,6 +603,95 @@ function initEventListeners() {
     updateCategorySelect('#rule-category', e.target.value);
   });
 
+  // 해외 달러 결제 체크박스 토글 제어
+  const foreignPayCheckbox = document.getElementById('tx-foreign-payment');
+  const foreignPayRow = document.getElementById('tx-foreign-row');
+  const originalAmountInput = document.getElementById('tx-original-amount');
+  const exchangeRateInput = document.getElementById('tx-exchange-rate');
+  const txAmountInput = document.getElementById('tx-amount');
+
+  if (foreignPayCheckbox) {
+    foreignPayCheckbox.addEventListener('change', async () => {
+      if (foreignPayCheckbox.checked) {
+        foreignPayRow.style.display = 'flex';
+        if (!exchangeRateInput.value) {
+          await fetchExchangeRate();
+        }
+      } else {
+        foreignPayRow.style.display = 'none';
+        originalAmountInput.value = '';
+        exchangeRateInput.value = '';
+      }
+    });
+  }
+
+  // 실시간 환율 조회 버튼 클릭 이벤트
+  const fetchRateBtn = document.getElementById('btn-fetch-exchange-rate');
+  if (fetchRateBtn) {
+    fetchRateBtn.addEventListener('click', async () => {
+      await fetchExchangeRate(true);
+    });
+  }
+
+  // 실시간 예상 원화 금액 계산 헬퍼 함수
+  function updateCalculatedAmount() {
+    const originalAmount = parseFloat(originalAmountInput.value);
+    const exchangeRate = parseFloat(exchangeRateInput.value);
+    if (!isNaN(originalAmount) && !isNaN(exchangeRate)) {
+      txAmountInput.value = Math.round(originalAmount * exchangeRate);
+    }
+  }
+
+  // 외화 금액 및 환율 변경 시 원화 금액 실시간 계산
+  if (originalAmountInput) originalAmountInput.addEventListener('input', updateCalculatedAmount);
+  if (exchangeRateInput) exchangeRateInput.addEventListener('input', updateCalculatedAmount);
+
+  // 원화 금액 수정 시 환율 역산 로직
+  if (txAmountInput) {
+    txAmountInput.addEventListener('input', () => {
+      if (foreignPayCheckbox && foreignPayCheckbox.checked) {
+        const amount = parseFloat(txAmountInput.value);
+        const originalAmount = parseFloat(originalAmountInput.value);
+        if (!isNaN(amount) && !isNaN(originalAmount) && originalAmount > 0) {
+          exchangeRateInput.value = (amount / originalAmount).toFixed(2);
+        }
+      }
+    });
+  }
+
+  // 실시간 환율 API 조회 동작 함수
+  async function fetchExchangeRate(isManual = false) {
+    try {
+      if (isManual) fetchRateBtn.textContent = '조회중...';
+      const response = await fetch('https://open.er-api.com/v6/latest/USD');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.rates && data.rates.KRW) {
+          exchangeRateInput.value = data.rates.KRW.toFixed(2);
+          updateCalculatedAmount();
+          if (isManual) alert(`실시간 환율 조회 완료: ${data.rates.KRW.toFixed(2)}원`);
+        } else {
+          throw new Error('올바르지 않은 환율 응답 형식');
+        }
+      } else {
+        throw new Error('API 서버 응답 실패');
+      }
+    } catch (err) {
+      console.warn('실시간 환율 API 조회 실패 (기본값 설정값 적용 시도):', err);
+      try {
+        const settings = await fetch('api/settings').then(r => r.json());
+        exchangeRateInput.value = parseFloat(settings.default_usd_exchange_rate || 1350).toFixed(2);
+        updateCalculatedAmount();
+      } catch (settingsErr) {
+        exchangeRateInput.value = '1350.00';
+        updateCalculatedAmount();
+      }
+      if (isManual) alert('실시간 환율 조회에 실패했습니다. 기본 설정 환율을 적용합니다.');
+    } finally {
+      if (isManual) fetchRateBtn.textContent = '환율 조회';
+    }
+  }
+
   // 수동 내역 저장 서브밋
   // 의존성: 이 이벤트 리스너는 public/index.html의 폼과 index.js의 api/transactions 엔드포인트와 연결됩니다.
   document.getElementById('transaction-form').addEventListener('submit', async (e) => {
@@ -626,11 +715,16 @@ function initEventListeners() {
     const mapPackage = document.getElementById('tx-map-package').checked;
     const pkgName = document.getElementById('tx-package').value.trim();
 
+    const isForeign = foreignPayCheckbox && foreignPayCheckbox.checked;
+    const original_amount = isForeign ? parseFloat(originalAmountInput.value) : null;
+    const currency = isForeign ? 'USD' : null;
+    const exchange_rate = isForeign ? parseFloat(exchangeRateInput.value) : null;
+
     try {
       const res = await fetch('api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point, package: pkgName })
+        body: JSON.stringify({ id, type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point, package: pkgName, original_amount, currency, exchange_rate })
       }).then(r => r.json());
 
       if (res.success) {
@@ -862,12 +956,14 @@ function initEventListeners() {
       const auto_rule_generation = document.getElementById('settings-auto-rule').checked;
       const themeEl = document.getElementById('settings-theme');
       const theme = themeEl ? themeEl.value : 'dark';
+      const defaultUsdRateEl = document.getElementById('settings-default-usd-rate');
+      const default_usd_exchange_rate = defaultUsdRateEl ? parseFloat(defaultUsdRateEl.value) : 1350;
 
       try {
         const res = await fetch('api/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ws_sensor_entity, monthly_budget, user_real_name, auto_rule_generation, theme })
+          body: JSON.stringify({ ws_sensor_entity, monthly_budget, user_real_name, auto_rule_generation, theme, default_usd_exchange_rate })
         }).then(r => r.json());
 
         if (res.success) {

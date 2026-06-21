@@ -33,6 +33,12 @@
   margin-bottom: 3rem;
 }
 
+.brand span {
+  background: linear-gradient(135deg, var(--text-primary) 30%, var(--accent-color) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 .brand-icon {
   width: 28px;
   height: 28px;
@@ -83,7 +89,7 @@
 
 .nav-item.active {
   color: #ffffff !important; /* 라이트 테마에서도 선명한 가독성 확보 */
-  background: linear-gradient(135deg, var(--accent-color) 0%, rgba(99, 102, 241, 0.7) 100%);
+  background: var(--nav-active-bg);
   box-shadow: 0 4px 15px var(--accent-glow);
 }
 

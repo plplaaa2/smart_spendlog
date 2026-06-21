@@ -548,24 +548,55 @@ function autoGeneratePattern(silent = false) {
     }
   }
 
-  // 3. 금액 감지 ("원"이 붙어있는 금액 우선 감지)
-  const amountWithWonRegex = /([\d,]+)\s*원/g;
-  let m;
+  // 3. 금액 감지 (USD 혹은 $ 기호가 포함된 달러 금액 우선 감지)
+  const amountWithUSDRegex = /(?:USD\s*|\$\s*)([\d,]+(?:\.\d+)?)|([\d,]+(?:\.\d+)?)\s*(?:USD|\$)/gi;
+  let usdm;
   let amountDetected = false;
-  while ((m = amountWithWonRegex.exec(cleanText)) !== null) {
-    const idx = m.index;
-    const len = m[0].length;
+  while ((usdm = amountWithUSDRegex.exec(cleanText)) !== null) {
+    const idx = usdm.index;
+    const len = usdm[0].length;
     if (!isOverlapping(idx, idx + len)) {
-      let regexStr = '(?<amount>[\\d,]+)원';
+      let regexStr;
+      if (usdm[0].toUpperCase().startsWith('USD')) {
+        regexStr = 'USD\\s*(?<amount>[\\d,]+(?:\\.\\d+)?)';
+      } else if (usdm[0].startsWith('$')) {
+        regexStr = '\\$\\s*(?<amount>[\\d,]+(?:\\.\\d+)?)';
+      } else if (usdm[0].toUpperCase().endsWith('USD')) {
+        regexStr = '(?<amount>[\\d,]+(?:\\.\\d+)?)\\s*USD';
+      } else {
+        regexStr = '(?<amount>[\\d,]+(?:\\.\\d+)?)\\s*\\$';
+      }
       blocks.push({
         type: '금액',
         start: idx,
         end: idx + len,
         regex: regexStr,
-        value: m[0]
+        value: usdm[0]
       });
       amountDetected = true;
       break;
+    }
+  }
+
+  // 3-2. "원"이 붙어있는 원화 금액 감지
+  if (!amountDetected) {
+    const amountWithWonRegex = /([\d,]+)\s*원/g;
+    let m;
+    while ((m = amountWithWonRegex.exec(cleanText)) !== null) {
+      const idx = m.index;
+      const len = m[0].length;
+      if (!isOverlapping(idx, idx + len)) {
+        let regexStr = '(?<amount>[\\d,]+)원';
+        blocks.push({
+          type: '금액',
+          start: idx,
+          end: idx + len,
+          regex: regexStr,
+          value: m[0]
+        });
+        amountDetected = true;
+        break;
+      }
     }
   }
 

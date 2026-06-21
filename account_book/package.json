@@ -1,6 +1,6 @@
 {
   "name": "ha-account-book",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Home Assistant Account Book Add-on",
   "main": "index.js",
   "scripts": {

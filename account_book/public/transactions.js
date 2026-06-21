@@ -44,7 +44,10 @@ async function loadTransactions() {
           <span class="tx-pay-method">${tx.pay_method}</span>
           <span style="font-size: 0.75rem; color: #888; margin-left: 4px;">(${tx.pay_type === 'CHECK' ? '체크' : tx.pay_type === 'TRANSFER' ? '이체' : tx.pay_type === 'CASH' ? '현금' : '신용'})</span>
         </td>
-        <td data-label="금액" class="text-bold text-right ${amtClass}">${amtPrefix}${formatCurrency(tx.amount)}</td>
+        <td data-label="금액" class="text-bold text-right ${amtClass}">
+          <div>${amtPrefix}${formatCurrency(tx.amount)}</div>
+          ${tx.currency === 'USD' && tx.original_amount ? `<div style="font-size: 0.75rem; color: #888; font-weight: normal; margin-top: 2px;">$${tx.original_amount.toFixed(2)}</div>` : ''}
+        </td>
         <td data-label="메모" class="text-secondary text-sm">${tx.memo || '-'}</td>
         <td data-label="관리">
           <div class="table-actions">
@@ -88,6 +91,12 @@ function openAddTransactionModal() {
   document.getElementById('tx-id').value = '';
   document.getElementById('tx-used-point').value = '';
   document.getElementById('transaction-modal-title').textContent = '수동 지출 추가';
+
+  // 해외 달러 결제 관련 초기화
+  document.getElementById('tx-foreign-payment').checked = false;
+  document.getElementById('tx-foreign-row').style.display = 'none';
+  document.getElementById('tx-original-amount').value = '';
+  document.getElementById('tx-exchange-rate').value = '';
   
   // 패키지 매핑 관련 초기화
   document.getElementById('tx-package-row').style.display = 'none';
@@ -118,6 +127,19 @@ function openEditTransactionModal(tx) {
   document.getElementById('tx-amount').value = tx.amount;
   document.getElementById('tx-merchant').value = tx.merchant;
   document.getElementById('tx-used-point').value = tx.used_point || 0;
+
+  // 해외 달러 결제 관련 정보 로드 및 바인딩
+  if (tx.currency === 'USD' && tx.original_amount) {
+    document.getElementById('tx-foreign-payment').checked = true;
+    document.getElementById('tx-foreign-row').style.display = 'flex';
+    document.getElementById('tx-original-amount').value = tx.original_amount;
+    document.getElementById('tx-exchange-rate').value = tx.exchange_rate || '';
+  } else {
+    document.getElementById('tx-foreign-payment').checked = false;
+    document.getElementById('tx-foreign-row').style.display = 'none';
+    document.getElementById('tx-original-amount').value = '';
+    document.getElementById('tx-exchange-rate').value = '';
+  }
 
   // 패키지 매핑 관련 초기화
   document.getElementById('tx-package-row').style.display = 'none';

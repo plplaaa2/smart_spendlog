@@ -20,10 +20,23 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         const groups = match.groups || {};
         
         let amount = null;
+        let original_amount = null;
+        let currency = null;
+
         if (groups.amount) {
-          const cleanAmount = groups.amount.replace(/,/g, '').match(/\d+/);
-          if (cleanAmount) {
-            amount = parseInt(cleanAmount[0], 10);
+          const hasDollarSign = /\$|USD/i.test(groups.amount) || /\$|USD/i.test(normalizedText);
+          if (hasDollarSign) {
+            const cleanAmount = groups.amount.replace(/,/g, '').match(/\d+(?:\.\d+)?/);
+            if (cleanAmount) {
+              original_amount = parseFloat(cleanAmount[0]);
+              currency = 'USD';
+              amount = Math.round(original_amount * 1350); // 임시 환율 적용
+            }
+          } else {
+            const cleanAmount = groups.amount.replace(/,/g, '').match(/\d+/);
+            if (cleanAmount) {
+              amount = parseInt(cleanAmount[0], 10);
+            }
           }
         }
 
@@ -156,7 +169,9 @@ function parseNotification(text, rules, fallbackDatetime = null) {
           rule_id: rule.id,
           rule_name: rule.name,
           used_point: usedPoint,
-          memo
+          memo,
+          original_amount,
+          currency
         };
       }
     } catch (err) {
