@@ -391,7 +391,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         console.log(`[파서][${targetUser}] 중복 거래 감지 차단: 기존 거래 ID ${duplicateCheck.id} (${existingMerchant}, ${duplicateCheck.pay_method})와 현재 알림 (${currentMerchant}, ${finalPayMethod})의 금액/시간이 일치하고 체크카드-은행 연계 출금으로 감지되어 이중 등록을 방지합니다.`);
         
         parsedStatus = 'IGNORED_DUPLICATE';
-        const hasAmount = /(\d+[,.\d]*\s*(?:원|USD|\$)|[₩\\$]\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/i.test(rawText);
+        const hasAmount = /(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)\s*\d+[,.\d]*|\d+[,.\d]*\s*(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)|\b\d{1,3}(,\d{3})+\b/i.test(rawText);
         if (hasAmount || parsedStatus === 'SUCCESS') {
           await db.run(
             'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
@@ -438,7 +438,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
 
     updateHASensors(targetUser);
 
-    const hasAmount = /(\d+[,.\d]*\s*(?:원|USD|\$)|[₩\\$]\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/i.test(rawText);
+    const hasAmount = /(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)\s*\d+[,.\d]*|\d+[,.\d]*\s*(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)|\b\d{1,3}(,\d{3})+\b/i.test(rawText);
     if (hasAmount || parsedStatus === 'SUCCESS') {
       await db.run(
         'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
@@ -457,7 +457,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
   } else {
     console.log(`[파서][${targetUser}] 일치하는 정규식 규칙이 없습니다.`);
 
-    const hasAmount = /(\d+[,.\d]*\s*원|₩\s*\d+[,.\d]*|\\\s*\d+[,.\d]*|\b\d{1,3}(,\d{3})+\b)/.test(rawText);
+    const hasAmount = /(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)\s*\d+[,.\d]*|\d+[,.\d]*\s*(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)|\b\d{1,3}(,\d{3})+\b/i.test(rawText);
     if (hasAmount || parsedStatus === 'SUCCESS') {
       await db.run(
         'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',

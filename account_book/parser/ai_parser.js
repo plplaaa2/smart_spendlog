@@ -13,12 +13,14 @@ async function parseNotificationWithAI(text, config, fallbackDatetime = null) {
 Analyze the following notification text and extract transaction details.
 You MUST output the result ONLY as a JSON object, without markdown formatting or code blocks.
 The JSON object MUST contain the following fields:
-- "amount" (integer): The transaction amount.
+- "amount" (integer): The transaction amount. If it is a foreign currency transaction (like USD, JPY, EUR), calculate the approximate equivalent amount in Korean Won (KRW) (e.g. multiply USD by 1350, JPY by 9, EUR by 1450).
 - "merchant" (string): The merchant, sender, or receiver name. Keep it clean (e.g. extract "이마트" from "이마트 신도림점").
 - "datetime" (string): Format: "YYYY-MM-DD HH:mm:ss". Use the transaction time from the text. If the year is not mentioned, use the current year from fallback date: ${resolvedFallback}. If no date/time is mentioned, use fallback date: ${resolvedFallback}.
 - "pay_method" (string): The payment method name (e.g., "KB국민체크", "신한카드", "토스", "농협" etc.).
 - "pay_type" (string): The payment type. Must be one of "CREDIT" (credit card/default), "CHECK" (check card/debit), "TRANSFER" (bank transfer/wire), or "CASH" (cash).
 - "type" (string): "EXPENSE" for spending/outflow, "INCOME" for deposit/inflow.
+- "original_amount" (number, optional): The original foreign transaction amount if it is not in KRW (e.g. 12.34). Otherwise, null.
+- "currency" (string, optional): The original currency code (e.g. "USD", "JPY", "EUR") if it is a foreign transaction. Otherwise, null.
 
 Notification Text: "${cleanText}"
 Fallback Date: "${resolvedFallback}"
@@ -30,7 +32,9 @@ Example Output:
   "datetime": "2026-06-02 14:30:00",
   "pay_method": "신한카드",
   "pay_type": "CHECK",
-  "type": "EXPENSE"
+  "type": "EXPENSE",
+  "original_amount": null,
+  "currency": null
 }
 `;
 
@@ -198,7 +202,9 @@ Example Output:
       datetime: result.datetime || resolvedFallback,
       pay_method: (result.pay_method || '카드').trim(),
       payment_type: paymentType,
-      type: result.type === 'INCOME' ? 'INCOME' : 'EXPENSE'
+      type: result.type === 'INCOME' ? 'INCOME' : 'EXPENSE',
+      original_amount: result.original_amount ? parseFloat(result.original_amount) : null,
+      currency: result.currency ? String(result.currency).toUpperCase() : null
     };
 
   } catch (err) {
