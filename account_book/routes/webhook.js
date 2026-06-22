@@ -351,6 +351,109 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         finalCategory = '이체/송금';
       }
       console.log(`[파서][${targetUser}] 통장 이동(자산 이동) 감지: 카테고리를 '${finalCategory}'으로 강제 변경하여 등록합니다.`);
+
+      // ==========================================
+      // [신규] 카드대금 자동 정산 출금 & 외화(달러) 청구액 자동 확정 프로세스
+      // ==========================================
+      if (result.type === 'EXPENSE') {
+        // 사용처 명칭에서 카드사 식별 (예: '하나카드결제' -> '하나카드', '신한카드대금' -> '신한카드')
+        const cardCompanyMatch = result.merchant.match(/(국민|신한|하나|우리|농협|삼성|현대|롯데|BC|비씨)카드/i);
+        if (cardCompanyMatch) {
+          const cardName = cardCompanyMatch[0]; // 예: '하나카드'
+          console.log(`[파서][${targetUser}] 카드대금 정산 출금 감지: 카드사명="${cardName}", 출금액=${result.amount}원`);
+
+          try {
+            // 1. 해당 카드의 이용 기간(시작일) 설정 읽기
+            const perfDaysRow = await db.get("SELECT value FROM settings WHERE key = 'card_performance_days'");
+            let startDay = 1;
+            if (perfDaysRow && perfDaysRow.value) {
+              const cardPerformanceDays = JSON.parse(perfDaysRow.value);
+              startDay = parseInt(cardPerformanceDays[cardName] || 1, 10);
+            }
+
+            // 2. 현재 결제일(알림 수신일) 기준으로 해당 이용 기간의 범위 산정
+            // (보통 이번 달 결제일 출금 건은 이용 기간 시작일 n 기준 n일~익월 n-1일의 전월 납부 금액에 대응됨)
+            const txDate = new Date(result.datetime.replace(' ', 'T'));
+            const txYear = txDate.getFullYear();
+            const txMonth = txDate.getMonth() + 1; // 1-12
+
+            let startYear, startMonth, endYear, endMonth;
+            if (startDay === 1) {
+              // 시작일이 1일인 경우: 전월 1일 ~ 전월 말일 사용분
+              const d = new Date(txYear, txMonth - 2, 1);
+              startYear = d.getFullYear();
+              startMonth = d.getMonth() + 1;
+              endYear = startYear;
+              endMonth = startMonth;
+            } else {
+              // n일인 경우: 전전월 n일 ~ 전월 n-1일 사용분
+              const d1 = new Date(txYear, txMonth - 3, startDay);
+              startYear = d1.getFullYear();
+              startMonth = d1.getMonth() + 1;
+
+              const d2 = new Date(txYear, txMonth - 2, startDay - 1);
+              endYear = d2.getFullYear();
+              endMonth = d2.getMonth() + 1;
+            }
+
+            const startStr = `${startYear}-${String(startMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')} 00:00:00`;
+            // 해당 월의 말일 계산 처리
+            const lastDayOfEndMonth = new Date(endYear, endMonth, 0).getDate();
+            const finalEndDay = Math.min(startDay - 1 === 0 ? lastDayOfEndMonth : startDay - 1, lastDayOfEndMonth);
+            const endStr = `${endYear}-${String(endMonth).padStart(2, '0')}-${String(finalEndDay).padStart(2, '0')} 23:59:59`;
+
+            console.log(`[파서][${targetUser}] 정산 대상 이용 기간 산정 완료: ${startStr} ~ ${endStr}`);
+
+            // 3. 해당 카드사의 국내 원화(KRW) 결제 총액 합산 (이체 제외, 외화가 아닌 건)
+            const krwRow = await db.get(
+              "SELECT SUM(amount) as total FROM transactions " +
+              "WHERE pay_method = ? AND datetime >= ? AND datetime <= ? AND type = 'EXPENSE' AND category != '이체/송금' AND (currency IS NULL OR currency != 'USD')",
+              [cardName, startStr, endStr]
+            );
+            const krwTotal = krwRow.total || 0;
+
+            // 4. 차액(외화 청구 합산 한화 금액) 계산
+            const foreignChargedTotal = result.amount - krwTotal;
+            console.log(`[파서][${targetUser}] 국내 원화 결제 총액: ${krwTotal}원, 차액(외화 실청구 총합): ${foreignChargedTotal}원`);
+
+            if (foreignChargedTotal > 0) {
+              // 5. 해당 기간에 발생한 미확정 외화(USD) 거래 내역 로드
+              const foreignTxList = await db.all(
+                "SELECT id, amount, original_amount FROM transactions " +
+                "WHERE pay_method = ? AND datetime >= ? AND datetime <= ? AND type = 'EXPENSE' AND currency = 'USD' AND original_amount IS NOT NULL",
+                [cardName, startStr, endStr]
+              );
+
+              if (foreignTxList.length > 0) {
+                const totalUsdAmount = foreignTxList.reduce((sum, tx) => sum + (tx.original_amount || 0), 0);
+                console.log(`[파서][${targetUser}] 정산 대상 외화 거래 발견: ${foreignTxList.length}건, 총 달러합=$${totalUsdAmount.toFixed(2)}`);
+
+                if (totalUsdAmount > 0) {
+                  // 6. 각 외화 거래별로 달러 금액 비율에 맞춰 실청구 한화 분할 배분 및 업데이트
+                  for (let i = 0; i < foreignTxList.length; i++) {
+                    const tx = foreignTxList[i];
+                    const weight = tx.original_amount / totalUsdAmount;
+                    const finalAmount = Math.round(foreignChargedTotal * weight);
+                    const finalExchangeRate = parseFloat((finalAmount / tx.original_amount).toFixed(2));
+
+                    await db.run(
+                      "UPDATE transactions SET amount = ?, exchange_rate = ? WHERE id = ?",
+                      [finalAmount, finalExchangeRate, tx.id]
+                    );
+                    console.log(`[파서][${targetUser}] 외화 거래 ID ${tx.id} 자동 정산 완료: $${tx.original_amount} -> ${finalAmount}원 (적용 환율: ${finalExchangeRate}원)`);
+                  }
+                }
+              } else {
+                console.log(`[파서][${targetUser}] 정산 대상 이용 기간 내에 미확정 외화 거래가 존재하지 않습니다.`);
+              }
+            } else {
+              console.log(`[파서][${targetUser}] 실출금액이 국내 결제 총액 이하이므로 외화 정산 처리를 생략합니다.`);
+            }
+          } catch (settleErr) {
+            console.error(`[파서][${targetUser}] 카드대금 외화 자동 정산 중 예외 발생:`, settleErr);
+          }
+        }
+      }
     }
 
     // 이중 등록 방지
