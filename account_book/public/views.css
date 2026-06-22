@@ -677,7 +677,7 @@
 .markdown-body {
   font-size: 0.95rem;
   line-height: 1.7;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
 }
 
 .markdown-body h3 {
@@ -695,7 +695,7 @@
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .markdown-body h5 {
@@ -709,7 +709,7 @@
 .markdown-body p {
   margin-bottom: 0.85rem;
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-secondary);
 }
 
 .markdown-body ul, .markdown-body ol {
@@ -719,7 +719,7 @@
 
 .markdown-body li {
   margin-bottom: 0.5rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 

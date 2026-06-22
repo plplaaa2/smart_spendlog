@@ -186,19 +186,19 @@
         <div class="stats-grid">
           <div class="card glass stat-card">
             <div class="stat-header">
-              <span class="stat-label">이번 달 수입</span>
+              <span class="stat-label">이번 달 소득</span>
               <div class="stat-icon-wrapper income"><i data-lucide="trending-down"
                   style="transform: rotate(180deg); color: var(--success-color);"></i></div>
             </div>
             <div class="stat-value" id="dashboard-total-income">0원</div>
             <div class="stat-footer">
-              <span class="text-secondary" id="dashboard-income-footer">이번 달 입금 금액 합계</span>
+              <span class="text-secondary" id="dashboard-income-footer">이번 달 소득 금액 합계</span>
             </div>
           </div>
 
           <div class="card glass stat-card">
             <div class="stat-header">
-              <span class="stat-label">이번 달 지출</span>
+              <span class="stat-label">이번 달 소비</span>
               <div class="stat-icon-wrapper expense"><i data-lucide="trending-up"></i></div>
             </div>
             <div class="stat-value" id="dashboard-total-spent">0원</div>
@@ -221,7 +221,7 @@
             </div>
             <div class="stat-value" id="dashboard-budget-left">0원</div>
             <div class="stat-footer">
-              <span class="text-secondary">예산 대비 지출 잔액</span>
+              <span class="text-secondary">예산 대비 소비 잔액</span>
             </div>
           </div>
 
@@ -952,12 +952,12 @@
         <div class="stats-grid" style="margin-bottom: 1.5rem;">
           <div class="card glass stat-card">
             <div class="stat-header">
-              <span class="stat-label" id="income-total-label">이번 달 총 수입</span>
+              <span class="stat-label" id="income-total-label">이번 달 총 소득</span>
               <div class="stat-icon-wrapper income"><i data-lucide="trending-down" style="transform: rotate(180deg); color: var(--success-color);"></i></div>
             </div>
             <div class="stat-value" id="income-total-value">0원</div>
             <div class="stat-footer">
-              <span class="text-secondary">이체/입금을 제외한 순수 수입</span>
+              <span class="text-secondary">이체/입금을 제외한 순수 소득</span>
             </div>
           </div>
           <div class="card glass stat-card">
@@ -967,17 +967,17 @@
             </div>
             <div class="stat-value" id="income-savings-ratio-value">0%</div>
             <div class="stat-footer">
-              <span class="text-secondary">수입 대비 순수이익(저축) 비중</span>
+              <span class="text-secondary">소득 대비 순수이익(저축) 비중</span>
             </div>
           </div>
           <div class="card glass stat-card mobile-full-width">
             <div class="stat-header">
-              <span class="stat-label" id="income-average-label">월 평균 수입</span>
+              <span class="stat-label" id="income-average-label">월 평균 소득</span>
               <div class="stat-icon-wrapper budget"><i data-lucide="calculator"></i></div>
             </div>
             <div class="stat-value" id="income-average-value">0원</div>
             <div class="stat-footer">
-              <span class="text-secondary">최근 6개월 평균 수입액</span>
+              <span class="text-secondary">최근 평균 소득액</span>
             </div>
           </div>
         </div>
@@ -985,13 +985,13 @@
         <!-- 차트 그리드 -->
         <div class="charts-grid" style="margin-bottom: 2rem;">
           <div class="card glass chart-card">
-            <h3 id="income-trend-title">수입 월별 추이 (최근 6개월)</h3>
+            <h3 id="income-trend-title">소득 월별 추이 (최근 6개월)</h3>
             <div class="chart-container" style="height: 280px; position: relative;">
               <canvas id="incomeMonthlyTrendChart"></canvas>
             </div>
           </div>
           <div class="card glass chart-card">
-            <h3>수입 카테고리별 비중</h3>
+            <h3>소득 카테고리별 비중</h3>
             <div class="chart-container" style="height: 280px; position: relative;">
               <canvas id="incomeCategoryChart"></canvas>
             </div>
@@ -1001,7 +1001,7 @@
         <!-- 카테고리별 소득 요약 테이블 -->
         <div class="card glass table-card" style="margin-bottom: 2rem;">
           <div class="card-header" style="padding-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-            <h3>카테고리별 수입 요약</h3>
+            <h3>카테고리별 소득 요약</h3>
             <span class="text-secondary text-xs" style="font-weight: normal; cursor: pointer;" id="reset-income-category-filter-btn" title="필터 전체 해제">* 카테고리를 클릭하면 상세 내역이 필터링됩니다. (클릭 시 전체 표시)</span>
           </div>
           <div class="table-responsive">
@@ -1009,8 +1009,8 @@
               <thead>
                 <tr>
                   <th>카테고리</th>
-                  <th class="text-right">수입액</th>
-                  <th class="text-right">전체 수입 대비 비율</th>
+                  <th class="text-right">소득액</th>
+                  <th class="text-right">전체 소득 대비 비율</th>
                 </tr>
               </thead>
               <tbody id="income-category-summary-body">
@@ -1023,7 +1023,7 @@
         <!-- 수입 상세 리스트 -->
         <div class="card glass table-card">
           <div class="card-header" style="padding-bottom: 1rem;">
-            <h3 id="income-subview-title">이번 달 수입 거래 내역</h3>
+            <h3 id="income-subview-title">이번 달 소득 거래 내역</h3>
           </div>
           <div class="table-responsive">
             <table class="table">
@@ -1043,7 +1043,7 @@
             </table>
           </div>
           <div class="table-footer" id="income-transaction-table-footer">
-            <p class="empty-message" id="income-transaction-table-empty-msg">이번 달 수입 거래 내역이 없습니다.</p>
+            <p class="empty-message" id="income-transaction-table-empty-msg">이번 달 소득 거래 내역이 없습니다.</p>
           </div>
         </div>
       </section>
@@ -1113,6 +1113,21 @@
                       <p>해외 결제 알림을 받았을 때, 실시간 환율 조회가 실패하거나 오프라인 상태일 때 기본으로 적용할 환율입니다.</p>
                     </div>
                     <input type="number" id="settings-default-usd-rate" placeholder="1350" min="0" step="0.01" style="width: 100%; padding: 10px 12px; background-color: var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem;">
+                  </div>
+                </div>
+
+                <!-- 주 소득 방식 설정 카드 -->
+                <div class="card glass settings-form-card" style="margin-bottom: 1.5rem;">
+                  <h3>주 소득 방식 설정</h3>
+                  <div class="info-box" style="margin-bottom: 1rem;">
+                    <p>주 소득의 성격에 따라 평균 소득 계산 기간을 다르게 설정합니다. (정기 소득: 최근 3개월 평균, 비정기 소득: 최근 6개월 평균)</p>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label for="settings-primary-income-type">주 소득 방식</label>
+                    <select id="settings-primary-income-type" class="select-filter" style="width: 100%; max-width: 100%;">
+                      <option value="regular">월 정기 소득 (월급, 연금 등 - 3개월 평균)</option>
+                      <option value="irregular">월 비정기 소득 (기타 프리랜서 등 - 6개월 평균)</option>
+                    </select>
                   </div>
                 </div>
 

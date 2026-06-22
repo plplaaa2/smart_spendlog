@@ -51,9 +51,9 @@ router.get('/stats', async (req, res) => {
     const budgetRow = await db.get("SELECT value FROM settings WHERE key = 'monthly_budget'");
     const budget = budgetRow ? parseInt(budgetRow.value, 10) : 500000;
 
-    // 5. 최근 6개월간 월별 지출/수입 흐름 (트렌드 차트용, 이체 제외)
+    // 5. 최근 12개월간 월별 지출/수입 흐름 (트렌드 차트 및 소득 평균용, 이체 제외)
     const monthlyTrend = [];
-    for (let i = 5; i >= 0; i--) {
+    for (let i = 11; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
       const targetMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;

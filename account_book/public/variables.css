@@ -9,6 +9,7 @@
   --bg-primary: #0a0e1a;
   --bg-secondary: #0f172a;
   --accent-color: #6366f1; /* Indigo */
+  --primary-color: #6366f1;
   --accent-glow: rgba(99, 102, 241, 0.15);
   --success-color: #10b981; /* Emerald */
   --warning-color: #f59e0b; /* Amber */
@@ -48,6 +49,7 @@ html[data-theme="light"] {
   --bg-primary: #f1f5f9;
   --bg-secondary: #ffffff;
   --accent-color: #4f46e5;
+  --primary-color: #4f46e5;
   --accent-glow: rgba(79, 70, 229, 0.18);
   --success-color: #059669;
   --warning-color: #d97706;

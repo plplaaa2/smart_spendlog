@@ -137,7 +137,7 @@
 }
 
 .table th {
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--table-header-bg);
   padding: 1rem 1.5rem;
   font-weight: 600;
   font-size: 0.9rem;
@@ -156,7 +156,7 @@
 }
 
 .table tr:hover td {
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--card-item-bg-hover);
 }
 
 .table-footer {
@@ -192,7 +192,7 @@
 .form-group select, 
 .form-group textarea {
   width: 100%;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: 8px;
   padding: 0.7rem 1rem;
@@ -297,7 +297,7 @@ select option {
 }
 
 .select-filter {
-  background-color: var(--bg-secondary);
+  background-color: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: 10px;
   height: 42px;
@@ -399,8 +399,8 @@ select option {
 }
 
 .login-box {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: 24px;
   width: 90%;
   max-width: 420px;
@@ -486,8 +486,8 @@ select option {
 .input-wrapper input {
   width: 100%;
   padding: 12px 16px 12px 42px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
   color: var(--text-primary);
   font-size: 0.95rem;
@@ -496,7 +496,7 @@ select option {
 }
 
 .input-wrapper input:focus {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--glass-hover);
   border-color: var(--accent-color);
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
 }
@@ -524,9 +524,9 @@ select option {
 .checkbox-container .checkmark {
   width: 18px;
   height: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--card-item-bg);
   position: relative;
   transition: all 0.2s;
 }
@@ -592,8 +592,8 @@ select option {
 /* Google Backup Restore List Item styling */
 .google-backup-item {
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card-item-bg);
+  border: 1px solid var(--glass-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -603,7 +603,7 @@ select option {
 }
 
 .google-backup-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--card-item-bg-hover);
   border-color: var(--accent-color);
   box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
 }
@@ -764,7 +764,7 @@ select option {
 
 /* Notification Item Card */
 .notification-item {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card-item-bg);
   border: 1px solid var(--glass-border);
   border-radius: 10px;
   padding: 1rem;
@@ -776,8 +776,8 @@ select option {
 }
 
 .notification-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--card-item-bg-hover);
+  border-color: var(--glass-border);
 }
 
 .notification-item.unread {
@@ -939,7 +939,7 @@ select option {
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--glass-hover);
   transition: .3s;
   border-radius: 22px;
   border: 1px solid var(--glass-border);

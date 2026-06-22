@@ -150,6 +150,9 @@ async function loadSettingsTab() {
     const themeEl = document.getElementById('settings-theme');
     if (themeEl) themeEl.value = settings.theme || 'dark';
 
+    const primaryIncomeTypeEl = document.getElementById('settings-primary-income-type');
+    if (primaryIncomeTypeEl) primaryIncomeTypeEl.value = settings.primary_income_type || 'regular';
+
   } catch (err) {
     console.error('설정 로드 실패:', err);
   }

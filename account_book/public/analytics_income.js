@@ -33,16 +33,16 @@ async function loadIncomeAnalytics(year, month) {
 
     // 다이나믹 라벨 및 타이틀 세팅
     const totalLabelEl = document.getElementById('income-total-label');
-    if (totalLabelEl) totalLabelEl.textContent = `${periodLabel} 총 수입`;
+    if (totalLabelEl) totalLabelEl.textContent = `${periodLabel} 총 소득`;
 
     const subviewTitleEl = document.getElementById('income-subview-title');
-    if (subviewTitleEl) subviewTitleEl.textContent = `${periodDetailLabel} 수입 거래 내역`;
+    if (subviewTitleEl) subviewTitleEl.textContent = `${periodDetailLabel} 소득 거래 내역`;
     const emptyMsgEl = document.getElementById('income-transaction-table-empty-msg');
-    if (emptyMsgEl) emptyMsgEl.textContent = `${periodDetailLabel} 수입 거래 내역이 없습니다.`;
+    if (emptyMsgEl) emptyMsgEl.textContent = `${periodDetailLabel} 소득 거래 내역이 없습니다.`;
 
     const trendTitleEl = document.getElementById('income-trend-title');
     if (trendTitleEl) {
-      trendTitleEl.textContent = isYearly ? `수입 월별 추이 (${year}년)` : '수입 월별 추이 (최근 6개월)';
+      trendTitleEl.textContent = isYearly ? `소득 월별 추이 (${year}년)` : '소득 월별 추이 (최근 6개월)';
     }
 
     // 1. 상단 요약 카드 데이터 반영

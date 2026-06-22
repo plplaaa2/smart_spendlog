@@ -7,43 +7,61 @@ async function loadDashboardData() {
     const stats = await fetch(`api/stats?month=${state.currentMonth}`).then(r => r.json());
     const recent = await fetch(`api/transactions?month=${state.currentMonth}`).then(r => r.json());
 
-    // 상단 카드 세팅 (수입, 지출, 예산, 저축액)
-    // 요약: 이번 달 수입이 0원일 때, 최근 6개월간 실제 수입이 발생한 달들의 월 평균 수입을 대체 표시하고 푸터를 변경합니다.
+    // 상단 카드 세팅 (소득, 소비, 예산, 저축액)
     // 의존성: public/index.html의 #dashboard-total-income, #dashboard-income-footer 요소와 연동됩니다.
     const totalIncome = stats.totalIncome || 0;
     const incomeEl = document.getElementById('dashboard-total-income');
     const incomeFooterEl = document.getElementById('dashboard-income-footer');
 
-    if (totalIncome === 0) {
-      const priorIncomeMonths = (stats.trend || []).filter(t => t.month < state.currentMonth && t.income > 0);
-      if (priorIncomeMonths.length > 0) {
-        const sumPriorIncome = priorIncomeMonths.reduce((sum, t) => sum + t.income, 0);
-        const avgPriorIncome = Math.round(sumPriorIncome / priorIncomeMonths.length);
-        
+    // 주 소득 방식에 맞춘 평균 소득 계산
+    const primaryIncomeType = (state.settings && state.settings.primary_income_type) || 'regular';
+    const limitMonths = primaryIncomeType === 'regular' ? 3 : 6;
+    const sortedPriorMonths = (stats.trend || [])
+      .filter(t => t.month < state.currentMonth)
+      .sort((a, b) => b.month.localeCompare(a.month));
+    const targetPriorMonths = sortedPriorMonths.slice(0, limitMonths);
+    const priorIncomeMonths = targetPriorMonths.filter(t => t.income > 0);
+
+    let avgPriorIncome = 0;
+    if (priorIncomeMonths.length > 0) {
+      const sumPriorIncome = priorIncomeMonths.reduce((sum, t) => sum + t.income, 0);
+      avgPriorIncome = Math.round(sumPriorIncome / priorIncomeMonths.length);
+    }
+
+    if (totalIncome >= 1000000) {
+      // 100만원 이상 소득 유입 시 실제 소득 표시
+      incomeEl.textContent = formatCurrency(totalIncome);
+      if (incomeFooterEl) {
+        incomeFooterEl.textContent = '이번 달 소득 금액 합계';
+      }
+    } else if (totalIncome > 0) {
+      // 100만원 미만 소득 유입 시 평균 소득을 표시하고, 푸터에 실제 소득 표기
+      incomeEl.textContent = avgPriorIncome > 0 ? `(평균) ${formatCurrency(avgPriorIncome)}` : formatCurrency(totalIncome);
+      if (incomeFooterEl) {
+        incomeFooterEl.textContent = `실제 소득: ${formatCurrency(totalIncome)}`;
+      }
+    } else {
+      // 소득이 없을 시 평균 소득 대체 표기
+      if (avgPriorIncome > 0) {
         incomeEl.textContent = `(평균) ${formatCurrency(avgPriorIncome)}`;
         if (incomeFooterEl) {
-          incomeFooterEl.textContent = '이번 달 수입이 없어 월 평균 수입 표시';
+          incomeFooterEl.textContent = '이번 달 소득이 없어 월 평균 소득 표시';
         }
       } else {
         incomeEl.textContent = formatCurrency(0);
         if (incomeFooterEl) {
-          incomeFooterEl.textContent = '이번 달 입금 금액 합계';
+          incomeFooterEl.textContent = '이번 달 소득 금액 합계';
         }
-      }
-    } else {
-      incomeEl.textContent = formatCurrency(totalIncome);
-      if (incomeFooterEl) {
-        incomeFooterEl.textContent = '이번 달 입금 금액 합계';
       }
     }
 
     document.getElementById('dashboard-total-spent').textContent = formatCurrency(stats.totalExpense);
     document.getElementById('dashboard-budget-total').textContent = formatCurrency(stats.budget);
 
-    // 평균 대비 지출 등락률 계산
+    // 평균 대비 소비 등락률 계산 (최근 6개월 소비 평균 비교로 유지)
     const comparisonEl = document.getElementById('dashboard-spent-comparison');
     if (comparisonEl) {
-      const priorMonths = (stats.trend || []).filter(t => t.month < state.currentMonth && t.expense > 0);
+      const priorMonths = (stats.trend || []).slice(-6).filter(t => t.month < state.currentMonth && t.expense > 0);
       if (priorMonths.length > 0) {
         const sumPriorExpense = priorMonths.reduce((sum, t) => sum + t.expense, 0);
         const avgPriorExpense = sumPriorExpense / priorMonths.length;
@@ -53,12 +71,12 @@ async function loadDashboardData() {
         let displayHtml = '';
         if (diff > 0) {
           const rate = (diff / avgPriorExpense) * 100;
-          displayHtml = `평균 월 지출(${formatCurrency(Math.round(avgPriorExpense))}) 대비 <span style="color:var(--danger-color); font-weight:bold;">▲${rate.toFixed(1)}%</span>`;
+          displayHtml = `평균 월 소비(${formatCurrency(Math.round(avgPriorExpense))}) 대비 <span style="color:var(--danger-color); font-weight:bold;">▲${rate.toFixed(1)}%</span>`;
         } else if (diff < 0) {
           const rate = (Math.abs(diff) / avgPriorExpense) * 100;
-          displayHtml = `평균 월 지출(${formatCurrency(Math.round(avgPriorExpense))}) 대비 <span style="color:var(--success-color); font-weight:bold;">▼${rate.toFixed(1)}%</span>`;
+          displayHtml = `평균 월 소비(${formatCurrency(Math.round(avgPriorExpense))}) 대비 <span style="color:var(--success-color); font-weight:bold;">▼${rate.toFixed(1)}%</span>`;
         } else {
-          displayHtml = `평균 월 지출(${formatCurrency(Math.round(avgPriorExpense))})과 동일`;
+          displayHtml = `평균 월 소비(${formatCurrency(Math.round(avgPriorExpense))})와 동일`;
         }
         comparisonEl.innerHTML = displayHtml;
         comparisonEl.style.display = 'block';
@@ -91,28 +109,21 @@ async function loadDashboardData() {
       } catch (e) {}
     }
 
-    // 요약: 이번 달 수입이 0원일 때, 월 평균 수입을 적용하여 예상 순수이익으로 대체 표시합니다.
+    // 요약: 이번 달 소득이 100만원 미만일 때, 월 평균 소득을 적용하여 예상 순수이익으로 대체 표시합니다.
     // 의존성: public/index.html의 #dashboard-net-savings, #dashboard-net-savings-label, #dashboard-net-savings-footer 요소와 연동됩니다.
-    const netSavings = initialBalancesSum + (stats.totalIncome || 0) - stats.totalExpense;
-    let monthlyNet = (stats.totalIncome || 0) - stats.totalExpense;
-    const savingsEl = document.getElementById('dashboard-net-savings');
-    const savingsLabelEl = document.getElementById('dashboard-net-savings-label');
-    const savingsFooterEl = document.getElementById('dashboard-net-savings-footer');
-
+    
+    // 100만원 미만 시 평균 소득 기준 예상 순수이익 활용
     let isUsingAverageIncome = false;
-    let avgPriorIncome = 0;
-
-    if (totalIncome === 0) {
-      const priorIncomeMonths = (stats.trend || []).filter(t => t.month < state.currentMonth && t.income > 0);
-      if (priorIncomeMonths.length > 0) {
-        const sumPriorIncome = priorIncomeMonths.reduce((sum, t) => sum + t.income, 0);
-        avgPriorIncome = Math.round(sumPriorIncome / priorIncomeMonths.length);
-        isUsingAverageIncome = true;
-      }
+    if (totalIncome < 1000000 && avgPriorIncome > 0) {
+      isUsingAverageIncome = true;
     }
+
+    let monthlyNet = (stats.totalIncome || 0) - stats.totalExpense;
+    let netSavings = initialBalancesSum + (stats.totalIncome || 0) - stats.totalExpense;
 
     if (isUsingAverageIncome) {
       monthlyNet = avgPriorIncome - stats.totalExpense;
+      netSavings = initialBalancesSum + avgPriorIncome - stats.totalExpense;
       if (savingsLabelEl) {
         savingsLabelEl.textContent = '예상 순수이익';
       }
@@ -131,7 +142,7 @@ async function loadDashboardData() {
 
     if (savingsFooterEl) {
       if (isUsingAverageIncome) {
-        savingsFooterEl.innerHTML = `<span class="text-secondary">누적 저축액: ${formatCurrency(netSavings)} (평균 수입 기준)</span>`;
+        savingsFooterEl.innerHTML = `<span class="text-secondary">누적 저축액: ${formatCurrency(netSavings)} (평균 소득 기준)</span>`;
       } else {
         savingsFooterEl.innerHTML = `<span class="text-secondary">누적 저축액: ${formatCurrency(netSavings)}</span>`;
       }

@@ -19,6 +19,12 @@ let state = {
 };
 
 // Chart.js 객체 참조용
+function syncThemeMeta(theme) {
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+  if (!metaThemeColor) return;
+  metaThemeColor.setAttribute('content', theme === 'light' ? '#f1f5f9' : '#0f172a');
+}
+
 let categoryChartInstance = null;
 let trendChartInstance = null;
 let analyticsYearlyChartInstance = null;
@@ -107,6 +113,7 @@ async function loadMetadata() {
     // 테마 설정 반영
     if (state.settings && state.settings.theme) {
       document.documentElement.setAttribute('data-theme', state.settings.theme);
+      syncThemeMeta(state.settings.theme);
       localStorage.setItem('ab_theme', state.settings.theme);
     }
 
@@ -390,6 +397,19 @@ function navigateToAsset(name, isCard) {
     // 3. 필터 셀렉터 값 변경
     const filter = document.getElementById('card-select-filter');
     if (filter) {
+      let optionExists = false;
+      for (let i = 0; i < filter.options.length; i++) {
+        if (filter.options[i].value === name) {
+          optionExists = true;
+          break;
+        }
+      }
+      if (!optionExists) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        filter.appendChild(opt);
+      }
       filter.value = name;
     }
     // 4. 데이터 로드
@@ -402,6 +422,19 @@ function navigateToAsset(name, isCard) {
     // 3. 필터 셀렉터 값 변경
     const filter = document.getElementById('bank-select-filter');
     if (filter) {
+      let optionExists = false;
+      for (let i = 0; i < filter.options.length; i++) {
+        if (filter.options[i].value === name) {
+          optionExists = true;
+          break;
+        }
+      }
+      if (!optionExists) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        filter.appendChild(opt);
+      }
       filter.value = name;
     }
     // 4. 데이터 로드
@@ -958,12 +991,14 @@ function initEventListeners() {
       const theme = themeEl ? themeEl.value : 'dark';
       const defaultUsdRateEl = document.getElementById('settings-default-usd-rate');
       const default_usd_exchange_rate = defaultUsdRateEl ? parseFloat(defaultUsdRateEl.value) : 1350;
+      const primaryIncomeTypeEl = document.getElementById('settings-primary-income-type');
+      const primary_income_type = primaryIncomeTypeEl ? primaryIncomeTypeEl.value : 'regular';
 
       try {
         const res = await fetch('api/settings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ws_sensor_entity, monthly_budget, user_real_name, auto_rule_generation, theme, default_usd_exchange_rate })
+          body: JSON.stringify({ ws_sensor_entity, monthly_budget, user_real_name, auto_rule_generation, theme, default_usd_exchange_rate, primary_income_type })
         }).then(r => r.json());
 
         if (res.success) {

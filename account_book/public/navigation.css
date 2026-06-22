@@ -129,8 +129,8 @@
   gap: 12px;
   padding: 12px 14px;
   margin: 10px 0;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
   margin-top: 5px;
 }
@@ -189,8 +189,8 @@
 }
 
 .logout-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--glass-hover);
+  color: var(--danger-color);
 }
 
 /* Base header & main layout container on desktop */
@@ -462,8 +462,8 @@ body.sidebar-collapsed .sidebar-collapse-toggle svg {
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--card-item-bg);
+  border: 1px solid var(--glass-border);
   padding: 6px 10px;
   border-radius: 8px;
   white-space: nowrap;

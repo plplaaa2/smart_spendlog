@@ -22,8 +22,8 @@ const ASSETS_TO_CACHE = [
   './ai_report.js',
   './settings.js',
   './notifications.js',
-  './icons/app_icon_192.png',
-  './icons/app_icon_512.png'
+  './icon/app_icon_192.png',
+  './icon/app_icon_512.png'
 ];
 
 // 설치 이벤트 - 에셋 캐싱

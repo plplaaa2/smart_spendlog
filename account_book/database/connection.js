@@ -669,6 +669,7 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       await dbInstance.run("INSERT INTO settings (key, value) VALUES ('auto_backup', 'false')");
       await dbInstance.run("INSERT INTO settings (key, value) VALUES ('backup_time', '00:00')");
       await dbInstance.run("INSERT INTO settings (key, value) VALUES ('backup_days', '0,1,2,3,4,5,6')");
+      await dbInstance.run("INSERT INTO settings (key, value) VALUES ('primary_income_type', 'regular')");
     } else {
       const hasBalance = await dbInstance.get("SELECT 1 FROM settings WHERE key='initial_balance'");
       if (!hasBalance) {
@@ -689,6 +690,10 @@ async function seedDefaultData(dbInstance, username = 'admin') {
       const hasBackupDays = await dbInstance.get("SELECT 1 FROM settings WHERE key='backup_days'");
       if (!hasBackupDays) {
         await dbInstance.run("INSERT INTO settings (key, value) VALUES ('backup_days', '0,1,2,3,4,5,6')");
+      }
+      const hasPrimaryIncomeType = await dbInstance.get("SELECT 1 FROM settings WHERE key='primary_income_type'");
+      if (!hasPrimaryIncomeType) {
+        await dbInstance.run("INSERT INTO settings (key, value) VALUES ('primary_income_type', 'regular')");
       }
     }
 

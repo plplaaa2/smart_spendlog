@@ -3,12 +3,12 @@
   "name": "Smart Spendlog",
   "icons": [
     {
-      "src": "./icons/app_icon_192.png",
+      "src": "./icon/app_icon_192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "./icons/app_icon_512.png",
+      "src": "./icon/app_icon_512.png",
       "type": "image/png",
       "sizes": "512x512"
     }
