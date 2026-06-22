@@ -128,8 +128,12 @@ async function processNotificationCore({ title, text, packageVal, username }) {
   }
 
   if (isPassed) {
-    console.log(`[웹훅][${targetUser}] 자동 패스 규칙에 매칭되어 처리를 제외(PASS)합니다. (알림: "${rawText}")`);
-    return { success: true, message: '자동 패스 규칙에 의해 처리가 제외되었습니다.', isPassed: true };
+    console.log(`[웹훅][${targetUser}] 자동 패스 규칙에 매칭되어 처리를 제외(PASS)하고 로그에 등록합니다. (알림: "${rawText}")`);
+    await db.run(
+      'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [sender, rawText, title, text, 'PASS', matchedPassRuleId]
+    );
+    return { success: true, message: '자동 패스 규칙에 의해 처리가 제외되었습니다. 알림 로그에 저장됩니다.', isPassed: true };
   }
 
   const rules = await adminDb.all('SELECT * FROM rules');
