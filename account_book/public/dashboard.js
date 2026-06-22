@@ -121,6 +121,10 @@ async function loadDashboardData() {
     let monthlyNet = (stats.totalIncome || 0) - stats.totalExpense;
     let netSavings = initialBalancesSum + (stats.totalIncome || 0) - stats.totalExpense;
 
+    const savingsEl = document.getElementById('dashboard-net-savings');
+    const savingsLabelEl = document.getElementById('dashboard-net-savings-label');
+    const savingsFooterEl = document.getElementById('dashboard-net-savings-footer');
+
     if (isUsingAverageIncome) {
       monthlyNet = avgPriorIncome - stats.totalExpense;
       netSavings = initialBalancesSum + avgPriorIncome - stats.totalExpense;
@@ -133,11 +137,13 @@ async function loadDashboardData() {
       }
     }
 
-    savingsEl.textContent = (monthlyNet > 0 ? '+' : '') + formatCurrency(monthlyNet);
-    if (monthlyNet < 0) {
-      savingsEl.style.color = 'var(--danger-color)';
-    } else {
-      savingsEl.style.color = 'var(--success-color)';
+    if (savingsEl) {
+      savingsEl.textContent = (monthlyNet > 0 ? '+' : '') + formatCurrency(monthlyNet);
+      if (monthlyNet < 0) {
+        savingsEl.style.color = 'var(--danger-color)';
+      } else {
+        savingsEl.style.color = 'var(--success-color)';
+      }
     }
 
     if (savingsFooterEl) {
