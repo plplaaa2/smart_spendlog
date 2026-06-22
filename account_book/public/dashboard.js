@@ -58,6 +58,19 @@ async function loadDashboardData() {
     document.getElementById('dashboard-total-spent').textContent = formatCurrency(stats.totalExpense);
     document.getElementById('dashboard-budget-total').textContent = formatCurrency(stats.budget);
 
+    // 외화 사용량(USD) 렌더링
+    const usdContainer = document.getElementById('dashboard-usd-spent-container');
+    const usdValueEl = document.getElementById('dashboard-total-usd-spent');
+    if (usdContainer && usdValueEl) {
+      const usdSpent = stats.totalUsdExpense || 0;
+      if (usdSpent > 0) {
+        usdValueEl.textContent = `$${usdSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        usdContainer.style.display = 'block';
+      } else {
+        usdContainer.style.display = 'none';
+      }
+    }
+
     // 평균 대비 소비 등락률 계산 (최근 6개월 소비 평균 비교로 유지)
     const comparisonEl = document.getElementById('dashboard-spent-comparison');
     if (comparisonEl) {

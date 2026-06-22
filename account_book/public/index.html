@@ -203,9 +203,15 @@
             </div>
             <div class="stat-value" id="dashboard-total-spent">0원</div>
             <div class="stat-footer" style="display:flex; flex-direction:column; gap:0.25rem; align-items:flex-start;">
-              <div>
-                <span class="text-secondary">총 예산: </span>
-                <span id="dashboard-budget-total" class="text-bold">500,000원</span>
+              <div style="display: flex; justify-content: space-between; width: 100%;">
+                <div>
+                  <span class="text-secondary">총 예산: </span>
+                  <span id="dashboard-budget-total" class="text-bold">500,000원</span>
+                </div>
+                <div id="dashboard-usd-spent-container" style="display: none; font-size: 0.75rem; color: #888;">
+                  <span>외화: </span>
+                  <span id="dashboard-total-usd-spent" class="text-bold" style="color: #38bdf8;">$0.00</span>
+                </div>
               </div>
               <div id="dashboard-spent-comparison"
                 style="display:none; font-size: 0.75rem; font-weight: 500; margin-top: 0.15rem;">

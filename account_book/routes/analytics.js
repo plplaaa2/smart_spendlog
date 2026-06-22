@@ -23,14 +23,17 @@ router.get('/stats', async (req, res) => {
     }
 
     // 1. 월 총 지출액 및 총 수입액 (이체 제외)
+    // 외화 사용량(USD)을 한화와 구분하기 위해 별도 합산
     const totalRow = await db.get(
       "SELECT SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as expense, " +
-      "SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income " +
+      "SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income, " +
+      "SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' AND currency = 'USD' THEN original_amount ELSE 0 END) as usdExpense " +
       "FROM transactions WHERE datetime LIKE ?", 
       [`${month}%`]
     );
     const totalExpense = totalRow.expense || 0;
     const totalIncome = totalRow.income || 0;
+    const totalUsdExpense = totalRow.usdExpense || 0;
 
     // 2. 카테고리별 지출액 및 비중 (지출 타입만 집계, 이체/송금 제외)
     const categoryRows = await db.all(
@@ -252,6 +255,7 @@ router.get('/stats', async (req, res) => {
     res.json({
       totalExpense,
       totalIncome,
+      totalUsdExpense,
       budget,
       categories: categoryRows,
       daily: dailyRows,
