@@ -77,6 +77,9 @@ async function deleteTransaction(id) {
     const res = await fetch(`api/transactions/${id}`, { method: 'DELETE' }).then(r => r.json());
     if (res.success) {
       refreshCurrentTabData();
+      if (window.NotificationsManager && typeof window.NotificationsManager.loadNotifications === 'function') {
+        window.NotificationsManager.loadNotifications();
+      }
     }
   } catch (err) {
     alert('삭제 오류: ' + err.message);

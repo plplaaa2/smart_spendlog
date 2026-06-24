@@ -529,6 +529,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     if (finalCategory === '기타') {
       const nameTag = targetUser === 'admin' ? '' : ` (${targetUser})`;
       sendHANotification(
+        db,
         `🔍 [Smart Spendlog] 미분류 거래 등록 안내${nameTag}`,
         `카테고리가 '기타'로 분류된 거래가 등록되었습니다.\n\n` +
         `- 사용처: **${result.merchant}**\n` +

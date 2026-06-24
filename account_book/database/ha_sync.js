@@ -33,11 +33,6 @@ function getSafeSuffix(username) {
 }
 
 async function updateHASensors(targetUser) {
-  const token = process.env.SUPERVISOR_TOKEN;
-  if (!token) {
-    return;
-  }
-
   const db = await getDB(targetUser);
   if (!db) return;
 
@@ -93,6 +88,7 @@ async function updateHASensors(targetUser) {
           notifiedStates[overLimitKey] = true;
           const overAmount = expense - budget;
           await sendHANotification(
+            db,
             `🚨 [Smart Spendlog] 이번 달 예산 초과 경고${nameTag}`,
             `이번 달 지출액이 설정하신 예산을 초과했습니다!\n\n` +
             `- 현재 지출: **${expense.toLocaleString()}원**\n` +
@@ -115,6 +111,7 @@ async function updateHASensors(targetUser) {
           if (!notifiedStates[nearLimitKey]) {
             notifiedStates[nearLimitKey] = true;
             await sendHANotification(
+              db,
               `⚠️ [Smart Spendlog] 예산 90% 소진 안내${nameTag}`,
               `이번 달 설정하신 예산의 90% 이상을 소진했습니다. 계획적인 소비를 권장합니다.\n\n` +
               `- 현재 지출: **${expense.toLocaleString()}원**\n` +
@@ -142,6 +139,7 @@ async function updateHASensors(targetUser) {
           notifiedStates[deficitKey] = true;
           const deficitAmount = expense - income;
           await sendHANotification(
+            db,
             `📉 [Smart Spendlog] 이번 달 재정 적자 전환 경고${nameTag}`,
             `이번 달 지출이 수입을 초과하여 적자 상태로 전환되었습니다!\n\n` +
             `- 현재 수입: **${income.toLocaleString()}원**\n` +
@@ -195,16 +193,20 @@ async function updateHASensors(targetUser) {
             const startStr = `${startYear}-${String(startMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')} 00:00:00`;
             const endStr = `${yearVal}-${String(monthVal).padStart(2, '0')}-${String(startDay - 1).padStart(2, '0')} 23:59:59`;
 
+            // 요약: Home Assistant 연동 및 실적 달성 체크 시 포인트 및 지원금 사용액(used_point) 합산 (커스텀 기간)
+            // 의존성: routes/analytics.js, android_spendlog/.../AnalyticsApiHandler.kt
             const customRow = await db.get(
-              "SELECT SUM(amount) as expense FROM transactions " +
+              "SELECT SUM(amount + COALESCE(used_point, 0)) as expense FROM transactions " +
               "WHERE pay_method = ? AND type = 'EXPENSE' AND category != '이체/송금' " +
               "AND datetime >= ? AND datetime <= ?",
               [cardName, startStr, endStr]
             );
             currentExpense = customRow ? customRow.expense || 0 : 0;
           } else {
+            // 요약: Home Assistant 연동 및 실적 달성 체크 시 포인트 및 지원금 사용액(used_point) 합산 (기본 달력)
+            // 의존성: routes/analytics.js, android_spendlog/.../AnalyticsApiHandler.kt
             const calendarRow = await db.get(
-              "SELECT SUM(amount) as expense FROM transactions " +
+              "SELECT SUM(amount + COALESCE(used_point, 0)) as expense FROM transactions " +
               "WHERE pay_method = ? AND type = 'EXPENSE' AND category != '이체/송금' " +
               "AND datetime LIKE ?",
               [cardName, `${currentMonth}%`]
@@ -217,6 +219,7 @@ async function updateHASensors(targetUser) {
             if (!notifiedStates[perfKey]) {
               notifiedStates[perfKey] = true;
               await sendHANotification(
+                db,
                 `🎉 [Smart Spendlog] ${cardName} 실적 달성 완료${nameTag}`,
                 `축하합니다! 이번 달 **${cardName}**의 목표 실적을 달성했습니다.\n\n` +
                 `- 누적 실적: **${currentExpense.toLocaleString()}원**\n` +
@@ -236,6 +239,11 @@ async function updateHASensors(targetUser) {
           }
         }
       }
+    }
+
+    const token = process.env.SUPERVISOR_TOKEN;
+    if (!token) {
+      return;
     }
 
     const sensors = [
@@ -370,30 +378,76 @@ async function cleanupOrphanedHASensors(activeUsers = []) {
   }
 }
 
-async function sendHANotification(title, message) {
+async function sendHANotification(db, title, message) {
   const token = process.env.SUPERVISOR_TOKEN;
   if (!token) return;
 
-  const url = 'http://supervisor/core/api/services/persistent_notification/create';
-  const payload = {
-    title: title,
-    message: message
-  };
-
+  // 1. 기존 영구 알림(Persistent Notification) 생성 유지 (웹 UI 알림센터 연동)
+  const persistentUrl = 'http://supervisor/core/api/services/persistent_notification/create';
   try {
-    const response = await fetchWithTimeout(url, {
+    await fetchWithTimeout(persistentUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ title, message })
     });
-    if (!response.ok) {
-      console.error(`[HA WS][Notification] 알림 전송 실패: HTTP ${response.status}`);
-    }
   } catch (err) {
-    console.error('[HA WS][Notification] 알림 전송 중 에러 발생:', err.message);
+    console.error('[HA WS][Notification] 웹 영구 알림 전송 에러:', err.message);
+  }
+
+  // 2. 스마트폰 Companion 앱 모바일 푸시 알림 전송 시도
+  let pushed = false;
+  if (db) {
+    try {
+      const row = await db.get("SELECT value FROM settings WHERE key = 'ws_sensor_entity'");
+      const wsSensorEntity = row ? row.value : null;
+
+      if (wsSensorEntity && wsSensorEntity.startsWith('sensor.')) {
+        const match = wsSensorEntity.match(/^sensor\.(.+)_last_notification$/);
+        if (match && match[1]) {
+          const deviceName = match[1];
+          const mobileAppUrl = `http://supervisor/core/api/services/notify/mobile_app_${deviceName}`;
+          const response = await fetchWithTimeout(mobileAppUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ title, message })
+          });
+          if (response.ok) {
+            pushed = true;
+            console.log(`[HA WS][Notification] 모바일 앱 푸시 알림 전송 성공: ${deviceName}`);
+          } else {
+            console.warn(`[HA WS][Notification] 모바일 앱 푸시 알림 전송 실패: HTTP ${response.status}`);
+          }
+        }
+      }
+    } catch (dbErr) {
+      console.error('[HA WS][Notification] 모바일 푸시 대상 조회 중 에러:', dbErr.message);
+    }
+  }
+
+  // 3. 폴백: 장치명 파싱에 실패했거나 모바일 전송 실패 시 공통 notify 서비스 호출
+  if (!pushed) {
+    const notifyUrl = 'http://supervisor/core/api/services/notify/notify';
+    try {
+      const response = await fetchWithTimeout(notifyUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title, message })
+      });
+      if (response.ok) {
+        console.log('[HA WS][Notification] 공통 notify 서비스 푸시 전송 성공');
+      }
+    } catch (err) {
+      console.error('[HA WS][Notification] 공통 notify 서비스 전송 중 에러:', err.message);
+    }
   }
 }
 

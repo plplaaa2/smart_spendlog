@@ -323,4 +323,5 @@ const NotificationsManager = {
 // DOM 로드 시 매니저 초기화 등록
 document.addEventListener('DOMContentLoaded', () => {
   NotificationsManager.init();
+  window.NotificationsManager = NotificationsManager;
 });
