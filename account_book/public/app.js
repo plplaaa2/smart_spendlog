@@ -22,7 +22,12 @@ let state = {
 function syncThemeMeta(theme) {
   const metaThemeColor = document.querySelector('meta[name="theme-color"]');
   if (!metaThemeColor) return;
-  metaThemeColor.setAttribute('content', theme === 'light' ? '#f1f5f9' : '#0f172a');
+  const color = theme === 'light' ? '#f1f5f9' : '#0f172a';
+  metaThemeColor.setAttribute('content', color);
+
+  if (window.AndroidBridge && typeof window.AndroidBridge.setStatusBarTheme === 'function') {
+    window.AndroidBridge.setStatusBarTheme(theme === 'light');
+  }
 }
 
 let categoryChartInstance = null;

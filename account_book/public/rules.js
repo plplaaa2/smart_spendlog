@@ -281,7 +281,7 @@ async function loadLogs() {
            </button>`
         : '';
 
-      const showFooter = (log.parsed_status !== 'PASS');
+      const showFooter = true;
       const footerHtml = showFooter 
         ? `<div class="log-card-footer" style="gap: 6px;">
              <button class="btn btn-secondary btn-sm btn-create-tx">

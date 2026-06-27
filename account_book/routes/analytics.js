@@ -147,8 +147,10 @@ router.get('/stats', async (req, res) => {
     });
 
     // 해당 월 입출금 (1일 ~ 말일 기본 달력 기준)
+    // 요약: 카드 실적/지출 집계 시 포인트 및 지원금 사용액(used_point)을 합산하여 정확한 실적을 계산
+    // 의존성: database/ha_sync.js, android_spendlog/.../AnalyticsApiHandler.kt, BudgetNotificationHelper.kt
     const monthRows = await db.all(
-      "SELECT pay_method, pay_type, type, amount FROM transactions WHERE datetime LIKE ?",
+      "SELECT pay_method, pay_type, type, amount, COALESCE(used_point, 0) as used_point FROM transactions WHERE datetime LIKE ?",
       [`${month}%`]
     );
     const monthMap = {};
@@ -163,7 +165,7 @@ router.get('/stats', async (req, res) => {
       if (r.type === 'INCOME') {
         monthMap[targetMethod].monthIncome += r.amount || 0;
       } else {
-        monthMap[targetMethod].monthExpense += r.amount || 0;
+        monthMap[targetMethod].monthExpense += (r.amount || 0) + (r.used_point || 0);
       }
     });
 
@@ -193,9 +195,11 @@ router.get('/stats', async (req, res) => {
         const startStr = `${startYear}-${String(startMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')} 00:00:00`;
         const endStr = `${yearVal}-${String(monthVal).padStart(2, '0')}-${String(startDay - 1).padStart(2, '0')} 23:59:59`;
 
+        // 요약: 카드 커스텀 실적 기준일 지출 집계 시 포인트 및 지원금 사용액(used_point) 합산
+        // 의존성: database/ha_sync.js, android_spendlog/.../AnalyticsApiHandler.kt, BudgetNotificationHelper.kt
         const customRow = await db.get(
           "SELECT SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as month_income, " +
-          "SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END) as month_expense " +
+          "SUM(CASE WHEN type = 'EXPENSE' THEN amount + COALESCE(used_point, 0) ELSE 0 END) as month_expense " +
           "FROM transactions WHERE pay_method = ? AND datetime >= ? AND datetime <= ?",
           [name, startStr, endStr]
         );

@@ -963,3 +963,21 @@ select option {
 .switch input:checked + .slider::after {
   transform: translateX(22px);
 }
+
+/* Common form-control input style (Light/Dark dynamic) */
+.form-control {
+  width: 100%;
+  padding: 10px 12px;
+  background-color: var(--glass-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 8px;
+  color: var(--text-primary) !important;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.form-control:focus {
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 8px var(--accent-glow) !important;
+}

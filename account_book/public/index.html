@@ -534,12 +534,10 @@
                   <input type="hidden" id="mcat-id" value="">
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem;">
                     <div style="flex: 1; min-width: 150px;">
-                      <input type="text" id="mcat-merchant" placeholder="예: (주)우아한형제들" required
-                        style="width: 100%; padding: 10px 12px; background-color: var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary);">
+                      <input type="text" id="mcat-merchant" class="form-control" placeholder="예: (주)우아한형제들" required>
                     </div>
                     <div style="flex: 1; min-width: 120px;">
-                      <select id="mcat-category" required
-                        style="width: 100%; padding: 10px 12px; background-color: var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary);">
+                      <select id="mcat-category" class="form-control" required>
                         <!-- Dynamic options from categories -->
                       </select>
                     </div>
@@ -576,12 +574,10 @@
                   <input type="hidden" id="pkm-id" value="">
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem;">
                     <div style="flex: 1; min-width: 150px;">
-                      <input type="text" id="pkm-package" placeholder="예: com.shinhan.smartshinhan" required
-                        style="width: 100%; padding: 10px 12px; background-color: var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary); font-family: monospace;">
+                      <input type="text" id="pkm-package" class="form-control font-mono" placeholder="예: com.shinhan.smartshinhan" required>
                     </div>
                     <div style="flex: 1; min-width: 120px;">
-                      <select id="pkm-pay-method" required
-                        style="width: 100%; padding: 10px 12px; background-color: var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary);">
+                      <select id="pkm-pay-method" class="form-control" required>
                         <!-- Dynamic options from payMethods -->
                       </select>
                     </div>
