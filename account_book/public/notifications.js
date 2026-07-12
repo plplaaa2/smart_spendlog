@@ -83,7 +83,7 @@ const NotificationsManager = {
       const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token');
       if (!token) return;
 
-      const res = await fetch(`/api/notifications?token=${encodeURIComponent(token)}`);
+      const res = await fetch(`api/notifications?token=${encodeURIComponent(token)}`);
       if (!res.ok) return;
 
       const data = await res.json();
@@ -228,7 +228,7 @@ const NotificationsManager = {
       const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token');
       if (!token) return;
 
-      const res = await fetch(`/api/notifications/read?token=${encodeURIComponent(token)}`, {
+      const res = await fetch(`api/notifications/read?token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -249,7 +249,7 @@ const NotificationsManager = {
       const token = localStorage.getItem('ab_token') || sessionStorage.getItem('ab_token');
       if (!token) return;
 
-      const res = await fetch(`/api/notifications/delete?token=${encodeURIComponent(token)}`, {
+      const res = await fetch(`api/notifications/delete?token=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
