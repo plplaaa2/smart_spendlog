@@ -1,5 +1,16 @@
 const { parsePaymentType } = require('./payment_resolver');
 
+function normalizeJsonText(responseText) {
+  if (!responseText) return null;
+  const text = responseText.trim();
+  const startIndex = text.indexOf('{');
+  const endIndex = text.lastIndexOf('}');
+  if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
+    return text.substring(startIndex, endIndex + 1);
+  }
+  return text || null;
+}
+
 async function parseNotificationWithAI(text, config, fallbackDatetime = null) {
   if (!text || !config) return null;
 
@@ -165,10 +176,8 @@ Example Output:
       return null;
     }
 
-    let jsonText = responseText.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-    }
+    const jsonText = normalizeJsonText(responseText);
+    if (!jsonText) return null;
 
     const result = JSON.parse(jsonText);
 
@@ -196,8 +205,9 @@ Example Output:
       paymentType = 'CREDIT';
     }
 
+    const amountVal = parseInt(String(result.amount).replace(/[^0-9]/g, ''), 10);
     return {
-      amount: parseInt(result.amount, 10),
+      amount: isNaN(amountVal) ? 0 : amountVal,
       merchant: (result.merchant || '알수없음').trim(),
       datetime: result.datetime || resolvedFallback,
       pay_method: (result.pay_method || '카드').trim(),
@@ -218,30 +228,32 @@ async function generatePatternWithAI(text, config) {
 
   const cleanText = text.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').replace(/\r\n/g, '\n');
 
-  const prompt = `You are a regex pattern builder.
+  const prompt = `You are a professional RegExp pattern builder.
 Build a JavaScript Regular Expression (RegExp) pattern that parses the following financial SMS/push notification text.
-The regex pattern MUST extract the following values using NAMED CAPTURE GROUPS:
-- "amount" (e.g. (?<amount>[\\d,]+) or similar): Extracts the transaction amount (REQUIRED).
-- "merchant" (e.g. (?<merchant>.+?)): Extracts the merchant or sender.
-- "time" (e.g. (?<time>\\d{2}/\\d{2}\\s+\\d{2}:\\d{2}) or similar): Extracts the date/time (optional but recommended if present).
-- "account" (e.g. (?<account>[\\d*-]+)): Extracts the account number (optional).
-- "balance" (e.g. (?<balance>[\\d,]+)): Extracts the remaining balance (optional).
-- "cumulative" (e.g. (?<cumulative>[\\d,]+)): Extracts the cumulative monthly spending (optional).
-- "usedPoint" (e.g. (?<usedPoint>[\\d,]+)): Extracts points/credits used (optional).
-- "payMethod" (e.g. (?<payMethod>[^\\s/]+)): Extracts payment method/source such as bank or card brand name (optional).
-- "payType" (e.g. (?<payType>[^\\s/]+)): Extracts payment type such as credit, checking, transfer, or cash (optional).
+The RegExp pattern MUST extract the transaction components using the following standard Named Capture Groups templates:
+- Transaction Amount (integer, REQUIRED): Use exactly \`(?<amount>[\\\\d,]+)\` or similar to extract digits representing the amount.
+- Merchant Name (string, REQUIRED): Use exactly \`(?<merchant>.+?)\` to extract the merchant/sender name.
+- Date/Time (string, optional but recommended): Use \`(?<time>...)\` (e.g., \`(?<time>\\\\d{2}/\\\\d{2}\\\\s+\\\\d{2}:\\\\d{2})\` or \`(?<time>\\\\d{2}\\\\.\\\\d{2}\\\\s+\\\\d{2}:\\\\d{2})\`) adapting to the actual datetime format in the text.
+- Account Number (string, optional): Use \`(?<account>[\\\\d*-]+)\` or similar if applicable.
+- Remaining Balance (string, optional): Use \`(?<balance>[\\\\d,]+)\` if applicable.
+- Cumulative Spending (string, optional): Use \`(?<cumulative>[\\\\d,]+)\` if applicable.
+- Used Points (string, optional): Use \`(?<usedPoint>[\\\\d,]+)\` if applicable.
+- Payment Method (string, optional): Use \`(?<payMethod>[^\\\\s/]+)\` if applicable.
+- Payment Type (string, optional): Use \`(?<payType>[^\\\\s/]+)\` if applicable.
 
-CRITICAL RULE FOR NAMED CAPTURE GROUPS:
-Named capture group names MUST NOT contain underscores ('_'). They must use strictly camelCase or simple letters (e.g. use 'merchantName' instead of 'merchant_name', 'payMethod' instead of 'pay_method'). Underscores in group names cause regex syntax errors in Android mobile environment.
-
-CRITICAL RULE FOR NEWLINES/SPACES:
-DO NOT use raw newlines (\\n or \\r\\n) in the pattern. Instead, use \\\\s+ or \\\\s* to match line breaks and whitespaces to make the pattern platform-independent.
-
-CRITICAL RULE FOR CURRENCY SYMBOLS:
-If currency symbols like ₩, $, or \\ are present in the amount, ensure the pattern matches them outside or inside the group appropriately (e.g. \\\\(?<amount>[\\\\d,]+) or ₩(?<amount>[\\\\d,]+)).
-
-The pattern MUST match the entire text or its major part. Escape bracket characters properly (e.g. \\[KB국민\\]).
+CRITICAL INSTRUCTIONS FOR GENERALIZATION & ROBUSTNESS:
+1. DO NOT hardcode dynamic transaction values (like amount, merchant, date/time, remaining balance, cumulative spending, card numbers) in the pattern. You MUST replace them with their corresponding Named Capture Groups.
+2. 카드 번호나 계좌 번호 등 마스킹 처리된 고유 정보(예: \`8*9*\`, \`123-****-456\`)는 고정된 문자열이 아니라, \`[\\\\d*-]+\` 또는 \`[\\\\d*]+\` 패턴으로 변환하여 유사한 다른 알림에서도 매칭되게 하십시오.
+3. 띄어쓰기(공백), 줄바꿈, 탭 문자 등은 모두 \`\\\\s*\` 또는 \`\\\\s+\`로 대체하여 사소한 공백 변화로 인해 매칭이 깨지지 않게 하십시오.
+4. 가로 슬래시(\`/\`), 괄호(\`(\`, \`)\`), 대괄호(\`[\`, \`]\`) 등 정규식 예약어나 특수기호는 반드시 백슬래시로 이스케이프(예: \`\\\\(\`, \`\\\\)\`, \`\\\\[\`, \`\\\\]\`, \`\\\\/\`)하여 정규식 문법 오류를 방지하십시오.
+5. 완성된 패턴은 문자열의 처음부터 끝까지 전체를 매칭할 수 있도록 시작(\`^\`)과 끝(\`$\`) 앵커를 붙여야 합니다 (예: \`^(?:\\\\[Web발신\\\\])?\\\\s*...$\`).
+6. Named capture group 이름에 언더바(_)를 포함하지 마십시오 (오직 camelCase 사용: \`usedPoint\`, \`payMethod\`, \`payType\` 등).
 Notice that double backslashes should be used since it will be parsed as JSON.
+
+[매칭 조립 예시]
+원문: "(결제) 7,300원 버거킹박석고개SK점(주)비케이 / 신용(일시불,8*9*) / 06.29 18:49 / 누적이용금액 599,048원"
+기대되는 정규식 결과 패턴:
+"^(?:\\\\[Web발신\\\\])?\\\\s*\\\\(결제\\\\)\\\\s*(?<amount>[\\\\d,]+)원\\\\s*(?<merchant>.+?)\\\\s*\\\\/\\\\s*(?<payType>[^\\\\s\\\\/]+)\\\\(일시불,[\\\\d*]+\\\\)\\\\s*\\\\/\\\\s*(?<time>\\\\d{2}\\\\.\\\\d{2}\\\\s+\\\\d{2}:\\\\d{2})\\\\s*\\\\/\\\\s*누적이용금액\\\\s*(?<cumulative>[\\\\d,]+)원$"
 
 Notification Text: "${cleanText}"
 
@@ -250,15 +262,7 @@ The JSON object MUST contain the following fields:
 - "pattern" (string): The constructed RegExp pattern.
 - "pay_method" (string): The extracted payment method name (e.g. "신한카드", "국민은행"). Use "카드" as default.
 - "pay_type" (string): The payment type. Must be one of "CREDIT", "CHECK", "TRANSFER", "CASH". Use "CREDIT" as default.
-- "type" (string): "EXPENSE" or "INCOME".
-
-Example Output:
-{
-  "pattern": "^(?:\\\\[Web발신\\\\])?\\\\s*결제\\\\s+(?<amount>[\\\\d,]+)원\\\\s+(?<merchant>.+?)$",
-  "pay_method": "카드",
-  "pay_type": "CREDIT",
-  "type": "EXPENSE"
-}`;
+- "type" (string): "EXPENSE" or "INCOME".`;
 
   try {
     let responseText = '';
@@ -387,10 +391,8 @@ Example Output:
       return null;
     }
 
-    let jsonText = responseText.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-    }
+    const jsonText = normalizeJsonText(responseText);
+    if (!jsonText) return null;
 
     const result = JSON.parse(jsonText);
     
@@ -627,10 +629,8 @@ ${dataText}
       return null;
     }
 
-    let jsonText = responseText.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-    }
+    const jsonText = normalizeJsonText(responseText);
+    if (!jsonText) return null;
 
     const result = JSON.parse(jsonText);
     return {
