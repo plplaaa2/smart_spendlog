@@ -96,7 +96,7 @@ async function startWebhookServer(db, options = {}) {
   }
 
   const app = express();
-  app.locals.config = {};
+  app.locals.config = options.config || {};
   app.use('/api', router);
   const server = await new Promise((resolve, reject) => {
     const listeningServer = app.listen(0, '127.0.0.1', () => resolve(listeningServer));
@@ -109,11 +109,11 @@ function closeServer(server) {
   return new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
 }
 
-async function postWebhook(server, body) {
+async function postWebhook(server, body, headers = {}) {
   const { port } = server.address();
   return fetch(`http://127.0.0.1:${port}/api/webhook`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body)
   });
 }
@@ -305,6 +305,71 @@ test('webhook queue serializes concurrent duplicate notifications', async () => 
       await db.all('SELECT parsed_status FROM notification_logs ORDER BY id ASC'),
       [{ parsed_status: 'SUCCESS' }, { parsed_status: 'IGNORED_DUPLICATE' }]
     );
+  } finally {
+    await closeServer(server);
+    await db.close();
+  }
+});
+
+test('webhook enforces the configured token', async () => {
+  const db = await openWebhookDatabase();
+  const server = await startWebhookServer(db, { config: { webhook_token: 'test-webhook-secret' } });
+  try {
+    const missing = await postWebhook(server, { text: '2,500원 토큰 없음' });
+    const invalid = await postWebhook(server, { text: '2,500원 토큰 오류' }, { authorization: 'wrong-test-token' });
+    const valid = await postWebhook(server, { text: '2,500원 토큰 정상' }, { authorization: 'test-webhook-secret' });
+
+    assert.equal(missing.status, 403);
+    assert.equal(invalid.status, 403);
+    assert.equal(valid.status, 200);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM transactions')).count, 1);
+  } finally {
+    await closeServer(server);
+    await db.close();
+  }
+});
+
+test('webhook rejects a replayed event ID without processing it twice', async () => {
+  const db = await openWebhookDatabase();
+  const server = await startWebhookServer(db);
+  try {
+    const headers = { 'x-webhook-event-id': 'test-event-20260809-001' };
+    const first = await postWebhook(server, { text: '2,500원 Webhook Store 반복 알림' }, headers);
+    const replay = await postWebhook(server, { text: '2,500원 Webhook Store 반복 알림' }, headers);
+
+    assert.equal(first.status, 200);
+    assert.equal(replay.status, 409);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM transactions')).count, 1);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM notification_logs')).count, 1);
+  } finally {
+    await closeServer(server);
+    await db.close();
+  }
+});
+
+test('webhook releases an event ID after a 500 response so it can be retried', async () => {
+  const db = await openWebhookDatabase();
+  let failOnce = true;
+  const routeDb = {
+    get: db.get.bind(db),
+    all: db.all.bind(db),
+    run: async (sql, params) => {
+      if (failOnce && /^INSERT INTO transactions/.test(sql)) {
+        failOnce = false;
+        throw new Error('transient webhook failure');
+      }
+      return db.run(sql, params);
+    }
+  };
+  const server = await startWebhookServer(db, { routeDb });
+  try {
+    const headers = { 'x-webhook-event-id': 'test-event-retry-001' };
+    const failed = await postWebhook(server, { text: '2,500원 재시도 가능' }, headers);
+    const retried = await postWebhook(server, { text: '2,500원 재시도 가능' }, headers);
+
+    assert.equal(failed.status, 500);
+    assert.equal(retried.status, 200);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM transactions')).count, 1);
   } finally {
     await closeServer(server);
     await db.close();

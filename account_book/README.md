@@ -65,6 +65,9 @@ action:
   - service: http.post
     data:
       url: http://account_book:8124/api/webhook
+      headers:
+        Authorization: "구성에서 설정한 webhook_token"
+        X-Webhook-Event-Id: "{{ trigger.to_state.context.id }}"
       json:
         title: "{{ trigger.to_state.attributes.android.title }}"
         text: "{{ trigger.to_state.attributes.android.text }}"
@@ -157,4 +160,3 @@ SQLite 데이터베이스 파일에 생성되는 핵심 테이블 명세입니�
   <br/>
   <sub>여러분의 소중한 후원이 안정적인 메인터넌스와 신기능 업데이트의 든든한 원동력이 됩니다. 🙏</sub>
 </p>
-

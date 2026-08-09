@@ -45,6 +45,7 @@ Webhook 알림은 원문을 먼저 보존한 후 파싱 결과와 매칭 규칙�
 - `/api/webhook`은 Express HTTP·SQLite 통합 테스트에서 정상 거래 저장, 파싱 실패 로그, 중복 거래 차단, 자동 규칙 생성·정리 및 DB 오류 응답 흐름을 검증한다.
 - 정상 Webhook 저장은 `database/webhook_transaction.js`에서 거래와 성공 로그를 원자적으로 커밋하며, 로그 삽입 실패 시 거래 삽입도 롤백한다.
 - Webhook 큐는 동시 요청의 파싱·중복 검사·저장 전체 구간을 직렬화하며, 동일 알림이 겹쳐도 최초 거래만 저장하고 후속 요청은 `IGNORED_DUPLICATE`로 기록한다.
+- `webhook_token`이 설정되면 `/api/webhook`은 토큰이 일치하는 요청만 허용한다. 선택 헤더 `X-Webhook-Event-Id`는 안전한 문자 1~128자로 제한하며 프로세스 내에서 10분간 재사용을 409로 차단한다. 서버 처리 실패(500) 시에는 ID 예약을 해제하여 재시도를 허용한다.
 - 분류 기준: `rules`, `merchant_categories`, `package_pay_methods`
 - 사용자 설정: `settings`
 - 로그인 보안: `login_security`

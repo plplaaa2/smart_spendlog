@@ -17,6 +17,9 @@ const { getActiveRules } = require('../database/rule_metadata');
 const { removeUnusableAutoRule } = require('../database/auto_rule_cleanup');
 const { storeWebhookTransaction } = require('../database/webhook_transaction');
 const { enrichParsedTransaction } = require('../services/transaction_enrichment');
+const { createWebhookReplayGuard } = require('../services/webhook_replay_guard');
+
+const webhookReplayGuard = createWebhookReplayGuard();
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
 function safeCompare(a, b) {
@@ -605,6 +608,16 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
     return res.status(400).json({ error: '알림의 Title 또는 Text가 제공되지 않았습니다.' });
   }
 
+  const eventId = req.headers['x-webhook-event-id'];
+  const replayClaim = webhookReplayGuard.claim(eventId);
+  if (!replayClaim.accepted) {
+    const status = replayClaim.reason === 'replay' ? 409 : 400;
+    const error = replayClaim.reason === 'replay'
+      ? 'Duplicate webhook event'
+      : 'Invalid X-Webhook-Event-Id header';
+    return res.status(status).json({ error });
+  }
+
   try {
     const resObj = await enqueueNotification(() => processNotificationCore({
       title,
@@ -625,6 +638,7 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
       return res.json({ success: false, message: resObj.message });
     }
   } catch (err) {
+    if (replayClaim.tracked) webhookReplayGuard.release(eventId);
     res.status(500).json({ error: err.message });
   }
 });

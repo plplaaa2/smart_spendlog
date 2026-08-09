@@ -28,6 +28,7 @@
   "boot": "auto",
   "options": {
     "token": "accountbook_secret_token",
+    "webhook_token": "",
     "users": [
       {
         "username": "admin",
@@ -37,6 +38,7 @@
   },
   "schema": {
     "token": "str",
+    "webhook_token": "str",
     "users": [
       {
         "username": "str",
