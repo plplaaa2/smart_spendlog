@@ -42,6 +42,7 @@ Webhook 알림은 원문을 먼저 보존한 후 파싱 결과와 매칭 규칙�
 - Webhook과 재시도는 `database/auto_rule_cleanup.js`의 동일한 정리 정책을 사용하며, 재파싱 성공 규칙과 `USER` 규칙은 삭제하지 않는다.
 - `/api/webhook`은 Express HTTP·SQLite 통합 테스트에서 정상 거래 저장, 파싱 실패 로그, 중복 거래 차단, 자동 규칙 생성·정리 및 DB 오류 응답 흐름을 검증한다.
 - 정상 Webhook 저장은 `database/webhook_transaction.js`에서 거래와 성공 로그를 원자적으로 커밋하며, 로그 삽입 실패 시 거래 삽입도 롤백한다.
+- Webhook 큐는 동시 요청의 파싱·중복 검사·저장 전체 구간을 직렬화하며, 동일 알림이 겹쳐도 최초 거래만 저장하고 후속 요청은 `IGNORED_DUPLICATE`로 기록한다.
 - 분류 기준: `rules`, `merchant_categories`, `package_pay_methods`
 - 사용자 설정: `settings`
 - 로그인 보안: `login_security`

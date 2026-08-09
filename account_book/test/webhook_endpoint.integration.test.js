@@ -275,3 +275,38 @@ test('webhook returns 500 when transaction storage fails', async () => {
     await db.close();
   }
 });
+
+test('webhook queue serializes concurrent duplicate notifications', async () => {
+  const db = await openWebhookDatabase();
+  const routeDb = {
+    get: db.get.bind(db),
+    all: db.all.bind(db),
+    run: async (sql, params) => {
+      if (/^INSERT INTO transactions/.test(sql)) {
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
+      return db.run(sql, params);
+    }
+  };
+  const server = await startWebhookServer(db, { routeDb });
+  try {
+    const requestBody = { text: '2,500원 Webhook Store 동시 알림' };
+    const responses = await Promise.all([
+      postWebhook(server, requestBody),
+      postWebhook(server, requestBody)
+    ]);
+    const bodies = await Promise.all(responses.map(response => response.json()));
+
+    assert.deepEqual(responses.map(response => response.status), [200, 200]);
+    assert.equal(bodies.filter(body => body.transaction).length, 1);
+    assert.equal(bodies.filter(body => body.message && body.message.includes('중복')).length, 1);
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM transactions')).count, 1);
+    assert.deepEqual(
+      await db.all('SELECT parsed_status FROM notification_logs ORDER BY id ASC'),
+      [{ parsed_status: 'SUCCESS' }, { parsed_status: 'IGNORED_DUPLICATE' }]
+    );
+  } finally {
+    await closeServer(server);
+    await db.close();
+  }
+});
