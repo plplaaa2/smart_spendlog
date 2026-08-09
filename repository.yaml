@@ -1,0 +1,6 @@
+# Home Assistant 애드온 저장소 메타데이터 정의
+# 요약: Home Assistant가 해당 깃허브 URL을 저장소로 추가할 때 읽어 들이는 메타데이터 선언 파일입니다.
+# 의존성: 이 파일의 존재를 통해 HA Supervisor가 하위의 account_book 폴더를 애드온으로 인식합니다.
+name: "Smart Spendlog 애드온 저장소"
+url: "https://github.com/plplaaa2/smart_spendlog"
+maintainer: "plplaaa2@gmail.com"

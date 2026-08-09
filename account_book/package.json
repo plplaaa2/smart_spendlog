@@ -1,0 +1,21 @@
+{
+  "name": "ha-account-book",
+  "version": "2.5.0",
+  "description": "Home Assistant Account Book Add-on",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/plplaaa2/smart_spendlog.git"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "ws": "^8.17.0"
+  },
+  "author": "",
+  "license": "CC-BY-NC-SA-4.0"
+}
