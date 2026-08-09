@@ -6,6 +6,8 @@
 
 ## 2. 구성
 
+Add-on 컨테이너는 Node.js 20과 SQLite 네이티브 모듈 `sqlite3` 6을 사용한다. 의존성 변경 시 `npm audit`과 실제 메모리 SQLite 통합 테스트를 함께 실행한다.
+
 | 계층 | 위치 | 책임 |
 |---|---|---|
 | 실행 진입점 | `index.js`, `run.sh` | 서버 기동과 Add-on 실행 |
