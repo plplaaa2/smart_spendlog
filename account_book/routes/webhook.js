@@ -111,7 +111,9 @@ async function processNotificationCore({ title, text, packageVal, username }) {
   const adminDb = await getDB('admin');
 
   // 0. 자동 패스 규칙 검사 우선 수행
-  const passRules = await adminDb.all('SELECT * FROM pass_rules');
+  // Keep matching deterministic: the earliest created pass rule wins.
+  // Related flow: routes/rules.js rule creation -> pass rule matching below.
+  const passRules = await adminDb.all('SELECT * FROM pass_rules ORDER BY id ASC');
   let isPassed = false;
   let matchedPassRuleId = null;
   for (const pRule of passRules) {
@@ -136,7 +138,9 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     return { success: true, message: '자동 패스 규칙에 의해 처리가 제외되었습니다. 알림 로그에 저장됩니다.', isPassed: true };
   }
 
-  const rules = await adminDb.all('SELECT * FROM rules');
+  // Keep matching deterministic: the earliest created parsing rule wins.
+  // Related flow: parser/text_parser.js returns the first valid match.
+  const rules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
   const fallbackKST = getKSTDateString();
   let result = parseNotification(rawText, rules, fallbackKST);
 
@@ -275,7 +279,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         
         console.log(`[파서][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${ruleName}" (ID: ${matchedRuleId})`);
         
-        const updatedRules = await adminDb.all('SELECT * FROM rules');
+        const updatedRules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
         result = parseNotification(rawText, updatedRules, fallbackKST);
       }
     }

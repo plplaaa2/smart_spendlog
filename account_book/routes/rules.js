@@ -354,7 +354,9 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
     const sender = log.sender || 'Unknown';
 
     const adminDb = await getDB('admin');
-    const rules = await adminDb.all('SELECT * FROM rules');
+    // Match retry notifications in the same deterministic order as the webhook flow.
+    // Related file: routes/webhook.js.
+    const rules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
     const logKSTTime = convertUTCToKSTString(log.created_at);
     let result = parseNotification(rawText, rules, logKSTTime);
 
@@ -402,7 +404,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
           
           console.log(`[로그재시도][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${ruleName}" (ID: ${matchedRuleId})`);
           
-          const updatedRules = await adminDb.all('SELECT * FROM rules');
+          const updatedRules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
           result = parseNotification(rawText, updatedRules, logKSTTime);
         }
       }

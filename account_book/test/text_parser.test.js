@@ -30,3 +30,24 @@ test('reads a legacy used_point capture group after sanitization', () => {
   assert.ok(result);
   assert.equal(result.used_point, 1500);
 });
+
+test('returns the first valid rule when multiple rules match', () => {
+  const firstRule = {
+    ...createRule('^(?<amount>[\\d,]+)원 (?<merchant>.+)$'),
+    id: 10,
+    name: '먼저 생성된 규칙',
+    category: '우선 카테고리'
+  };
+  const secondRule = {
+    ...firstRule,
+    id: 20,
+    name: '나중에 생성된 규칙',
+    category: '후순위 카테고리'
+  };
+
+  const result = parseNotification('10,000원 테스트상점', [firstRule, secondRule], '2026-08-09 12:00:00');
+
+  assert.ok(result);
+  assert.equal(result.rule_id, 10);
+  assert.equal(result.category, '우선 카테고리');
+});
