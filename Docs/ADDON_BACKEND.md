@@ -36,6 +36,7 @@ Webhook 알림은 원문을 먼저 보존한 후 파싱 결과와 매칭 규칙�
 - 거래: `transactions`
 - 알림 재시도 거래 교체는 `database/retry_transaction.js`에서 삭제·삽입·로그 갱신을 단일 SQLite 트랜잭션으로 처리하며, 통합 테스트로 성공과 롤백 경로를 검증한다.
 - `/api/notification_logs/:id/retry`는 Express HTTP 통합 테스트에서 실제 라우터와 SQLite를 연결하여 성공 및 404 응답 계약을 검증한다.
+- 같은 통합 테스트에서 파싱 실패의 400 응답과 DB 교체 실패의 500 응답을 검증하며, 두 실패 경로 모두 기존 거래와 로그 상태를 보존해야 한다.
 - 분류 기준: `rules`, `merchant_categories`, `package_pay_methods`
 - 사용자 설정: `settings`
 - 로그인 보안: `login_security`

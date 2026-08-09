@@ -57,7 +57,25 @@ async function openEndpointDatabase() {
   return db;
 }
 
-async function startRetryServer(db) {
+function successfulParseResult() {
+  return {
+    rule_id: 3,
+    type: 'EXPENSE',
+    amount: 2500,
+    merchant: 'After Store',
+    category: 'Ignored',
+    pay_method: 'Test Card',
+    datetime: '2026-08-09 12:00:00',
+    memo: 'retried',
+    used_point: 300
+  };
+}
+
+async function startRetryServer(db, options = {}) {
+  const routeDb = options.routeDb || db;
+  const parseResult = Object.prototype.hasOwnProperty.call(options, 'parseResult')
+    ? options.parseResult
+    : successfulParseResult();
   const databasePath = require.resolve('../database');
   const parserPath = require.resolve('../parser');
   const rulesPath = require.resolve('../routes/rules');
@@ -69,7 +87,7 @@ async function startRetryServer(db) {
     filename: databasePath,
     loaded: true,
     exports: {
-      getDB: async () => db,
+      getDB: async () => routeDb,
       findCategoryByMerchant: async () => 'Dining',
       updateHASensors: () => {}
     }
@@ -79,17 +97,7 @@ async function startRetryServer(db) {
     filename: parserPath,
     loaded: true,
     exports: {
-      parseNotification: () => ({
-        rule_id: 3,
-        type: 'EXPENSE',
-        amount: 2500,
-        merchant: 'After Store',
-        category: 'Ignored',
-        pay_method: 'Test Card',
-        datetime: '2026-08-09 12:00:00',
-        memo: 'retried',
-        used_point: 300
-      })
+      parseNotification: () => parseResult
     }
   };
 
@@ -153,6 +161,61 @@ test('retry endpoint returns 404 when the notification log does not exist', asyn
     const { port } = server.address();
     const response = await fetch(`http://127.0.0.1:${port}/api/notification_logs/999/retry`, { method: 'POST' });
     assert.equal(response.status, 404);
+  } finally {
+    await closeServer(server);
+    await db.close();
+  }
+});
+
+test('retry endpoint returns 400 and preserves data when parsing fails', async () => {
+  const db = await openEndpointDatabase();
+  const server = await startRetryServer(db, { parseResult: null });
+  try {
+    const { port } = server.address();
+    const response = await fetch(`http://127.0.0.1:${port}/api/notification_logs/7/retry`, { method: 'POST' });
+    assert.equal(response.status, 400);
+    assert.deepEqual(
+      await db.get('SELECT merchant, amount FROM transactions WHERE raw_text = ?', ['sample notification']),
+      { merchant: 'before', amount: 1000 }
+    );
+    assert.deepEqual(
+      await db.get('SELECT parsed_status, matched_rule_id FROM notification_logs WHERE id = 7'),
+      { parsed_status: 'FAILED', matched_rule_id: null }
+    );
+  } finally {
+    await closeServer(server);
+    await db.close();
+  }
+});
+
+test('retry endpoint returns 500 and rolls back when transaction insertion fails', async () => {
+  const db = await openEndpointDatabase();
+  const routeDb = {
+    get: db.get.bind(db),
+    all: db.all.bind(db),
+    run: async (sql, params) => {
+      if (/^INSERT INTO transactions/.test(sql)) {
+        throw new Error('forced transaction insert failure');
+      }
+      return db.run(sql, params);
+    }
+  };
+  const server = await startRetryServer(db, { routeDb });
+  try {
+    const { port } = server.address();
+    const response = await fetch(`http://127.0.0.1:${port}/api/notification_logs/7/retry`, { method: 'POST' });
+    const body = await response.json();
+
+    assert.equal(response.status, 500);
+    assert.match(body.error, /forced transaction insert failure/);
+    assert.deepEqual(
+      await db.get('SELECT merchant, amount FROM transactions WHERE raw_text = ?', ['sample notification']),
+      { merchant: 'before', amount: 1000 }
+    );
+    assert.deepEqual(
+      await db.get('SELECT parsed_status, matched_rule_id FROM notification_logs WHERE id = 7'),
+      { parsed_status: 'FAILED', matched_rule_id: null }
+    );
   } finally {
     await closeServer(server);
     await db.close();
