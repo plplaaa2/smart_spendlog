@@ -1,4 +1,5 @@
 const { parsePaymentType } = require('./payment_resolver');
+const { validateParsingResult } = require('./result_validator');
 
 function normalizeJsonText(responseText) {
   if (!responseText) return null;
@@ -206,7 +207,7 @@ Example Output:
     }
 
     const amountVal = parseInt(String(result.amount).replace(/[^0-9]/g, ''), 10);
-    return {
+    const parsedResult = {
       amount: isNaN(amountVal) ? 0 : amountVal,
       merchant: (result.merchant || '알수없음').trim(),
       datetime: result.datetime || resolvedFallback,
@@ -216,6 +217,12 @@ Example Output:
       original_amount: result.original_amount ? parseFloat(result.original_amount) : null,
       currency: result.currency ? String(result.currency).toUpperCase() : null
     };
+    const validation = validateParsingResult(parsedResult);
+    if (!validation.valid) {
+      console.warn(`[AI 파서] 결과 검증 실패: ${validation.errors.join(', ')}`);
+      return null;
+    }
+    return validation.value;
 
   } catch (err) {
     console.error('[AI 파서 오류]:', err.message);

@@ -4,6 +4,7 @@ const { addKoreanBrandName } = require('./brand_mapper');
 const { parsePaymentType, resolveCheckCardToBank } = require('./payment_resolver');
 const { determineTransactionType } = require('./transaction_classifier');
 const { generatePatternFromText } = require('./pattern_generator');
+const { validateParsingResult } = require('./result_validator');
 
 function parseNotification(text, rules, fallbackDatetime = null) {
   if (!text) return null;
@@ -161,7 +162,7 @@ function parseNotification(text, rules, fallbackDatetime = null) {
 
         const memo = customMemo + memoParts.join(' | ');
 
-        return {
+        const parsedResult = {
           amount,
           merchant,
           datetime: datetimeStr,
@@ -176,6 +177,12 @@ function parseNotification(text, rules, fallbackDatetime = null) {
           original_amount,
           currency
         };
+        const validation = validateParsingResult(parsedResult);
+        if (!validation.valid) {
+          console.warn(`[파서] 규칙 "${rule.name}" 결과 검증 실패: ${validation.errors.join(', ')}`);
+          continue;
+        }
+        return validation.value;
       }
     } catch (err) {
       console.error(`규칙 "${rule.name}" 분석 중 에러:`, err);

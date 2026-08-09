@@ -51,3 +51,23 @@ test('returns the first valid rule when multiple rules match', () => {
   assert.equal(result.rule_id, 10);
   assert.equal(result.category, '우선 카테고리');
 });
+
+test('continues to the next rule when a matched result fails validation', () => {
+  const invalidRule = {
+    ...createRule('^(?<amount>[\\d,]+)원 (?<merchant>.+)$'),
+    id: 10,
+    name: '검증 실패 규칙',
+    pay_type: 'UNSUPPORTED'
+  };
+  const validRule = {
+    ...invalidRule,
+    id: 20,
+    name: '후속 정상 규칙',
+    pay_type: 'CREDIT'
+  };
+
+  const result = parseNotification('10,000원 테스트상점', [invalidRule, validRule], '2026-08-09 12:00:00');
+
+  assert.ok(result);
+  assert.equal(result.rule_id, 20);
+});

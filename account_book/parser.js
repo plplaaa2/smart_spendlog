@@ -10,6 +10,7 @@ const {
 } = require('./parser/ai_parser');
 
 const { sanitizePattern } = require('./parser/utils');
+const { isValidDatabaseDatetime, validateParsingResult } = require('./parser/result_validator');
 
 module.exports = {
   parseNotification,
@@ -17,5 +18,7 @@ module.exports = {
   parseNotificationWithAI,
   generatePatternWithAI,
   generateConsumptionReportWithAI,
-  sanitizePattern
+  sanitizePattern,
+  isValidDatabaseDatetime,
+  validateParsingResult
 };
