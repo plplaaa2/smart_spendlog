@@ -367,6 +367,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
 
     let parsedStatus = 'FAILED';
     let matchedRuleId = null;
+    let generatedAutoRuleId = null;
 
     if (!result) {
       const autoRuleRow = await db.get("SELECT value FROM settings WHERE key = 'auto_rule_generation'");
@@ -398,11 +399,19 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
             [ruleName, generatedPattern, '_AUTO_MAPPING_', '_AUTO_MAPPING_', '${merchant}', resultType]
           );
           matchedRuleId = insertRes.lastID;
+          generatedAutoRuleId = matchedRuleId;
           
           console.log(`[로그재시도][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${ruleName}" (ID: ${matchedRuleId})`);
           
           const updatedRules = await getActiveRules(adminDb);
           result = parseNotification(rawText, updatedRules, logKSTTime);
+          if (!result) {
+            // Remove a generated rule that cannot parse the notification it was derived from.
+            // Related test: test/retry_endpoint.integration.test.js.
+            await adminDb.run("DELETE FROM rules WHERE id = ? AND source = 'AUTO'", [generatedAutoRuleId]);
+            matchedRuleId = null;
+            console.warn(`[로그재시도][자동규칙정리][${targetUser}] 재파싱에 실패한 자동 규칙을 삭제했습니다. (ID: ${generatedAutoRuleId})`);
+          }
         } else {
           console.warn(`[로그재시도][자동규칙생성][${targetUser}] 안전성 또는 원문 재파싱 검증 실패: ${autoRule.errors.join(', ')}`);
         }

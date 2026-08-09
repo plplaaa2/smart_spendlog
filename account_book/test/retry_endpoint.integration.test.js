@@ -269,3 +269,39 @@ test('retry endpoint creates a validated automatic rule and reparses the notific
     await db.close();
   }
 });
+
+test('retry endpoint removes an automatic rule that fails source reparse', async () => {
+  const db = await openEndpointDatabase();
+  await db.run("INSERT INTO settings (key, value) VALUES ('auto_rule_generation', 'true')");
+  let parseCount = 0;
+  const server = await startRetryServer(db, {
+    parseNotification: () => {
+      parseCount += 1;
+      return null;
+    },
+    buildValidatedAutoRule: () => ({
+      valid: true,
+      pattern: '^generated-but-unusable$',
+      parsedResult: { merchant: 'Unusable Store' }
+    })
+  });
+  try {
+    const { port } = server.address();
+    const response = await fetch(`http://127.0.0.1:${port}/api/notification_logs/7/retry`, { method: 'POST' });
+
+    assert.equal(response.status, 400);
+    assert.equal(parseCount, 2);
+    assert.equal(await db.get("SELECT id FROM rules WHERE source = 'AUTO'"), undefined);
+    assert.deepEqual(
+      await db.get('SELECT merchant, amount FROM transactions WHERE raw_text = ?', ['sample notification']),
+      { merchant: 'before', amount: 1000 }
+    );
+    assert.deepEqual(
+      await db.get('SELECT parsed_status, matched_rule_id FROM notification_logs WHERE id = 7'),
+      { parsed_status: 'FAILED', matched_rule_id: null }
+    );
+  } finally {
+    await closeServer(server);
+    await db.close();
+  }
+});
