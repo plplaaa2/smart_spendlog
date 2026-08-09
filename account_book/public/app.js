@@ -354,10 +354,10 @@ function switchTab(tabId) {
   // 타이틀 변경
   updateHeaderTitle(tabId, getSubTabIdForTab(tabId));
 
-  // 대시보드와 거래내역 탭에서 공통 년월 선택기(month-picker) 표시
+  // 대시보드 탭일 때만 년월 선택기(month-picker) 표시
   const monthPicker = document.querySelector('.month-picker');
   if (monthPicker) {
-    if (tabId === 'dashboard' || tabId === 'transactions') {
+    if (tabId === 'dashboard') {
       monthPicker.style.display = 'flex';
     } else {
       monthPicker.style.display = 'none';

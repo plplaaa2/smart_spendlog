@@ -1,29 +1,39 @@
 const { CARD_TO_BANK_MAP, BANK_HINTS } = require('./constants');
 
 function parsePaymentType(text, payMethod) {
-  const normalizedText = String(text || '');
-  const normalizedPayMethod = String(payMethod || '');
+  const normalizedText = text || '';
+  const normalizedPayMethod = payMethod || '';
 
-  if (/체크/.test(normalizedText) || /체크/.test(normalizedPayMethod)) return 'CHECK';
-  if (/신용|일시불|할부|신용카드/.test(normalizedText) || /신용/.test(normalizedPayMethod)) return 'CREDIT';
-  if (/(출금|입금|이체|송금)/.test(normalizedText) && /(은행|뱅크|계좌|우체국|새마을금고|신협|수협)/.test(normalizedPayMethod)) return 'BANK_TRANSFER';
-  if (/현금/.test(normalizedText) || /현금/.test(normalizedPayMethod)) return 'CASH';
+  if (normalizedText.includes('체크') || normalizedPayMethod.includes('체크')) {
+    return 'CHECK';
+  }
+  if (normalizedText.includes('신용') || normalizedPayMethod.includes('신용') || normalizedText.includes('일시불') || /할부/.test(normalizedText)) {
+    return 'CREDIT';
+  }
+  if (/출금|입금|이체|송금/.test(normalizedText) && (normalizedPayMethod.includes('은행') || normalizedPayMethod.includes('뱅크') || ['우체국', '새마을금고', '신협', '수협', '계좌이체'].includes(normalizedPayMethod))) {
+    return 'BANK_TRANSFER';
+  }
   return 'UNKNOWN';
 }
 
 function resolveCheckCardToBank(text, payMethod) {
-  const sourceText = String(text || '');
-  const sourceMethod = String(payMethod || '');
-  let targetBank = CARD_TO_BANK_MAP[sourceMethod];
+  let targetBank = CARD_TO_BANK_MAP[payMethod];
 
   for (const [hint, bankName] of Object.entries(BANK_HINTS)) {
-    if (sourceText.includes(hint)) {
+    if (text.includes(hint)) {
       targetBank = bankName;
       break;
     }
   }
 
-  return targetBank || sourceMethod;
+  if (!targetBank && payMethod.includes('카드')) {
+    targetBank = '계좌이체';
+  }
+
+  return targetBank || payMethod;
 }
 
-module.exports = { parsePaymentType, resolveCheckCardToBank };
+module.exports = {
+  parsePaymentType,
+  resolveCheckCardToBank
+};

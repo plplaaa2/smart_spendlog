@@ -4,7 +4,7 @@
  * @description PWA 오프라인 캐싱 및 설치 기준 충족을 위한 서비스 워커입니다.
  */
 
-const CACHE_NAME = 'smart-spendlog-v2.2.2';
+const CACHE_NAME = 'smart-spendlog-v2.2.1';
 const ASSETS_TO_CACHE = [
   './index.html',
   './style.css',
