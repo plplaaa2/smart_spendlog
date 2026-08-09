@@ -137,9 +137,12 @@ function parseNotification(text, rules, fallbackDatetime = null) {
 
         let category = rule.category || '기타';
 
+        // Support both generated camelCase groups and legacy snake_case rule groups.
+        // Related files: parser/utils.js, parser/pattern_generator.js, parser/ai_parser.js.
         let usedPoint = 0;
-        if (groups.used_point) {
-          const cleanPoint = groups.used_point.replace(/,/g, '');
+        const capturedUsedPoint = groups.usedPoint || groups.used_point;
+        if (capturedUsedPoint) {
+          const cleanPoint = capturedUsedPoint.replace(/,/g, '');
           usedPoint = parseInt(cleanPoint, 10) || 0;
         } else {
           const pointMatch = normalizedText.match(/(?:포인트|점수|P|마일리지|하트)\s*(\d{1,3}(?:,\d{3})*)\s*(?:원|점|P)?/i);
