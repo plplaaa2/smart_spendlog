@@ -1,6 +1,59 @@
 const { parsePaymentType } = require('./payment_resolver');
 const { validateParsingResult } = require('./result_validator');
 
+// Bound AI parsing requests so one provider cannot block the notification queue indefinitely.
+// Related flow: routes/webhook.js -> parseNotificationWithAI() -> parser result validation.
+const DEFAULT_AI_PARSE_TIMEOUT_MS = 30000;
+const MAX_AI_PARSE_RESPONSE_BYTES = 64 * 1024;
+const MAX_AI_ERROR_BYTES = 1024;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_AI_PARSE_TIMEOUT_MS) {
+  const safeTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_AI_PARSE_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), safeTimeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error(`AI 파싱 요청 시간이 ${safeTimeoutMs}ms를 초과했습니다.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function readLimitedText(response, maxBytes) {
+  const contentLength = Number(response.headers?.get?.('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new Error(`AI 응답 크기가 ${maxBytes}바이트 제한을 초과했습니다.`);
+  }
+  const text = await response.text();
+  if (Buffer.byteLength(text, 'utf8') > maxBytes) {
+    throw new Error(`AI 응답 크기가 ${maxBytes}바이트 제한을 초과했습니다.`);
+  }
+  return text;
+}
+
+async function readJsonResponse(response) {
+  const text = await readLimitedText(response, MAX_AI_PARSE_RESPONSE_BYTES);
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    throw new Error('AI 제공자가 올바른 JSON 응답을 반환하지 않았습니다.');
+  }
+}
+
+async function buildHttpError(response) {
+  let detail = '';
+  try {
+    detail = await readLimitedText(response, MAX_AI_ERROR_BYTES);
+  } catch (_) {
+    detail = '응답 본문 생략';
+  }
+  return new Error(`HTTP ${response.status}: ${detail}`);
+}
+
 function normalizeJsonText(responseText) {
   if (!responseText) return null;
   const text = responseText.trim();
@@ -53,6 +106,7 @@ Example Output:
   try {
     let responseText = '';
     const provider = config.provider || 'gemini';
+    const timeoutMs = Number(config.timeoutMs) || DEFAULT_AI_PARSE_TIMEOUT_MS;
 
     if (provider === 'gemini') {
       const apiKey = config.apiKey;
@@ -65,7 +119,7 @@ Example Output:
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-          const res = await fetch(url, {
+          const res = await fetchWithTimeout(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -74,14 +128,13 @@ Example Output:
                 responseMimeType: 'application/json'
               }
             })
-          });
+          }, timeoutMs);
 
           if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`HTTP ${res.status}: ${errText}`);
+            throw await buildHttpError(res);
           }
 
-          const data = await res.json();
+          const data = await readJsonResponse(res);
           if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
             responseText = data.candidates[0].content.parts[0].text;
             success = true;
@@ -109,7 +162,7 @@ Example Output:
       for (const model of models) {
         try {
           const url = 'https://api.openai.com/v1/chat/completions';
-          const res = await fetch(url, {
+          const res = await fetchWithTimeout(url, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -120,14 +173,13 @@ Example Output:
               messages: [{ role: 'user', content: prompt }],
               response_format: { type: 'json_object' }
             })
-          });
+          }, timeoutMs);
 
           if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`HTTP ${res.status}: ${errText}`);
+            throw await buildHttpError(res);
           }
 
-          const data = await res.json();
+          const data = await readJsonResponse(res);
           if (data.choices && data.choices[0] && data.choices[0].message) {
             responseText = data.choices[0].message.content;
             success = true;
@@ -150,27 +202,28 @@ Example Output:
       if (!localIp) throw new Error('로컬 OpenAI 호환 IP가 누락되었습니다.');
 
       const url = `${localIp}/chat/completions`;
-      const res = await fetch(url, {
+      const res = await fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: localModel,
           messages: [{ role: 'user', content: prompt }]
         })
-      });
+      }, timeoutMs);
 
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`HTTP ${res.status}: ${errText}`);
+        throw await buildHttpError(res);
       }
 
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (data.choices && data.choices[0] && data.choices[0].message) {
         responseText = data.choices[0].message.content;
         console.log(`[AI 파서] 로컬 OpenAI 호환 모델 ${localModel} 파싱 성공`);
       } else {
         throw new Error('올바르지 않은 로컬 API 응답 형식입니다.');
       }
+    } else {
+      throw new Error(`지원하지 않는 AI 제공자입니다: ${provider}`);
     }
 
     if (!responseText) {
@@ -658,6 +711,8 @@ ${dataText}
 }
 
 module.exports = {
+  fetchWithTimeout,
+  readJsonResponse,
   parseNotificationWithAI,
   generatePatternWithAI,
   generateConsumptionReportWithAI
