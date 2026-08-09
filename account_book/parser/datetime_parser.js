@@ -1,4 +1,4 @@
-// Validate compact numeric timestamps before returning a database datetime string.
+// Validate notification timestamps before returning a database datetime string.
 // Related flow: parser/text_parser.js -> routes/webhook.js -> transactions.datetime.
 function isValidDateTimeParts(year, month, day, hour = 0, minute = 0, second = 0) {
   if (!Number.isInteger(year) || year < 1900 || year > 2100) return false;
@@ -12,41 +12,43 @@ function isValidDateTimeParts(year, month, day, hour = 0, minute = 0, second = 0
   return day <= lastDay;
 }
 
+function normalizeMeridiemHour(hour, isAM, isPM) {
+  if (isAM && hour === 12) return 0;
+  if (isPM && hour < 12) return hour + 12;
+  return hour;
+}
+
 function parseFlexibleDatetime(timeStr, currentYear) {
   if (!timeStr) return '';
   
   let cleanStr = timeStr.replace(/\([가-힣a-zA-Z]{1,3}\)/g, '').replace(/\[[가-힣a-zA-Z]{1,3}\]/g, '').trim();
   
-  let isPM = false;
-  if (/오후|PM/i.test(cleanStr)) {
-    isPM = true;
-  }
+  const isAM = /오전|AM/i.test(cleanStr);
+  const isPM = /오후|PM/i.test(cleanStr);
   cleanStr = cleanStr.replace(/오전|오후|AM|PM/ig, '').replace(/\s+/g, ' ').trim();
   
   const stdMatch = cleanStr.match(/(?:(\d{4})[-/.])?(\d{1,2})[-/.](\d{1,2})\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
   if (stdMatch) {
     const year = stdMatch[1] ? parseInt(stdMatch[1], 10) : currentYear;
-    const month = stdMatch[2].padStart(2, '0');
-    const day = stdMatch[3].padStart(2, '0');
-    let hour = parseInt(stdMatch[4], 10);
-    if (isPM && hour < 12) hour += 12;
-    if (!isPM && hour === 12) hour = 0;
-    const minute = stdMatch[5].padStart(2, '0');
-    const second = stdMatch[6] ? stdMatch[6].padStart(2, '0') : '00';
-    return `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${minute}:${second}`;
+    const month = parseInt(stdMatch[2], 10);
+    const day = parseInt(stdMatch[3], 10);
+    const hour = normalizeMeridiemHour(parseInt(stdMatch[4], 10), isAM, isPM);
+    const minute = parseInt(stdMatch[5], 10);
+    const second = stdMatch[6] ? parseInt(stdMatch[6], 10) : 0;
+    if (!isValidDateTimeParts(year, month, day, hour, minute, second)) return '';
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
   }
   
   const krMatch = cleanStr.match(/(?:(\d{4})년\s*)?(\d{1,2})월\s*(\d{1,2})일\s*(\d{1,2})시\s*(\d{1,2})분(?:\s*(\d{1,2})초)?/);
   if (krMatch) {
     const year = krMatch[1] ? parseInt(krMatch[1], 10) : currentYear;
-    const month = krMatch[2].padStart(2, '0');
-    const day = krMatch[3].padStart(2, '0');
-    let hour = parseInt(krMatch[4], 10);
-    if (isPM && hour < 12) hour += 12;
-    if (!isPM && hour === 12) hour = 0;
-    const minute = krMatch[5].padStart(2, '0');
-    const second = krMatch[6] ? krMatch[6].padStart(2, '0') : '00';
-    return `${year}-${month}-${day} ${String(hour).padStart(2, '0')}:${minute}:${second}`;
+    const month = parseInt(krMatch[2], 10);
+    const day = parseInt(krMatch[3], 10);
+    const hour = normalizeMeridiemHour(parseInt(krMatch[4], 10), isAM, isPM);
+    const minute = parseInt(krMatch[5], 10);
+    const second = krMatch[6] ? parseInt(krMatch[6], 10) : 0;
+    if (!isValidDateTimeParts(year, month, day, hour, minute, second)) return '';
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
   }
 
   const digitMatch = cleanStr.match(/^\b(\d{8}|\d{12}|\d{14})\b$/);
