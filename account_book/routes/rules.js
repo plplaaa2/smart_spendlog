@@ -10,7 +10,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors } = require('../database');
-const { parseNotification, generatePatternFromText, generatePatternWithAI, sanitizePattern } = require('../parser');
+const { parseNotification, generatePatternWithAI, sanitizePattern, buildValidatedAutoRule } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 
 // SQLite UTC 날짜 문자열(YYYY-MM-DD HH:mm:ss)을 KST 로컬 시각 문자열로 변환하는 헬퍼 함수
@@ -368,20 +368,12 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
       const isAutoRuleEnabled = autoRuleRow && autoRuleRow.value === 'true';
 
       if (isAutoRuleEnabled) {
-        const generatedPattern = generatePatternFromText(rawText);
-        if (generatedPattern) {
-          const isIncome = /입금|저축|환불|입금완료|수입/.test(rawText);
-          const resultType = isIncome ? 'INCOME' : 'EXPENSE';
-          
-          const dummyRule = { 
-            pattern: generatedPattern, 
-            pay_method: '_AUTO_MAPPING_', 
-            category: '_AUTO_MAPPING_', 
-            type: resultType, 
-            id: 9999, 
-            name: '임시' 
-          };
-          const tempParsed = parseNotification(rawText, [dummyRule]);
+        const isIncome = /입금|저축|환불|입금완료|수입/.test(rawText);
+        const resultType = isIncome ? 'INCOME' : 'EXPENSE';
+        const autoRule = buildValidatedAutoRule(rawText, resultType, logKSTTime);
+        if (autoRule.valid) {
+          const generatedPattern = autoRule.pattern;
+          const tempParsed = autoRule.parsedResult;
           const parsedMerchant = (tempParsed && tempParsed.merchant) ? tempParsed.merchant : '자동 생성 규칙';
           let suffix = '지출';
           if (resultType === 'INCOME') {
@@ -406,6 +398,8 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
           
           const updatedRules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
           result = parseNotification(rawText, updatedRules, logKSTTime);
+        } else {
+          console.warn(`[로그재시도][자동규칙생성][${targetUser}] 안전성 또는 원문 재파싱 검증 실패: ${autoRule.errors.join(', ')}`);
         }
       }
     }

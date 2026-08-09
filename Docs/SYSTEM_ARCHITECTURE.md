@@ -167,6 +167,7 @@ Home Assistant 상태 변경 / HTTP Webhook
 | `account_book/parser/transaction_classifier.js` | 수입·지출·취소 유형 판별 |
 | `account_book/parser/result_validator.js` | 정규식·AI 파싱 결과의 공통 저장 계약 검증 |
 | `account_book/parser/pattern_validator.js` | AI 생성 정규식의 저장 전 안전성 검증 |
+| `account_book/parser/auto_rule_builder.js` | 로컬 자동 규칙 생성·안전성 검사·원문 재파싱 |
 | `account_book/parser/pattern_generator.js` | 실패 원문 기반 로컬 정규식 생성 |
 | `account_book/parser/ai_parser.js` | AI 파싱과 AI 정규식 생성 |
 | `account_book/parser/utils.js` | 정규식과 가맹점 문자열 보정 |

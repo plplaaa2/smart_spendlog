@@ -12,6 +12,7 @@ const {
 const { sanitizePattern } = require('./parser/utils');
 const { isValidDatabaseDatetime, validateParsingResult } = require('./parser/result_validator');
 const { validateGeneratedPattern } = require('./parser/pattern_validator');
+const { buildValidatedAutoRule } = require('./parser/auto_rule_builder');
 
 module.exports = {
   parseNotification,
@@ -22,5 +23,6 @@ module.exports = {
   sanitizePattern,
   isValidDatabaseDatetime,
   validateParsingResult,
-  validateGeneratedPattern
+  validateGeneratedPattern,
+  buildValidatedAutoRule
 };

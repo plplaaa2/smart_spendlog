@@ -11,7 +11,7 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors, sendHANotification, createInAppNotification } = require('../database');
-const { parseNotification, generatePatternFromText, parseNotificationWithAI, generatePatternWithAI, sanitizePattern, validateGeneratedPattern } = require('../parser');
+const { parseNotification, parseNotificationWithAI, generatePatternWithAI, sanitizePattern, validateGeneratedPattern, buildValidatedAutoRule } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
@@ -254,20 +254,12 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     const isAutoRuleEnabled = autoRuleRow && autoRuleRow.value === 'true';
 
     if (isAutoRuleEnabled) {
-      const generatedPattern = generatePatternFromText(rawText);
-      if (generatedPattern) {
-        const isIncome = /입금|환불|입금완료|수입|저축/.test(rawText) && !/출금|송금|지출|결제|승인|사용|신용|체크/.test(rawText);
-        const resultType = isIncome ? 'INCOME' : 'EXPENSE';
-        
-        const dummyRule = { 
-          pattern: generatedPattern, 
-          pay_method: '_AUTO_MAPPING_', 
-          category: '_AUTO_MAPPING_', 
-          type: resultType, 
-          id: 9999, 
-          name: '임시' 
-        };
-        const tempParsed = parseNotification(rawText, [dummyRule]);
+      const isIncome = /입금|환불|입금완료|수입|저축/.test(rawText) && !/출금|송금|지출|결제|승인|사용|신용|체크/.test(rawText);
+      const resultType = isIncome ? 'INCOME' : 'EXPENSE';
+      const autoRule = buildValidatedAutoRule(rawText, resultType, fallbackKST);
+      if (autoRule.valid) {
+        const generatedPattern = autoRule.pattern;
+        const tempParsed = autoRule.parsedResult;
         const parsedMerchant = (tempParsed && tempParsed.merchant) ? tempParsed.merchant : '자동 생성 규칙';
         let suffix = '지출';
         if (resultType === 'INCOME') {
@@ -292,6 +284,8 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         
         const updatedRules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
         result = parseNotification(rawText, updatedRules, fallbackKST);
+      } else {
+        console.warn(`[파서][자동규칙생성][${targetUser}] 안전성 또는 원문 재파싱 검증 실패: ${autoRule.errors.join(', ')}`);
       }
     }
   }
