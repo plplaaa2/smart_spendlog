@@ -13,6 +13,7 @@ const { getDB, findCategoryByMerchant, updateHASensors } = require('../database'
 const { parseNotification, generatePatternWithAI, sanitizePattern, buildValidatedAutoRule } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 const { getActiveRules } = require('../database/rule_metadata');
+const { replaceRetryTransaction } = require('../database/retry_transaction');
 
 // SQLite UTC 날짜 문자열(YYYY-MM-DD HH:mm:ss)을 KST 로컬 시각 문자열로 변환하는 헬퍼 함수
 function convertUTCToKSTString(utcStr) {
@@ -477,26 +478,22 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
 
       // Replace the previous transaction only after parsing and enrichment succeed.
       // Related data: transactions.raw_text and notification_logs.matched_rule_id.
-      await db.run('BEGIN TRANSACTION');
-      try {
-        await db.run('DELETE FROM transactions WHERE raw_text = ?', [rawText]);
-        await db.run(
-          'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', rawText, result.used_point || 0]
-        );
-        await db.run(
-          'UPDATE notification_logs SET parsed_status = ?, matched_rule_id = ? WHERE id = ?',
-          [parsedStatus, matchedRuleId, logId]
-        );
-        await db.run('COMMIT');
-      } catch (replaceErr) {
-        try {
-          await db.run('ROLLBACK');
-        } catch (rollbackErr) {
-          console.error(`[로그재시도][${targetUser}] 거래 교체 롤백 실패:`, rollbackErr.message);
-        }
-        throw replaceErr;
-      }
+      await replaceRetryTransaction(db, {
+        rawText,
+        transaction: {
+          type: result.type,
+          amount: result.amount,
+          merchant: result.merchant,
+          category: finalCategory,
+          payMethod: finalPayMethod,
+          datetime: result.datetime,
+          memo: result.memo,
+          usedPoint: result.used_point
+        },
+        parsedStatus,
+        matchedRuleId,
+        logId
+      });
 
       updateHASensors(targetUser);
 
