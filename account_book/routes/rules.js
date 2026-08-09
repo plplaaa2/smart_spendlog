@@ -14,6 +14,7 @@ const { parseNotification, generatePatternWithAI, sanitizePattern, buildValidate
 const cryptoHelper = require('../crypto_helper');
 const { getActiveRules } = require('../database/rule_metadata');
 const { replaceRetryTransaction } = require('../database/retry_transaction');
+const { removeUnusableAutoRule } = require('../database/auto_rule_cleanup');
 
 // SQLite UTC 날짜 문자열(YYYY-MM-DD HH:mm:ss)을 KST 로컬 시각 문자열로 변환하는 헬퍼 함수
 function convertUTCToKSTString(utcStr) {
@@ -405,10 +406,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
           
           const updatedRules = await getActiveRules(adminDb);
           result = parseNotification(rawText, updatedRules, logKSTTime);
-          if (!result) {
-            // Remove a generated rule that cannot parse the notification it was derived from.
-            // Related test: test/retry_endpoint.integration.test.js.
-            await adminDb.run("DELETE FROM rules WHERE id = ? AND source = 'AUTO'", [generatedAutoRuleId]);
+          if (await removeUnusableAutoRule(adminDb, generatedAutoRuleId, result)) {
             matchedRuleId = null;
             console.warn(`[로그재시도][자동규칙정리][${targetUser}] 재파싱에 실패한 자동 규칙을 삭제했습니다. (ID: ${generatedAutoRuleId})`);
           }

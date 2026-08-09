@@ -14,6 +14,7 @@ const { getDB, findCategoryByMerchant, updateHASensors, sendHANotification, crea
 const { parseNotification, parseNotificationWithAI, generatePatternWithAI, sanitizePattern, validateGeneratedPattern, buildValidatedAutoRule } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 const { getActiveRules } = require('../database/rule_metadata');
+const { removeUnusableAutoRule } = require('../database/auto_rule_cleanup');
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
 function safeCompare(a, b) {
@@ -285,6 +286,10 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         
         const updatedRules = await getActiveRules(adminDb);
         result = parseNotification(rawText, updatedRules, fallbackKST);
+        if (await removeUnusableAutoRule(adminDb, matchedRuleId, result)) {
+          console.warn(`[웹훅][자동규칙정리][${targetUser}] 재파싱에 실패한 자동 규칙을 삭제했습니다. (ID: ${matchedRuleId})`);
+          matchedRuleId = null;
+        }
       } else {
         console.warn(`[파서][자동규칙생성][${targetUser}] 안전성 또는 원문 재파싱 검증 실패: ${autoRule.errors.join(', ')}`);
       }
