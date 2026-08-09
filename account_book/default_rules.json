@@ -258,6 +258,7 @@
             "pattern": "\\[하나은행\\]\\s*\\[Web발신\\]\\s*하나[ ,](?<time>\\d{2}/\\d{2}[, ]\\d{2}:\\d{2})\\n(?<account>[\\d*]+)\\n(?<type_text>출금|입금)\\s*(?<amount>[\\d,]+)원\\n(?<merchant>[^\\n]+)\\n잔액\\s*(?<balance>[\\d,]+)원",
             "category": "기타",
             "pay_method": "하나은행",
+            "pay_type": "TRANSFER",
             "merchant_template": "${merchant}",
             "type": "EXPENSE"
         },
