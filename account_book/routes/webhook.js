@@ -140,7 +140,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
 
   // Keep matching deterministic: the earliest created parsing rule wins.
   // Related flow: parser/text_parser.js returns the first valid match.
-  const rules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
+  const rules = await adminDb.all('SELECT * FROM rules WHERE enabled = 1 ORDER BY priority ASC, id ASC');
   const fallbackKST = getKSTDateString();
   let result = parseNotification(rawText, rules, fallbackKST);
 
@@ -231,7 +231,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
               const baseRuleName = `${result.merchant} ${suffix} (AI)`;
               const ruleName = await getUniqueRuleName(adminDb, baseRuleName);
               const insertRes = await adminDb.run(
-                "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type, priority, enabled, source) VALUES (?, ?, ?, ?, ?, ?, 300, 1, 'AI')",
                 [ruleName, cachedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
               );
               if (insertRes.changes > 0) {
@@ -275,14 +275,14 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         const ruleName = await getUniqueRuleName(adminDb, baseRuleName);
         
         const insertRes = await adminDb.run(
-          "INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type, priority, enabled, source) VALUES (?, ?, ?, ?, ?, ?, 200, 1, 'AUTO')",
           [ruleName, generatedPattern, '_AUTO_MAPPING_', '_AUTO_MAPPING_', '${merchant}', resultType]
         );
         matchedRuleId = insertRes.lastID;
         
         console.log(`[파서][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${ruleName}" (ID: ${matchedRuleId})`);
         
-        const updatedRules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
+        const updatedRules = await adminDb.all('SELECT * FROM rules WHERE enabled = 1 ORDER BY priority ASC, id ASC');
         result = parseNotification(rawText, updatedRules, fallbackKST);
       } else {
         console.warn(`[파서][자동규칙생성][${targetUser}] 안전성 또는 원문 재파싱 검증 실패: ${autoRule.errors.join(', ')}`);

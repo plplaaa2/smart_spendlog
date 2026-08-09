@@ -898,6 +898,8 @@ function initEventListeners() {
     const category = document.getElementById('rule-category').value;
     const pay_method = document.getElementById('rule-pay-method').value;
     const pay_type = document.getElementById('rule-pay-type').value;
+    const priority = Number.parseInt(document.getElementById('rule-priority').value, 10) || 0;
+    const enabled = document.getElementById('rule-enabled').checked;
     const action = document.getElementById('rule-action') ? document.getElementById('rule-action').value : 'REGISTER';
 
     try {
@@ -905,7 +907,7 @@ function initEventListeners() {
       const url = isPass ? 'api/pass_rules' : 'api/rules';
       const bodyData = isPass 
         ? { id, name, pattern }
-        : { id, name, pattern, category, pay_method, pay_type, merchant_template: '${merchant}', type };
+        : { id, name, pattern, category, pay_method, pay_type, merchant_template: '${merchant}', type, priority, enabled };
 
       const res = await fetch(url, {
         method: 'POST',

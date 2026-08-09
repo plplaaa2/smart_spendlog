@@ -1770,6 +1770,20 @@
                 </select>
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="rule-priority">우선순위 (낮을수록 먼저 적용)</label>
+                <input type="number" id="rule-priority" min="0" max="10000" value="50">
+              </div>
+              <div class="form-group">
+                <label for="rule-source">규칙 출처</label>
+                <input type="text" id="rule-source" value="USER" readonly>
+              </div>
+              <div class="form-group">
+                <label for="rule-enabled">규칙 활성화</label>
+                <input type="checkbox" id="rule-enabled" checked style="width:18px;height:18px;">
+              </div>
+            </div>
             <div class="form-actions">
               <button type="button" class="btn btn-secondary" id="rule-cancel-btn">취소</button>
               <button type="submit" class="btn btn-primary">저장</button>

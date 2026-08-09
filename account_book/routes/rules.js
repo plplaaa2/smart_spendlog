@@ -66,7 +66,7 @@ router.get('/rules', async (req, res) => {
 router.post('/rules', async (req, res) => {
   try {
     const db = await getDB('admin');
-    const { id, name, pattern, category, pay_method, pay_type, merchant_template, type } = req.body;
+    const { id, name, pattern, category, pay_method, pay_type, merchant_template, type, priority, enabled } = req.body;
 
     if (!name || !pattern) {
       return res.status(400).json({ error: '규칙 이름과 정규식 패턴은 필수 값입니다.' });
@@ -81,28 +81,31 @@ router.post('/rules', async (req, res) => {
     const ruleType = type || 'EXPENSE';
     const ruleCategory = category || '_AUTO_MAPPING_';
     const rulePayType = pay_type || 'CREDIT';
+    const parsedPriority = Number.parseInt(priority, 10);
+    const rulePriority = Number.isInteger(parsedPriority) ? Math.max(0, Math.min(10000, parsedPriority)) : 50;
+    const ruleEnabled = enabled === false || enabled === 0 || enabled === '0' || enabled === 'false' ? 0 : 1;
 
     if (id) {
       const existsInRules = await db.get('SELECT id FROM rules WHERE id = ?', [id]);
       if (existsInRules) {
         await db.run(
-          'UPDATE rules SET name = ?, pattern = ?, category = ?, pay_method = ?, pay_type = ?, merchant_template = ?, type = ? WHERE id = ?',
-          [name, pattern, ruleCategory, pay_method, rulePayType, merchant_template, ruleType, id]
+          'UPDATE rules SET name = ?, pattern = ?, category = ?, pay_method = ?, pay_type = ?, merchant_template = ?, type = ?, priority = ?, enabled = ? WHERE id = ?',
+          [name, pattern, ruleCategory, pay_method, rulePayType, merchant_template, ruleType, rulePriority, ruleEnabled, id]
         );
         res.json({ success: true, id });
       } else {
         // 기존 패스규칙(pass_rules)에서 전환된 경우
         await db.run('DELETE FROM pass_rules WHERE id = ?', [id]);
         const result = await db.run(
-          'INSERT INTO rules (name, pattern, category, pay_method, pay_type, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [name, pattern, ruleCategory, pay_method, rulePayType, merchant_template, ruleType]
+          "INSERT INTO rules (name, pattern, category, pay_method, pay_type, merchant_template, type, priority, enabled, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'USER')",
+          [name, pattern, ruleCategory, pay_method, rulePayType, merchant_template, ruleType, rulePriority, ruleEnabled]
         );
         res.json({ success: true, id: result.lastID });
       }
     } else {
       const result = await db.run(
-        'INSERT INTO rules (name, pattern, category, pay_method, pay_type, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [name, pattern, ruleCategory, pay_method, rulePayType, merchant_template, ruleType]
+        "INSERT INTO rules (name, pattern, category, pay_method, pay_type, merchant_template, type, priority, enabled, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'USER')",
+        [name, pattern, ruleCategory, pay_method, rulePayType, merchant_template, ruleType, rulePriority, ruleEnabled]
       );
       res.json({ success: true, id: result.lastID });
     }
@@ -356,7 +359,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
     const adminDb = await getDB('admin');
     // Match retry notifications in the same deterministic order as the webhook flow.
     // Related file: routes/webhook.js.
-    const rules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
+    const rules = await adminDb.all('SELECT * FROM rules WHERE enabled = 1 ORDER BY priority ASC, id ASC');
     const logKSTTime = convertUTCToKSTString(log.created_at);
     let result = parseNotification(rawText, rules, logKSTTime);
 
@@ -389,14 +392,14 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
           const ruleName = await getUniqueRuleName(adminDb, baseRuleName);
           
           const insertRes = await adminDb.run(
-            "INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type, priority, enabled, source) VALUES (?, ?, ?, ?, ?, ?, 200, 1, 'AUTO')",
             [ruleName, generatedPattern, '_AUTO_MAPPING_', '_AUTO_MAPPING_', '${merchant}', resultType]
           );
           matchedRuleId = insertRes.lastID;
           
           console.log(`[로그재시도][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${ruleName}" (ID: ${matchedRuleId})`);
           
-          const updatedRules = await adminDb.all('SELECT * FROM rules ORDER BY id ASC');
+          const updatedRules = await adminDb.all('SELECT * FROM rules WHERE enabled = 1 ORDER BY priority ASC, id ASC');
           result = parseNotification(rawText, updatedRules, logKSTTime);
         } else {
           console.warn(`[로그재시도][자동규칙생성][${targetUser}] 안전성 또는 원문 재파싱 검증 실패: ${autoRule.errors.join(', ')}`);

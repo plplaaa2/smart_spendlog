@@ -90,6 +90,9 @@ async function loadRules() {
           <div class="rule-pattern-text">${escapeHtml(rule.pattern)}</div>
           <div class="rule-badges">
             <span class="tx-pay-method">${rule.pay_method === '_AUTO_MAPPING_' ? '🔄 자동 매핑' : rule.pay_method}</span>
+            <span class="tx-pay-method">우선순위 ${rule.priority ?? 100}</span>
+            <span class="tx-pay-method">${rule.source || 'USER'}</span>
+            <span class="badge-status ${Number(rule.enabled) === 0 ? 'failed' : 'success'}">${Number(rule.enabled) === 0 ? '비활성' : '활성'}</span>
           </div>
         </div>
         <div class="rule-actions">
@@ -137,6 +140,9 @@ function loadRuleToEditor(rule) {
   
   document.getElementById('rule-pay-method').value = rule ? rule.pay_method : '_AUTO_MAPPING_';
   document.getElementById('rule-pay-type').value = rule ? (rule.pay_type || 'CREDIT') : 'CREDIT';
+  document.getElementById('rule-priority').value = rule ? (rule.priority ?? 100) : 50;
+  document.getElementById('rule-enabled').checked = rule ? Number(rule.enabled) !== 0 : true;
+  document.getElementById('rule-source').value = rule ? (rule.source || 'USER') : 'USER';
   
   const actionSelect = document.getElementById('rule-action');
   if (actionSelect) {
@@ -1296,4 +1302,3 @@ function runPassRegexTest() {
     `;
   }
 }
-

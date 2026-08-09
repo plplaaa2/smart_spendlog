@@ -94,7 +94,10 @@ async function initUserDB(username) {
       pay_method TEXT,
       pay_type TEXT DEFAULT 'CREDIT',
       merchant_template TEXT,
-      type TEXT DEFAULT 'EXPENSE'
+      type TEXT DEFAULT 'EXPENSE',
+      priority INTEGER DEFAULT 100,
+      enabled INTEGER DEFAULT 1,
+      source TEXT DEFAULT 'USER'
     );
 
     CREATE TABLE IF NOT EXISTS transactions (
@@ -254,6 +257,17 @@ async function migrateCategoriesAndData(dbInstance, username) {
     }
   } catch (e) {
     console.error(`[DB 마이그레이션][${username}] rules 테이블 pay_type 마이그레이션 실패:`, e.message);
+  }
+
+  // Add deterministic rule scheduling metadata without changing existing behavior.
+  // Related files: routes/rules.js, routes/webhook.js, public/rules.js.
+  try {
+    const rulesCols = await dbInstance.all("PRAGMA table_info(rules)");
+    if (!rulesCols.some(col => col.name === 'priority')) await dbInstance.exec("ALTER TABLE rules ADD COLUMN priority INTEGER DEFAULT 100");
+    if (!rulesCols.some(col => col.name === 'enabled')) await dbInstance.exec("ALTER TABLE rules ADD COLUMN enabled INTEGER DEFAULT 1");
+    if (!rulesCols.some(col => col.name === 'source')) await dbInstance.exec("ALTER TABLE rules ADD COLUMN source TEXT DEFAULT 'USER'");
+  } catch (e) {
+    console.error(`[DB 마이그레이션][${username}] rules 메타데이터 마이그레이션 실패:`, e.message);
   }
 
   // transactions 테이블 pay_type 컬럼 추가 및 백필 마이그레이션
@@ -648,14 +662,15 @@ async function seedDefaultData(dbInstance, username = 'admin') {
     if (defaults.rules && username === 'admin') {
       for (const rule of defaults.rules) {
         await dbInstance.run(
-          `INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) 
-           VALUES (?, ?, ?, ?, ?, ?) 
+          `INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type, priority, enabled, source)
+           VALUES (?, ?, ?, ?, ?, ?, 100, 1, 'DEFAULT')
            ON CONFLICT(name) DO UPDATE SET 
              pattern = excluded.pattern,
              category = excluded.category,
              pay_method = excluded.pay_method,
              merchant_template = excluded.merchant_template,
-             type = excluded.type`,
+             type = excluded.type,
+             source = 'DEFAULT'`,
           [rule.name, rule.pattern, rule.category, rule.pay_method, rule.merchant_template, rule.type]
         );
       }
