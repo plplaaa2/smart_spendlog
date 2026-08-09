@@ -11,7 +11,7 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors, sendHANotification, createInAppNotification } = require('../database');
-const { parseNotification, generatePatternFromText, parseNotificationWithAI, generatePatternWithAI, sanitizePattern } = require('../parser');
+const { parseNotification, generatePatternFromText, parseNotificationWithAI, generatePatternWithAI, sanitizePattern, validateGeneratedPattern } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
@@ -193,17 +193,28 @@ async function processNotificationCore({ title, text, packageVal, username }) {
           const generatedPattern = aiPatternResult ? aiPatternResult.pattern : null;
           
           if (generatedPattern) {
-            let isPatternValid = false;
-            try {
-              const sanitized = sanitizePattern(generatedPattern);
-              new RegExp(sanitized, 'ds');
-              if (sanitized.includes('(?<amount>') && (sanitized.includes('(?<merchant>') || sanitized.includes('(?<usage>'))) {
-                isPatternValid = true;
-              } else {
-                console.warn(`[웹훅][${targetUser}] AI 생성 정규식에 필수 그룹(?<amount> 또는 (?<merchant>)이 누락되어 캐싱을 제외합니다: "${sanitized}"`);
+            // Validate pattern safety, then prove it can parse the source notification.
+            // Related files: parser/pattern_validator.js and parser/text_parser.js.
+            const patternValidation = validateGeneratedPattern(generatedPattern);
+            let cachedPattern = patternValidation.pattern;
+            let isPatternValid = patternValidation.valid;
+            if (!isPatternValid) {
+              console.warn(`[웹훅][${targetUser}] AI 생성 정규식 안전성 검증 실패: ${patternValidation.errors.join(', ')}`);
+            } else {
+              const candidateRule = {
+                id: -1,
+                name: 'AI 캐시 검증 규칙',
+                pattern: cachedPattern,
+                category: result.category || '_AUTO_MAPPING_',
+                pay_method: result.pay_method || '_AUTO_MAPPING_',
+                pay_type: result.payment_type || 'CREDIT',
+                type: result.type || 'EXPENSE'
+              };
+              const reparsed = parseNotification(rawText, [candidateRule], fallbackKST);
+              if (!reparsed) {
+                isPatternValid = false;
+                console.warn(`[웹훅][${targetUser}] AI 생성 정규식이 원문 재파싱에 실패하여 캐싱을 제외합니다.`);
               }
-            } catch (regErr) {
-              console.warn(`[웹훅][${targetUser}] AI 생성 정규식이 올바르지 않은 문법입니다:`, regErr.message);
             }
 
             if (isPatternValid) {
@@ -221,10 +232,10 @@ async function processNotificationCore({ title, text, packageVal, username }) {
               const ruleName = await getUniqueRuleName(adminDb, baseRuleName);
               const insertRes = await adminDb.run(
                 "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
-                [ruleName, generatedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
+                [ruleName, cachedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
               );
               if (insertRes.changes > 0) {
-                console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}" (패턴: ${generatedPattern})`);
+                console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}"`);
                 matchedRuleId = insertRes.lastID;
                 result.rule_id = insertRes.lastID;
                 result.rule_name = ruleName;
