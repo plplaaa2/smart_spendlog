@@ -76,6 +76,11 @@ async function startRetryServer(db, options = {}) {
   const parseResult = Object.prototype.hasOwnProperty.call(options, 'parseResult')
     ? options.parseResult
     : successfulParseResult();
+  const parseNotification = options.parseNotification || (() => parseResult);
+  const buildValidatedAutoRule = options.buildValidatedAutoRule || (() => ({
+    valid: false,
+    errors: ['automatic rule generation is not configured for this test']
+  }));
   const databasePath = require.resolve('../database');
   const parserPath = require.resolve('../parser');
   const rulesPath = require.resolve('../routes/rules');
@@ -97,7 +102,8 @@ async function startRetryServer(db, options = {}) {
     filename: parserPath,
     loaded: true,
     exports: {
-      parseNotification: () => parseResult
+      parseNotification,
+      buildValidatedAutoRule
     }
   };
 
@@ -215,6 +221,48 @@ test('retry endpoint returns 500 and rolls back when transaction insertion fails
     assert.deepEqual(
       await db.get('SELECT parsed_status, matched_rule_id FROM notification_logs WHERE id = 7'),
       { parsed_status: 'FAILED', matched_rule_id: null }
+    );
+  } finally {
+    await closeServer(server);
+    await db.close();
+  }
+});
+
+test('retry endpoint creates a validated automatic rule and reparses the notification', async () => {
+  const db = await openEndpointDatabase();
+  await db.run("INSERT INTO settings (key, value) VALUES ('auto_rule_generation', 'true')");
+  let parseCount = 0;
+  const server = await startRetryServer(db, {
+    parseNotification: () => {
+      parseCount += 1;
+      return parseCount === 1 ? null : { ...successfulParseResult(), rule_id: null };
+    },
+    buildValidatedAutoRule: () => ({
+      valid: true,
+      pattern: '^generated-safe-pattern$',
+      parsedResult: { merchant: 'Generated Store' }
+    })
+  });
+  try {
+    const { port } = server.address();
+    const response = await fetch(`http://127.0.0.1:${port}/api/notification_logs/7/retry`, { method: 'POST' });
+
+    assert.equal(response.status, 200);
+    assert.equal(parseCount, 2);
+    const generatedRule = await db.get(
+      "SELECT id, pattern, priority, enabled, source FROM rules WHERE source = 'AUTO'"
+    );
+    assert.deepEqual(
+      { pattern: generatedRule.pattern, priority: generatedRule.priority, enabled: generatedRule.enabled, source: generatedRule.source },
+      { pattern: '^generated-safe-pattern$', priority: 200, enabled: 1, source: 'AUTO' }
+    );
+    assert.deepEqual(
+      await db.get('SELECT parsed_status, matched_rule_id FROM notification_logs WHERE id = 7'),
+      { parsed_status: 'SUCCESS', matched_rule_id: generatedRule.id }
+    );
+    assert.deepEqual(
+      await db.get('SELECT merchant, amount FROM transactions WHERE raw_text = ?', ['sample notification']),
+      { merchant: 'After Store', amount: 2500 }
     );
   } finally {
     await closeServer(server);
