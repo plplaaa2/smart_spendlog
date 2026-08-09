@@ -349,9 +349,6 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
     }
 
     const rawText = log.raw_text;
-
-    // 만약 이미 파싱 성공했던 로그라면, 기존에 등록되었던 가계부 거래 내역(동일한 raw_text)을 미리 지워 이중 등록(중복)을 방지합니다.
-    await db.run('DELETE FROM transactions WHERE raw_text = ?', [rawText]);
     const title = log.title || '';
     const text = log.text || '';
     const sender = log.sender || 'Unknown';
@@ -478,17 +475,28 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
         console.log(`[로그재시도][${targetUser}] 통장 이동(자산 이동) 감지: 카테고리를 '${finalCategory}'으로 강제 변경하여 등록합니다.`);
       }
 
-      // 가계부 내역에 추가
-      await db.run(
-        'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', rawText, result.used_point || 0]
-      );
-
-      // 로그 상태 업데이트
-      await db.run(
-        'UPDATE notification_logs SET parsed_status = ?, matched_rule_id = ? WHERE id = ?',
-        [parsedStatus, matchedRuleId, logId]
-      );
+      // Replace the previous transaction only after parsing and enrichment succeed.
+      // Related data: transactions.raw_text and notification_logs.matched_rule_id.
+      await db.run('BEGIN TRANSACTION');
+      try {
+        await db.run('DELETE FROM transactions WHERE raw_text = ?', [rawText]);
+        await db.run(
+          'INSERT INTO transactions (type, amount, merchant, category, pay_method, datetime, memo, raw_text, used_point) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, result.datetime, result.memo || '', rawText, result.used_point || 0]
+        );
+        await db.run(
+          'UPDATE notification_logs SET parsed_status = ?, matched_rule_id = ? WHERE id = ?',
+          [parsedStatus, matchedRuleId, logId]
+        );
+        await db.run('COMMIT');
+      } catch (replaceErr) {
+        try {
+          await db.run('ROLLBACK');
+        } catch (rollbackErr) {
+          console.error(`[로그재시도][${targetUser}] 거래 교체 롤백 실패:`, rollbackErr.message);
+        }
+        throw replaceErr;
+      }
 
       updateHASensors(targetUser);
 
