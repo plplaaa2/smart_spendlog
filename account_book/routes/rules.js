@@ -12,6 +12,7 @@ const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors } = require('../database');
 const { parseNotification, generatePatternWithAI, sanitizePattern, buildValidatedAutoRule } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
+const { getActiveRules } = require('../database/rule_metadata');
 
 // SQLite UTC 날짜 문자열(YYYY-MM-DD HH:mm:ss)을 KST 로컬 시각 문자열로 변환하는 헬퍼 함수
 function convertUTCToKSTString(utcStr) {
@@ -359,7 +360,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
     const adminDb = await getDB('admin');
     // Match retry notifications in the same deterministic order as the webhook flow.
     // Related file: routes/webhook.js.
-    const rules = await adminDb.all('SELECT * FROM rules WHERE enabled = 1 ORDER BY priority ASC, id ASC');
+    const rules = await getActiveRules(adminDb);
     const logKSTTime = convertUTCToKSTString(log.created_at);
     let result = parseNotification(rawText, rules, logKSTTime);
 
@@ -399,7 +400,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
           
           console.log(`[로그재시도][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${ruleName}" (ID: ${matchedRuleId})`);
           
-          const updatedRules = await adminDb.all('SELECT * FROM rules WHERE enabled = 1 ORDER BY priority ASC, id ASC');
+          const updatedRules = await getActiveRules(adminDb);
           result = parseNotification(rawText, updatedRules, logKSTTime);
         } else {
           console.warn(`[로그재시도][자동규칙생성][${targetUser}] 안전성 또는 원문 재파싱 검증 실패: ${autoRule.errors.join(', ')}`);

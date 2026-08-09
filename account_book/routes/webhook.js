@@ -13,6 +13,7 @@ const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors, sendHANotification, createInAppNotification } = require('../database');
 const { parseNotification, parseNotificationWithAI, generatePatternWithAI, sanitizePattern, validateGeneratedPattern, buildValidatedAutoRule } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
+const { getActiveRules } = require('../database/rule_metadata');
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
 function safeCompare(a, b) {
@@ -140,7 +141,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
 
   // Keep matching deterministic: the earliest created parsing rule wins.
   // Related flow: parser/text_parser.js returns the first valid match.
-  const rules = await adminDb.all('SELECT * FROM rules WHERE enabled = 1 ORDER BY priority ASC, id ASC');
+  const rules = await getActiveRules(adminDb);
   const fallbackKST = getKSTDateString();
   let result = parseNotification(rawText, rules, fallbackKST);
 
@@ -282,7 +283,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         
         console.log(`[파서][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${ruleName}" (ID: ${matchedRuleId})`);
         
-        const updatedRules = await adminDb.all('SELECT * FROM rules WHERE enabled = 1 ORDER BY priority ASC, id ASC');
+        const updatedRules = await getActiveRules(adminDb);
         result = parseNotification(rawText, updatedRules, fallbackKST);
       } else {
         console.warn(`[파서][자동규칙생성][${targetUser}] 안전성 또는 원문 재파싱 검증 실패: ${autoRule.errors.join(', ')}`);

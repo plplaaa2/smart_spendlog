@@ -1,4 +1,5 @@
 const sqlite3 = require('sqlite3');
+const { migrateRuleMetadata } = require('./rule_metadata');
 const { open } = require('sqlite');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -262,10 +263,7 @@ async function migrateCategoriesAndData(dbInstance, username) {
   // Add deterministic rule scheduling metadata without changing existing behavior.
   // Related files: routes/rules.js, routes/webhook.js, public/rules.js.
   try {
-    const rulesCols = await dbInstance.all("PRAGMA table_info(rules)");
-    if (!rulesCols.some(col => col.name === 'priority')) await dbInstance.exec("ALTER TABLE rules ADD COLUMN priority INTEGER DEFAULT 100");
-    if (!rulesCols.some(col => col.name === 'enabled')) await dbInstance.exec("ALTER TABLE rules ADD COLUMN enabled INTEGER DEFAULT 1");
-    if (!rulesCols.some(col => col.name === 'source')) await dbInstance.exec("ALTER TABLE rules ADD COLUMN source TEXT DEFAULT 'USER'");
+    await migrateRuleMetadata(dbInstance, username);
   } catch (e) {
     console.error(`[DB 마이그레이션][${username}] rules 메타데이터 마이그레이션 실패:`, e.message);
   }
