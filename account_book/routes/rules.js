@@ -15,6 +15,7 @@ const cryptoHelper = require('../crypto_helper');
 const { getActiveRules } = require('../database/rule_metadata');
 const { replaceRetryTransaction } = require('../database/retry_transaction');
 const { removeUnusableAutoRule } = require('../database/auto_rule_cleanup');
+const { enrichParsedTransaction } = require('../services/transaction_enrichment');
 
 // SQLite UTC 날짜 문자열(YYYY-MM-DD HH:mm:ss)을 KST 로컬 시각 문자열로 변환하는 헬퍼 함수
 function convertUTCToKSTString(utcStr) {
@@ -420,66 +421,10 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
       parsedStatus = 'SUCCESS';
       matchedRuleId = result.rule_id || matchedRuleId;
 
-      // 패키지별 결제수단 자동 매핑 (패키지 매핑이 있으면 최우선 적용, 없으면 규칙/파싱 결과 적용)
-      let finalPayMethod = result.pay_method;
-      if (sender && sender !== 'Unknown') {
-        const mappedPayMethodRow = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [sender]);
-        if (mappedPayMethodRow && mappedPayMethodRow.pay_method) {
-          finalPayMethod = mappedPayMethodRow.pay_method;
-        }
-      }
-
-      if (finalPayMethod === '_AUTO_MAPPING_') {
-        finalPayMethod = '카드';
-      }
-
-      const matchedCategory = await findCategoryByMerchant(db, result.merchant);
-      let finalCategory = matchedCategory;
-      if (!finalCategory) {
-        if (result.type === 'INCOME') {
-          finalCategory = '기타수입';
-        } else {
-          const lowerMerchant = result.merchant.toLowerCase();
-          const isPayCharge = lowerMerchant.includes('페이충전') || 
-                               lowerMerchant.includes('페이 충전') || 
-                               lowerMerchant.includes('페이머니') || 
-                               lowerMerchant.includes('네이버페이') || 
-                               lowerMerchant.includes('카카오페이') || 
-                               lowerMerchant.includes('토스페이') || 
-                               lowerMerchant.includes('토스머니');
-          const isPayMethod = (finalPayMethod.includes('페이') || finalPayMethod.includes('머니')) && !finalPayMethod.includes('삼성페이');
-          finalCategory = (isPayCharge || isPayMethod) ? '페이류' : '기타';
-        }
-      }
-
-      // 통장 이동(자산 이동) 감지 및 강제 카테고리 매핑
-      const realNameRow = await db.get("SELECT value FROM settings WHERE key = 'user_real_name'");
-      const realName = realNameRow ? realNameRow.value.trim() : '';
-      const isBank = finalPayMethod.includes('은행') || finalPayMethod.includes('뱅크') || finalPayMethod.includes('농협') || ['우체국', '새마을금고', '신협', '수협', '계좌이체'].includes(finalPayMethod);
-      
-      const isKoreanName = (name) => {
-        if (!name) return false;
-        const clean = name.trim();
-        const singleLastNames = '김이박최정강조윤장임한오서신권황안송전홍유육설배고문손양백허소남심노하곽성차구우주민진지채원천방공현함변염여추도석마가기길나단탁국';
-        const doubleLastNames = ['남궁', '독고', '황보', '사공', '선우', '동방', '제갈', '서문'];
-        if (clean.length === 3 && singleLastNames.includes(clean[0]) && /^[가-힣]{3}$/.test(clean)) {
-          return true;
-        }
-        if (clean.length === 4 && doubleLastNames.includes(clean.slice(0, 2)) && /^[가-힣]{4}$/.test(clean)) {
-          return true;
-        }
-        return false;
-      };
-      
-      const isTransferMerchant = (realName && result.merchant === realName) || 
-                                 ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant);
-
-      if (isTransferMerchant && isBank) {
-        if (result.type === 'INCOME') {
-          finalCategory = '이체/입금';
-        } else {
-          finalCategory = '이체/송금';
-        }
+      const { finalPayMethod, finalCategory } = await enrichParsedTransaction({
+        db, result, sender, rawText, mode: 'retry', findCategoryByMerchant
+      });
+      if (finalCategory === '이체/입금' || finalCategory === '이체/송금') {
         console.log(`[로그재시도][${targetUser}] 통장 이동(자산 이동) 감지: 카테고리를 '${finalCategory}'으로 강제 변경하여 등록합니다.`);
       }
 

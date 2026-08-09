@@ -16,6 +16,7 @@ const cryptoHelper = require('../crypto_helper');
 const { getActiveRules } = require('../database/rule_metadata');
 const { removeUnusableAutoRule } = require('../database/auto_rule_cleanup');
 const { storeWebhookTransaction } = require('../database/webhook_transaction');
+const { enrichParsedTransaction } = require('../services/transaction_enrichment');
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
 function safeCompare(a, b) {
@@ -301,71 +302,10 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     parsedStatus = 'SUCCESS';
     matchedRuleId = result.rule_id || matchedRuleId;
 
-    // 패키지별 결제수단 자동 매핑
-    let finalPayMethod = result.pay_method;
-    if (packageVal) {
-      const mappedPayMethodRow = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [packageVal]);
-      if (mappedPayMethodRow && mappedPayMethodRow.pay_method) {
-        finalPayMethod = mappedPayMethodRow.pay_method;
-      }
-    }
-
-    if (finalPayMethod === '_AUTO_MAPPING_') {
-      finalPayMethod = '카드';
-    }
-
-    // 체크카드 -> 은행 변환
-    if (rawText.includes('체크') || finalPayMethod.includes('체크')) {
-      const cardToBankMap = {
-        'KB국민카드': '국민은행',
-        '신한카드': '신한은행',
-        '하나카드': '하나은행',
-        '우리카드': '우리은행',
-        'NH농협카드': '농협은행',
-        'BC카드': '계좌이체',
-        '삼성카드': '계좌이체',
-        '현대카드': '계좌이체',
-        '롯데카드': '계좌이체'
-      };
-      if (cardToBankMap[finalPayMethod]) {
-        finalPayMethod = cardToBankMap[finalPayMethod];
-      } else if (finalPayMethod.includes('카드') && !finalPayMethod.includes('체크')) {
-        finalPayMethod = '계좌이체';
-      }
-    }
-
-    // 카테고리 매핑
-    let finalCategory = result.category;
-    if (!finalCategory || finalCategory === '_AUTO_MAPPING_') {
-      const matchedCategory = await findCategoryByMerchant(db, result.merchant);
-      finalCategory = matchedCategory;
-    }
-    if (!finalCategory) {
-      if (result.type === 'INCOME') {
-        finalCategory = '기타수입';
-      } else {
-        finalCategory = '기타';
-      }
-    }
-
-    // 통장이동 자산 이동 감지
-    const realNameRow = await db.get("SELECT value FROM settings WHERE key = 'user_real_name'");
-    const realName = realNameRow ? realNameRow.value.trim() : '';
-    const isBank = finalPayMethod.includes('은행') || finalPayMethod.includes('뱅크') || finalPayMethod.includes('농협') || ['우체국', '새마을금고', '신협', '수협', '계좌이체'].includes(finalPayMethod);
-    
-    const isCardCompany = result.merchant.endsWith('카드') || 
-                          /카드대금|카드결제|카드출금/.test(result.merchant);
-
-    const isTransferMerchant = (realName && result.merchant === realName) || 
-                               ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant) ||
-                               isCardCompany;
-
-    if (isTransferMerchant && isBank) {
-      if (result.type === 'INCOME') {
-        finalCategory = '이체/입금';
-      } else {
-        finalCategory = '이체/송금';
-      }
+    const { finalPayMethod, finalCategory } = await enrichParsedTransaction({
+      db, result, sender: packageVal, rawText, mode: 'webhook', findCategoryByMerchant
+    });
+    if (finalCategory === '이체/입금' || finalCategory === '이체/송금') {
       console.log(`[파서][${targetUser}] 통장 이동(자산 이동) 감지: 카테고리를 '${finalCategory}'으로 강제 변경하여 등록합니다.`);
 
       // ==========================================

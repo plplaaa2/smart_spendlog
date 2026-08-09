@@ -94,6 +94,8 @@ Home Assistant Companion 알림 또는 Webhook으로 전달된 문자 원문에�
 
 결제수단은 규칙 캡처값, 규칙 설정값, 원문 키워드 순서로 보완한다. 결제 유형은 다음 내부 값으로 정규화한다.
 
+Webhook과 재시도 후처리는 `services/transaction_enrichment.js`에서 패키지 결제수단 매핑, 자동 기본값, 카테고리 및 자산 이동 분류를 공통으로 결정한다. Webhook의 체크카드 변환과 재시도의 페이류 fallback은 기존 모드별 정책으로 유지한다.
+
 - `CREDIT`
 - `CHECK`
 - `TRANSFER`
