@@ -456,6 +456,10 @@ async function processNotificationCore({ title, text, packageVal, username }) {
       }
     }
 
+    // Resolve the payment type before duplicate detection.
+    // Related flow: parser/text_parser.js -> duplicate detection -> transactions.pay_type.
+    const finalPayType = result.payment_type || 'CREDIT';
+
     // 이중 등록 방지
     // 이중 등록 방지 (체크카드 승인 후 은행 연쇄 출금 중복 감지 포함)
     const duplicateCheck = await db.get(
@@ -510,7 +514,6 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     }
 
     // 가계부 내역 저장
-    const finalPayType = result.payment_type || 'CREDIT';
     let originalAmount = result.original_amount || null;
     let currency = result.currency || null;
     let exchangeRate = null;
