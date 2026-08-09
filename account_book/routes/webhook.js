@@ -15,6 +15,7 @@ const { parseNotification, parseNotificationWithAI, generatePatternWithAI, sanit
 const cryptoHelper = require('../crypto_helper');
 const { getActiveRules } = require('../database/rule_metadata');
 const { removeUnusableAutoRule } = require('../database/auto_rule_cleanup');
+const { storeWebhookTransaction } = require('../database/webhook_transaction');
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
 function safeCompare(a, b) {
@@ -538,10 +539,15 @@ async function processNotificationCore({ title, text, packageVal, username }) {
       result.amount = Math.round(originalAmount * exchangeRate);
     }
 
-    await db.run(
-      'INSERT INTO transactions (type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point, original_amount, currency, exchange_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, finalPayType, result.datetime, result.memo || '', rawText, result.used_point || 0, originalAmount, currency, exchangeRate]
-    );
+    await storeWebhookTransaction(db, {
+      transaction: {
+        type: result.type, amount: result.amount, merchant: result.merchant,
+        category: finalCategory, payMethod: finalPayMethod, payType: finalPayType,
+        datetime: result.datetime, memo: result.memo, rawText,
+        usedPoint: result.used_point, originalAmount, currency, exchangeRate
+      },
+      notification: { sender, title, text, parsedStatus, matchedRuleId }
+    });
     console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 결제방법: ${finalPayType}, 사용 포인트: ${result.used_point || 0}]${currency === 'USD' ? ` (외화: ${originalAmount} USD, 환율: ${exchangeRate}원)` : ''}`);
 
     if (finalCategory === '기타') {
@@ -564,13 +570,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
 
     updateHASensors(targetUser);
 
-    const hasAmount = /(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)\s*\d+[,.\d]*|\d+[,.\d]*\s*(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)|\b\d{1,3}(,\d{3})+\b/i.test(rawText);
-    if (hasAmount || parsedStatus === 'SUCCESS') {
-      await db.run(
-        'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
-        [sender, rawText, title, text, parsedStatus, matchedRuleId]
-      );
-    }
+    // The SUCCESS log was committed atomically with the transaction above.
 
     return { 
       success: true, 
