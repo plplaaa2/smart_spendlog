@@ -17,6 +17,7 @@ async function openWebhookDatabase() {
       priority INTEGER DEFAULT 100, enabled INTEGER DEFAULT 1, source TEXT DEFAULT 'USER'
     );
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE pay_methods (id INTEGER PRIMARY KEY, name TEXT UNIQUE);
     CREATE TABLE package_pay_methods (package TEXT, pay_method TEXT);
     CREATE TABLE transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

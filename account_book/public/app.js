@@ -178,7 +178,7 @@ function populateSelects() {
       el.appendChild(opt);
     }
 
-    state.payMethods.forEach(p => {
+    state.payMethods.filter(p => !/페이|머니/u.test(p.name)).forEach(p => {
       const opt = document.createElement('option');
       opt.value = p.name;
       opt.textContent = p.name;
@@ -354,10 +354,11 @@ function switchTab(tabId) {
   // 타이틀 변경
   updateHeaderTitle(tabId, getSubTabIdForTab(tabId));
 
-  // 대시보드 탭일 때만 년월 선택기(month-picker) 표시
+  // Dashboard and transaction tabs share the same year/month filter.
+  // Related: public/index.html month-picker, public/transactions.js loadTransactions.
   const monthPicker = document.querySelector('.month-picker');
   if (monthPicker) {
-    if (tabId === 'dashboard') {
+    if (tabId === 'dashboard' || tabId === 'transactions') {
       monthPicker.style.display = 'flex';
     } else {
       monthPicker.style.display = 'none';

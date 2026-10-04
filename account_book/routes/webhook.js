@@ -20,6 +20,7 @@ const { enrichParsedTransaction } = require('../services/transaction_enrichment'
 const { createWebhookReplayGuard } = require('../services/webhook_replay_guard');
 
 const webhookReplayGuard = createWebhookReplayGuard();
+const { describeNotification, findPair, remember } = require('../database/check_notification');
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
 function safeCompare(a, b) {
@@ -305,9 +306,15 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     parsedStatus = 'SUCCESS';
     matchedRuleId = result.rule_id || matchedRuleId;
 
-    const { finalPayMethod, finalCategory } = await enrichParsedTransaction({
+    const enriched = await enrichParsedTransaction({
       db, result, sender: packageVal, rawText, mode: 'webhook', findCategoryByMerchant
     });
+    if (enriched.error) {
+      await db.run('INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)', [sender, rawText, title, text, 'FAILED', matchedRuleId]);
+      return { success: false, message: enriched.error };
+    }
+    const { finalPayMethod, finalCategory, sourceProvider } = enriched;
+    const notificationSource = describeNotification(sourceProvider, result.payment_type, rawText, result.type);
     if (finalCategory === '이체/입금' || finalCategory === '이체/송금') {
       console.log(`[파서][${targetUser}] 통장 이동(자산 이동) 감지: 카테고리를 '${finalCategory}'으로 강제 변경하여 등록합니다.`);
 
@@ -418,16 +425,48 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     // Resolve the payment type before duplicate detection.
     // Related flow: parser/text_parser.js -> duplicate detection -> transactions.pay_type.
     const finalPayType = result.payment_type || 'CREDIT';
-
     // 이중 등록 방지
     // 이중 등록 방지 (체크카드 승인 후 은행 연쇄 출금 중복 감지 포함)
-    const duplicateCheck = await db.get(
+    const receivedAt = Date.now();
+    const pairSource = result.currency || ['이체/송금', 'ATM/출금', '카드상환'].includes(finalCategory) ? null
+      : notificationSource;
+    // Pass parsed time and source text so delayed delivery cannot pair by amount alone.
+    // Related: database/check_notification.js, test/check_notification.test.js.
+    const pair = await findPair(db, pairSource, result.amount, receivedAt, result.datetime, rawText);
+    if (pair) {
+      const preference = await db.get("SELECT value FROM settings WHERE key = 'check_notification_priority'");
+      const preferred = preference && preference.value === 'bank' ? 'bank' : 'card';
+      const replace = pairSource.source === preferred;
+      await db.run('BEGIN TRANSACTION');
+      try {
+        if (replace) {
+          await db.run('UPDATE transactions SET merchant = ?, category = ?, pay_method = ?, pay_type = ?, datetime = ?, memo = ?, raw_text = ?, used_point = ? WHERE id = ?',
+            [result.merchant,finalCategory,pairSource.bank,'CHECK',result.datetime,result.memo || '',rawText,result.used_point || 0,pair.transaction_id]);
+          await db.run("UPDATE notification_logs SET parsed_status = 'IGNORED_DUPLICATE' WHERE id = (SELECT MAX(id) FROM notification_logs WHERE sender = ? AND raw_text = ? AND parsed_status = 'SUCCESS')", [pair.sender,pair.raw_text]);
+        } else {
+          await db.run("UPDATE transactions SET pay_method = ?, pay_type = 'CHECK' WHERE id = ?", [pairSource.bank,pair.transaction_id]);
+        }
+        await db.run('UPDATE check_notification_pairs SET paired = 1, source = ?, sender = ?, raw_text = ? WHERE transaction_id = ?',
+          [replace ? pairSource.source : pair.source,replace ? sender : pair.sender,replace ? rawText : pair.raw_text,pair.transaction_id]);
+        await db.run('INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [sender,rawText,title,text,replace ? 'SUCCESS' : 'IGNORED_DUPLICATE',matchedRuleId]);
+        await db.run('COMMIT');
+      } catch (err) { await db.run('ROLLBACK'); throw err; }
+      updateHASensors(targetUser);
+      return {success:true, isDuplicate:!replace, transaction:replace ? {...result,pay_method:pairSource.bank,payment_type:'CHECK',category:finalCategory} : undefined};
+    }
+    let duplicateCheck = await db.get(
       "SELECT id, merchant, pay_method, pay_type, raw_text FROM transactions " +
       "WHERE type = ? AND amount = ? " +
       "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 60 " +
       "ORDER BY id DESC LIMIT 1",
       [result.type || 'EXPENSE', result.amount, result.datetime]
     );
+    if (duplicateCheck) {
+      const previousSource = await db.get('SELECT * FROM check_notification_pairs WHERE transaction_id = ?', [duplicateCheck.id]);
+      // Cross-app pairs must pass the account and reception-time checks above.
+      if ((pairSource || previousSource) && (!pairSource || !previousSource || pairSource.source !== previousSource.source || pairSource.bank !== previousSource.bank)) duplicateCheck = null;
+    }
 
     if (duplicateCheck) {
       const existingMerchant = duplicateCheck.merchant;
@@ -482,7 +521,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
       result.amount = Math.round(originalAmount * exchangeRate);
     }
 
-    await storeWebhookTransaction(db, {
+    const savedTransaction = await storeWebhookTransaction(db, {
       transaction: {
         type: result.type, amount: result.amount, merchant: result.merchant,
         category: finalCategory, payMethod: finalPayMethod, payType: finalPayType,
@@ -491,6 +530,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
       },
       notification: { sender, title, text, parsedStatus, matchedRuleId }
     });
+    await remember(db, savedTransaction.lastID, pairSource, result.amount, receivedAt, sender, rawText);
     console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 결제방법: ${finalPayType}, 사용 포인트: ${result.used_point || 0}]${currency === 'USD' ? ` (외화: ${originalAmount} USD, 환율: ${exchangeRate}원)` : ''}`);
 
     if (finalCategory === '기타') {
@@ -573,7 +613,7 @@ async function processIncomingNotification(newState, username) {
   const attrs = newState.attributes || {};
   const title = attrs['android.title'] || (attrs.android && attrs.android.title) || attrs.title || '';
   const text = attrs['android.text'] || (attrs.android && attrs.android.text) || attrs.text || newState.state || '';
-  const packageVal = attrs.package || (attrs.android && attrs.android.package) || '';
+  const packageVal = attrs.package || attrs['android.package'] || (attrs.android && attrs.android.package) || '';
 
   try {
     await enqueueNotification(() => processNotificationCore({

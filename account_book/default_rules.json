@@ -234,6 +234,7 @@
             "pattern": "\\[(?<card>[^\\]]+)\\]\\s*(?<time>\\d{2}/\\d{2}\\s+\\d{2}:\\d{2})\\s+(?<amount>[\\d,]+)원\\s+(?<merchant>.+?)\\s+승인",
             "category": "외식비",
             "pay_method": "신한카드",
+            "pay_type": "CREDIT",
             "merchant_template": "${merchant}",
             "type": "EXPENSE"
         },
@@ -242,6 +243,7 @@
             "pattern": "\\[₩(?<amount>[\\d,]+)\\s*결제\\s*완료\\]\\s*(?<merchant>.+)",
             "category": "기타",
             "pay_method": "토스",
+            "pay_type": "CREDIT",
             "merchant_template": "${merchant}",
             "type": "EXPENSE"
         },

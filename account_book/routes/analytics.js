@@ -9,6 +9,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../database');
+const { consumptionCondition } = require('../database/expense_filter');
 const { generateConsumptionReportWithAI } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 
@@ -25,9 +26,9 @@ router.get('/stats', async (req, res) => {
     // 1. 월 총 지출액 및 총 수입액 (이체 제외)
     // 외화 사용량(USD)을 한화와 구분하기 위해 별도 합산
     const totalRow = await db.get(
-      "SELECT SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as expense, " +
+      `SELECT SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} THEN amount ELSE 0 END) as expense, ` +
       "SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income, " +
-      "SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' AND currency = 'USD' THEN original_amount ELSE 0 END) as usdExpense " +
+      `SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} AND currency = 'USD' THEN original_amount ELSE 0 END) as usdExpense ` +
       "FROM transactions WHERE datetime LIKE ?", 
       [`${month}%`]
     );
@@ -37,14 +38,14 @@ router.get('/stats', async (req, res) => {
 
     // 2. 카테고리별 지출액 및 비중 (지출 타입만 집계, 이체/송금 제외)
     const categoryRows = await db.all(
-      "SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' GROUP BY category ORDER BY total DESC",
+      `SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} GROUP BY category ORDER BY total DESC`,
       [`${month}%`]
     );
 
     // 3. 일자별 지출 및 수입 추이 (이체 제외)
     const dailyRows = await db.all(
       "SELECT substr(datetime, 1, 10) as date, " +
-      "SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as expense, " +
+      `SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} THEN amount ELSE 0 END) as expense, ` +
       "SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income " +
       "FROM transactions WHERE datetime LIKE ? GROUP BY date ORDER BY date ASC",
       [`${month}%`]
@@ -61,7 +62,7 @@ router.get('/stats', async (req, res) => {
       d.setMonth(d.getMonth() - i);
       const targetMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const trendRow = await db.get(
-        "SELECT SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as expense, " +
+        `SELECT SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} THEN amount ELSE 0 END) as expense, ` +
         "SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income " +
         "FROM transactions WHERE datetime LIKE ?", 
         [`${targetMonth}%`]
@@ -126,8 +127,39 @@ router.get('/stats', async (req, res) => {
       '롯데카드': '계좌이체'
     };
 
+    // Calculate bank assets from cash movements and count paired card/bank settlement notices once.
+    // Related files: public/dashboard.js, public/card_bank_view.js, android_spendlog/app/src/main/assets/standalone_api.js.
+    const assetMethod = row => (row.pay_type === 'CHECK' || row.pay_type === 'TRANSFER') && cardToBankMap[row.pay_method] ? cardToBankMap[row.pay_method] : row.pay_method;
+    const bankCashRows = (name, rows) => {
+      const duplicateIds = new Set();
+      const bankDebits = rows.filter(row => row.type === 'EXPENSE' && row.pay_method === name).sort((a, b) => Number(/잔액\s*[:：]/u.test(String(b.memo || ''))) - Number(/잔액\s*[:：]/u.test(String(a.memo || ''))));
+      bankDebits.forEach(bankRow => {
+        const bankTime = Date.parse(String(bankRow.datetime || '').replace(' ', 'T'));
+        if (!Number.isFinite(bankTime)) return;
+        const settlement = bankRow.category === '이체/송금' && /카드\s*(?:결제|대금|출금)|카드이용대금/u.test(String(bankRow.merchant || ''));
+        const partner = rows.filter(row => {
+          if (row === bankRow || duplicateIds.has(row.id) || row.type !== 'EXPENSE' || Number(row.amount) !== Number(bankRow.amount)) return false;
+          if (cardToBankMap[row.pay_method] === name) return row.pay_type === 'CHECK' || settlement && row.pay_type === 'TRANSFER';
+          return settlement && row.pay_method === name && row.category === '이체/송금' && !/카드\s*(?:결제|대금|출금)|카드이용대금/u.test(String(row.merchant || ''));
+        }).map(row => ({ row, distance: Math.abs(Date.parse(String(row.datetime || '').replace(' ', 'T')) - bankTime) })).filter(item => Number.isFinite(item.distance) && item.distance <= 120000).sort((a, b) => a.distance - b.distance)[0];
+        if (partner) duplicateIds.add(partner.row.id);
+      });
+      return rows.filter(row => !duplicateIds.has(row.id));
+    };
+    const bankCashDelta = row => row.type === 'INCOME' ? Number(row.amount || 0) : row.type === 'EXPENSE' ? -Math.max(0, Number(row.amount || 0) - Number(row.used_point || 0)) : 0;
+    const bankBalanceAnchor = (name, rows) => {
+      const anchors = rows.filter(row => row.pay_method === name).map(row => {
+        const memo = String(row.memo || '');
+        const balance = memo.match(/잔액\s*[:：]\s*([\d,]+)/u);
+        const account = memo.match(/계좌\s*[:：]\s*([^\s|]+)/u);
+        return balance ? { row, account: account ? account[1] : '', balance: Number(balance[1].replace(/,/g, '')) } : null;
+      }).filter(Boolean);
+      if (new Set(anchors.map(anchor => anchor.account).filter(Boolean)).size > 1) return null;
+      return anchors.sort((a, b) => String(b.row.datetime || '').localeCompare(String(a.row.datetime || '')) || Number(b.row.id || 0) - Number(a.row.id || 0))[0] || null;
+    };
+
     const allTimeRows = await db.all(
-      "SELECT pay_method, pay_type, type, amount, COALESCE(used_point, 0) as used_point FROM transactions"
+      "SELECT id, datetime, merchant, category, memo, pay_method, pay_type, type, amount, COALESCE(used_point, 0) as used_point FROM transactions"
     );
     const allTimeMap = {};
     allTimeRows.forEach(r => {
@@ -198,8 +230,8 @@ router.get('/stats', async (req, res) => {
         // 요약: 카드 커스텀 실적 기준일 지출 집계 시 포인트 및 지원금 사용액(used_point) 합산
         // 의존성: database/ha_sync.js, android_spendlog/.../AnalyticsApiHandler.kt, BudgetNotificationHelper.kt
         const customRow = await db.get(
-          "SELECT SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END) as month_income, " +
-          "SUM(CASE WHEN type = 'EXPENSE' THEN amount + COALESCE(used_point, 0) ELSE 0 END) as month_expense " +
+          "SELECT SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as month_income, " +
+          `SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} THEN amount + COALESCE(used_point, 0) ELSE 0 END) as month_expense ` +
           "FROM transactions WHERE pay_method = ? AND datetime >= ? AND datetime <= ?",
           [name, startStr, endStr]
         );
@@ -232,7 +264,7 @@ router.get('/stats', async (req, res) => {
       const initBal = parseInt(initialBalances[name] || 0, 10);
       const initPt = parseInt(initialPoints[name] || 0, 10);
       const allTime = allTimeMap[name] || { totalIncome: 0, totalExpense: 0, totalUsedPoint: 0 };
-      const mTime = monthMap[name] || { monthIncome: 0, monthExpense: 0 };
+      let mTime = monthMap[name] || { monthIncome: 0, monthExpense: 0 };
       
       // 실제 개별 거래 건에 기록된 used_point 의 총합
       const totalUsedPt = allTime.totalUsedPoint || 0;
@@ -241,7 +273,18 @@ router.get('/stats', async (req, res) => {
       
       // 포인트 차감이 설정된 경우의 지출 보정 및 잔액/포인트 계산 (실제 사용 포인트 totalUsedPt 차감 적용)
       const adjustedExpense = Math.max(0, allTime.totalExpense - totalUsedPt);
-      const currentBalance = initBal + allTime.totalIncome - adjustedExpense;
+      let currentBalance = initBal + allTime.totalIncome - adjustedExpense;
+      if (!isCard) {
+        const cashRows = bankCashRows(name, allTimeRows.filter(row => assetMethod(row) === name));
+        const anchor = bankBalanceAnchor(name, cashRows);
+        const afterAnchor = anchor ? cashRows.filter(row => String(row.datetime || '') > String(anchor.row.datetime || '') || row.datetime === anchor.row.datetime && Number(row.id || 0) > Number(anchor.row.id || 0)) : cashRows;
+        currentBalance = (anchor ? anchor.balance : initBal) + afterAnchor.reduce((sum, row) => sum + bankCashDelta(row), 0);
+        const cashMonthRows = cashRows.filter(row => String(row.datetime || '').startsWith(month));
+        mTime = {
+          monthIncome: cashMonthRows.filter(row => row.type === 'INCOME').reduce((sum, row) => sum + Number(row.amount || 0), 0),
+          monthExpense: -cashMonthRows.filter(row => row.type === 'EXPENSE').reduce((sum, row) => sum + bankCashDelta(row), 0)
+        };
+      }
       const remainingPoint = effectivePoint > 0 ? Math.max(0, effectivePoint - totalUsedPt) : 0;
 
       assets.push({
@@ -279,7 +322,7 @@ router.get('/analytics/monthly', async (req, res) => {
       SELECT 
         strftime('%Y-%m', datetime) as month,
         SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as expense
+        SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} THEN amount ELSE 0 END) as expense
       FROM transactions
       WHERE datetime IS NOT NULL AND datetime != ''
       GROUP BY month
@@ -308,7 +351,7 @@ router.get('/analytics/monthly-detail', async (req, res) => {
       SELECT 
         strftime('%d', datetime) as day,
         SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as expense
+        SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} THEN amount ELSE 0 END) as expense
       FROM transactions
       WHERE datetime LIKE ?
       GROUP BY day
@@ -321,7 +364,7 @@ router.get('/analytics/monthly-detail', async (req, res) => {
         category,
         SUM(amount) as total
       FROM transactions
-      WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category != '이체/입금'
+      WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category != '이체/입금'
       GROUP BY category
       ORDER BY total DESC
     `, [`${targetMonth}%`]);
@@ -351,7 +394,7 @@ router.get('/analytics/yearly', async (req, res) => {
       SELECT 
         strftime('%m', datetime) as month,
         SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as expense
+        SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} THEN amount ELSE 0 END) as expense
       FROM transactions
       WHERE datetime LIKE ?
       GROUP BY month
@@ -365,7 +408,7 @@ router.get('/analytics/yearly', async (req, res) => {
         COALESCE(SUM(CASE WHEN strftime('%Y', t.datetime) = ? THEN t.amount ELSE 0 END), 0) as current_year_total,
         COALESCE(SUM(CASE WHEN strftime('%Y', t.datetime) = ? THEN t.amount ELSE 0 END), 0) as prev_year_total
       FROM categories c
-      LEFT JOIN transactions t ON c.name = t.category AND t.type = 'EXPENSE'
+      LEFT JOIN transactions t ON c.name = t.category AND t.type = 'EXPENSE' AND ${consumptionCondition('t.')}
       WHERE c.name != '이체/송금' AND c.name != '이체/입금' AND (t.datetime LIKE ? OR t.datetime LIKE ? OR t.datetime IS NULL)
       GROUP BY c.name
       ORDER BY current_year_total DESC
@@ -408,7 +451,7 @@ router.get('/analytics/compare', async (req, res) => {
           COALESCE(SUM(CASE WHEN strftime('%Y-%m', t.datetime) = ? THEN t.amount ELSE 0 END), 0) as current_total,
           COALESCE(SUM(CASE WHEN strftime('%Y-%m', t.datetime) = ? THEN t.amount ELSE 0 END), 0) as prev_total
         FROM categories c
-        LEFT JOIN transactions t ON c.name = t.category AND t.type = 'EXPENSE'
+        LEFT JOIN transactions t ON c.name = t.category AND t.type = 'EXPENSE' AND ${consumptionCondition('t.')}
         WHERE c.name != '이체/송금' AND c.name != '이체/입금' AND (t.datetime LIKE ? OR t.datetime LIKE ? OR t.datetime IS NULL)
         GROUP BY c.name
         ORDER BY current_total DESC
@@ -428,7 +471,7 @@ router.get('/analytics/compare', async (req, res) => {
           COALESCE(SUM(CASE WHEN strftime('%Y', t.datetime) = ? THEN t.amount ELSE 0 END), 0) as current_total,
           COALESCE(SUM(CASE WHEN strftime('%Y', t.datetime) = ? THEN t.amount ELSE 0 END), 0) as prev_total
         FROM categories c
-        LEFT JOIN transactions t ON c.name = t.category AND t.type = 'EXPENSE'
+        LEFT JOIN transactions t ON c.name = t.category AND t.type = 'EXPENSE' AND ${consumptionCondition('t.')}
         WHERE c.name != '이체/송금' AND c.name != '이체/입금' AND (t.datetime LIKE ? OR t.datetime LIKE ? OR t.datetime IS NULL)
         GROUP BY c.name
         ORDER BY current_total DESC
@@ -463,27 +506,27 @@ router.get('/analytics/fixed', async (req, res) => {
 
     // 1. 해당 기간 총 지출액 (비율 계산용, 이체/송금 제외)
     const totalSpentRow = await db.get(
-      "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
+      `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()}`,
       [targetPattern]
     );
     const totalSpent = totalSpentRow.total || 0;
 
     // 2. 해당 기간 총 고정지출액 합계
     const fixedTotalRow = await db.get(
-      `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders})`,
+      `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category IN (${placeholders})`,
       [targetPattern, ...fixedCategories]
     );
     const fixedTotal = fixedTotalRow.total || 0;
 
     // 3. 카테고리별 고정지출액 합계 (도넛 차트용)
     const categoryRows = await db.all(
-      `SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders}) GROUP BY category ORDER BY total DESC`,
+      `SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category IN (${placeholders}) GROUP BY category ORDER BY total DESC`,
       [targetPattern, ...fixedCategories]
     );
 
     // 4. 고정지출 상세 내역 목록 (테이블용, 최근순)
     const transactionRows = await db.all(
-      `SELECT id, datetime, merchant, category, pay_method, amount, memo FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders}) ORDER BY datetime DESC`,
+      `SELECT id, datetime, merchant, category, pay_method, amount, memo FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category IN (${placeholders}) ORDER BY datetime DESC`,
       [targetPattern, ...fixedCategories]
     );
 
@@ -491,7 +534,7 @@ router.get('/analytics/fixed', async (req, res) => {
     const monthlyTrend = [];
     if (isYearly) {
       const trendRows = await db.all(
-        `SELECT strftime('%Y-%m', datetime) as month, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders}) GROUP BY month ORDER BY month ASC`,
+        `SELECT strftime('%Y-%m', datetime) as month, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category IN (${placeholders}) GROUP BY month ORDER BY month ASC`,
         [targetPattern, ...fixedCategories]
       );
       const trendMap = {};
@@ -511,7 +554,7 @@ router.get('/analytics/fixed', async (req, res) => {
         d.setMonth(d.getMonth() - i);
         const targetM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         const trendRow = await db.get(
-          `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category IN (${placeholders})`,
+          `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category IN (${placeholders})`,
           [`${targetM}%`, ...fixedCategories]
         );
         monthlyTrend.push({
@@ -551,27 +594,27 @@ router.get('/analytics/general', async (req, res) => {
 
     // 1. 해당 기간 총 지출액 (비율 계산용, 이체/송금 제외)
     const totalSpentRow = await db.get(
-      "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
+      `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()}`,
       [targetPattern]
     );
     const totalSpent = totalSpentRow.total || 0;
 
     // 2. 해당 기간 총 일반지출액 합계 (고정지출 제외, 이체/송금 제외)
     const generalTotalRow = await db.get(
-      `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders})`,
+      `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category NOT IN (${placeholders})`,
       [targetPattern, ...fixedCategories]
     );
     const generalTotal = generalTotalRow.total || 0;
 
     // 3. 카테고리별 일반지출액 합계 (도넛 차트용)
     const categoryRows = await db.all(
-      `SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders}) GROUP BY category ORDER BY total DESC`,
+      `SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category NOT IN (${placeholders}) GROUP BY category ORDER BY total DESC`,
       [targetPattern, ...fixedCategories]
     );
 
     // 4. 일반지출 상세 내역 목록 (테이블용, 최근순)
     const transactionRows = await db.all(
-      `SELECT id, datetime, merchant, category, pay_method, amount, memo FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders}) ORDER BY datetime DESC`,
+      `SELECT id, datetime, merchant, category, pay_method, amount, memo FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category NOT IN (${placeholders}) ORDER BY datetime DESC`,
       [targetPattern, ...fixedCategories]
     );
 
@@ -579,7 +622,7 @@ router.get('/analytics/general', async (req, res) => {
     const monthlyTrend = [];
     if (isYearly) {
       const trendRows = await db.all(
-        `SELECT strftime('%Y-%m', datetime) as month, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders}) GROUP BY month ORDER BY month ASC`,
+        `SELECT strftime('%Y-%m', datetime) as month, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category NOT IN (${placeholders}) GROUP BY month ORDER BY month ASC`,
         [targetPattern, ...fixedCategories]
       );
       const trendMap = {};
@@ -599,7 +642,7 @@ router.get('/analytics/general', async (req, res) => {
         d.setMonth(d.getMonth() - i);
         const targetM = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         const trendRow = await db.get(
-          `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' AND category NOT IN (${placeholders})`,
+          `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} AND category NOT IN (${placeholders})`,
           [`${targetM}%`, ...fixedCategories]
         );
         monthlyTrend.push({
@@ -644,7 +687,7 @@ router.get('/analytics/income', async (req, res) => {
 
     // 2. 해당 기간 총 지출액 합계 (저축 비율 계산용, 이체/송금 제외)
     const totalSpentRow = await db.get(
-      "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
+      `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()}`,
       [targetPattern]
     );
     const totalSpent = totalSpentRow.total || 0;
@@ -813,14 +856,14 @@ router.post('/analytics/ai-report/generate', async (req, res) => {
 
     // 총 지출액 (이체/송금 제외)
     const expenseRow = await db.get(
-      "SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'",
+      `SELECT SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()}`,
       [targetPattern]
     );
     const totalExpense = expenseRow.total || 0;
 
     // 카테고리별 지출 내역
     const categories = await db.all(
-      "SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금' GROUP BY category ORDER BY total DESC",
+      `SELECT category, SUM(amount) as total FROM transactions WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()} GROUP BY category ORDER BY total DESC`,
       [targetPattern]
     );
 
@@ -837,7 +880,7 @@ router.post('/analytics/ai-report/generate', async (req, res) => {
         SELECT 
           strftime('%m', datetime) as mm,
           SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as inc,
-          SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as exp
+          SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} THEN amount ELSE 0 END) as exp
         FROM transactions 
         WHERE datetime LIKE ? 
         GROUP BY mm 
@@ -863,7 +906,7 @@ ${trendText || '  (기록된 월별 데이터 없음)'}`;
           strftime('%d', datetime) as dd,
           SUM(amount) as total
         FROM transactions 
-        WHERE datetime LIKE ? AND type = 'EXPENSE' AND category != '이체/송금'
+        WHERE datetime LIKE ? AND type = 'EXPENSE' AND ${consumptionCondition()}
         GROUP BY dd 
         ORDER BY total DESC 
         LIMIT 5

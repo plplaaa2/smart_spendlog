@@ -1,4 +1,7 @@
+// Preserve explicit transaction direction across legacy and Android-compatible capture names.
+// Related: text_parser.js, pattern_generator.js, ai_parser.js, utils.js.
 function determineTransactionType(normalizedText, groups = {}, ruleType = 'EXPENSE') {
+  const matchedStatus = groups.status || groups.typeText || groups.type_text;
   const isDeposit = /입금|환불|입금완료|수입|저축/.test(normalizedText);
   const isWithdrawal = /출금|송금|지출|결제|승인|사용|신용|체크/.test(normalizedText);
   const isCancel = /취소|반품/.test(normalizedText);
@@ -10,6 +13,10 @@ function determineTransactionType(normalizedText, groups = {}, ruleType = 'EXPEN
     } else {
       preemptiveType = 'INCOME';
     }
+  } else if (matchedStatus && /^(?:입금|입금완료|수입|환불|환급)$/.test(matchedStatus.trim())) {
+    preemptiveType = 'INCOME';
+  } else if (matchedStatus && /^(?:출금|송금|지출|결제|승인|사용)$/.test(matchedStatus.trim())) {
+    preemptiveType = 'EXPENSE';
   } else if (isDeposit && !isWithdrawal) {
     preemptiveType = 'INCOME';
   } else if (isWithdrawal && !isDeposit) {
@@ -30,7 +37,6 @@ function determineTransactionType(normalizedText, groups = {}, ruleType = 'EXPEN
     }
   } else {
     transactionType = ruleType || 'EXPENSE';
-    const matchedStatus = groups.status || groups.type_text;
     if (matchedStatus) {
       const cleanStatus = matchedStatus.trim();
       if (/입금|수입|저축|환불|입금완료/.test(cleanStatus)) {

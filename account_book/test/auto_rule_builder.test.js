@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { buildValidatedAutoRule } = require('../parser/auto_rule_builder');
 
 test('builds a safe rule that reparses its source notification', () => {
-  const result = buildValidatedAutoRule('10,000원 테스트상점', 'EXPENSE', '2026-08-09 12:00:00');
+  const result = buildValidatedAutoRule('신용 10,000원 테스트상점', 'EXPENSE', '2026-08-09 12:00:00');
 
   assert.equal(result.valid, true);
   assert.match(result.pattern, /^\^/);

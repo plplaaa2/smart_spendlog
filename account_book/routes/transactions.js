@@ -8,7 +8,8 @@
 
 const express = require('express');
 const router = express.Router();
-const { getDB, updateHASensors, seedFranchisePresets, FRANCHISE_PRESETS } = require('../database');
+const { getDB, updateHASensors, seedFranchisePresets, FRANCHISE_PRESETS, findCategoryByMerchant } = require('../database');
+const { ensureRegisteredPayMethod, normalizeNewWalletPayment } = require('../parser/payment_resolver');
 
 // 가계부 내역 조회 (필터 포함)
 router.get('/transactions', async (req, res) => {
@@ -89,6 +90,14 @@ router.post('/transactions', async (req, res) => {
 
     const txType = type || 'EXPENSE';
     const txUsedPoint = parseInt(used_point, 10) || 0;
+    // Apply the merchant category mapping when the UI did not provide a concrete category.
+    let finalCategory = category;
+    if ((!finalCategory || finalCategory === '_AUTO_MAPPING_') && merchant) {
+      finalCategory = await findCategoryByMerchant(db, merchant);
+    }
+    if (!finalCategory || finalCategory === '_AUTO_MAPPING_') {
+      finalCategory = txType === 'INCOME' ? '기타수입' : '기타';
+    }
 
     // 패키지별 결제수단 자동 매핑 처리 (패키지 매핑이 있으면 최우선 적용, 없으면 규칙/파싱 결과 적용)
     let finalPayMethod = pay_method;
@@ -105,15 +114,18 @@ router.post('/transactions', async (req, res) => {
 
     const txPayType = pay_type || 'CREDIT';
 
+    // Register concrete manually saved providers without restoring excluded wallets.
+    // Related: parser/payment_resolver.js, database/connection.js, routes/webhook.js.
+    await ensureRegisteredPayMethod(db, finalPayMethod);
     if (id) {
       // 수정
       await db.run(
         'UPDATE transactions SET type = ?, amount = ?, merchant = ?, category = ?, pay_method = ?, pay_type = ?, datetime = ?, memo = ?, raw_text = ?, used_point = ?, original_amount = ?, currency = ?, exchange_rate = ? WHERE id = ?',
-        [txType, amount, merchant, category, finalPayMethod, txPayType, datetime, memo, raw_text, txUsedPoint, original_amount || null, currency || null, exchange_rate || null, id]
+        [txType, amount, merchant, finalCategory, finalPayMethod, txPayType, datetime, memo, raw_text, txUsedPoint, original_amount || null, currency || null, exchange_rate || null, id]
       );
 
       // 사용처별 카테고리 자동 학습/매핑 업데이트 (지출건만)
-      if (merchant && category && txType === 'EXPENSE') {
+      if (merchant && category && category !== '_AUTO_MAPPING_' && txType === 'EXPENSE') {
         await db.run('INSERT OR REPLACE INTO merchant_categories (merchant, category) VALUES (?, ?)', [merchant, category]);
       }
 
@@ -121,9 +133,15 @@ router.post('/transactions', async (req, res) => {
       updateHASensors(req.username);
     } else {
       // 신규 등록
+      // Apply wallet-as-merchant handling only to new manual entries, preserving existing edits.
+      // Related: parser/payment_resolver.js, routes/webhook.js.
+      const newPayment = normalizeNewWalletPayment(merchant, finalPayMethod, pay_method);
+      if (newPayment.wallet && (!newPayment.pay_method || ['카드', '_AUTO_MAPPING_'].includes(newPayment.pay_method))) {
+        return res.status(400).json({ error: '페이·머니 결제의 실제 은행 또는 카드사를 지정해 주세요.' });
+      }
       const result = await db.run(
         'INSERT INTO transactions (type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point, original_amount, currency, exchange_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [txType, amount, merchant, category, finalPayMethod, txPayType, datetime, memo, raw_text || '수동 입력', txUsedPoint, original_amount || null, currency || null, exchange_rate || null]
+        [txType, amount, newPayment.merchant, finalCategory, newPayment.pay_method, txPayType, datetime, memo, raw_text || '수동 입력', txUsedPoint, original_amount || null, currency || null, exchange_rate || null]
       );
 
       // 사용처별 카테고리 자동 학습/매핑 업데이트 (지출건만)
@@ -209,6 +227,7 @@ router.post('/pay_methods', async (req, res) => {
     const db = await getDB(req.username);
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: '결제수단명은 필수입니다.' });
+    if (/페이|머니/u.test(String(name))) return res.status(400).json({ error: '페이 결제수단은 등록하지 않습니다.' });
 
     await db.run('INSERT OR IGNORE INTO pay_methods (name) VALUES (?)', [name]);
     res.json({ success: true });

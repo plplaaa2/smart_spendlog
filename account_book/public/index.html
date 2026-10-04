@@ -602,6 +602,22 @@
                   </table>
                 </div>
               </div>
+              <!-- 체크카드 승인·은행 출금 중복 알림 우선순위 설정 카드 -->
+              <div class="card glass settings-form-card" style="margin-top: 1rem;">
+                <h3>체크카드 중복 알림 우선순위</h3>
+                <div class="info-box">
+                  <p>1분 이내 같은 금액의 체크카드 승인·연결 은행 출금 알림이 오면 선택한 앱의 정보를 사용합니다. 어느 쪽을 선택해도 은행계좌 출금과 소비는 한 번만 반영됩니다.</p>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+                  <label class="checkbox-container" style="display: inline-flex; width: auto; gap: 8px;">
+                    <input type="checkbox" id="check-priority-card" checked><span class="checkmark"></span>카드 앱 우선
+                  </label>
+                  <label class="checkbox-container" style="display: inline-flex; width: auto; gap: 8px;">
+                    <input type="checkbox" id="check-priority-bank"><span class="checkmark"></span>은행 앱 우선
+                  </label>
+                </div>
+                <p id="check-priority-status" role="status" aria-live="polite"></p>
+              </div>
             </div>
           </div>
         </div>
@@ -1799,6 +1815,10 @@
             <textarea id="test-text" rows="3" placeholder="[Web발신] KB국민체크 05/22 14:30 12,500원 이마트 승인"></textarea>
           </div>
           <input type="hidden" id="test-sequence" value="카드명/은행명, 시간, 금액, 사용처, 상태">
+          <div class="form-group">
+            <label for="test-package">알림 앱 패키지 (선택)</label>
+            <input id="test-package" placeholder="com.hanabank.oqf">
+          </div>
           <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 1rem;">
             <button type="button" class="btn btn-secondary btn-sm" id="btn-auto-generate-pattern"
               style="font-weight: 500; font-size: 0.8rem; display: flex; align-items: center; gap: 0.25rem;">
@@ -2143,18 +2163,19 @@
 
   <!-- JavaScript files -->
   <script src="./auth.js?v=2.7.39"></script>
-  <script src="./app.js?v=2.7.44"></script>
+  <script src="./app.js?v=2.7.51"></script>
   <script src="./notifications.js?v=2.3.3"></script>
   <script src="./dashboard.js?v=2.7.38"></script>
-  <script src="./transactions.js?v=2.7.44"></script>
+  <script src="./transactions.js?v=2.7.51"></script>
   <script src="./card_bank_view.js?v=2.3.3"></script>
+  <script src="./parser_policy.js"></script>
   <script src="./rules.js?v=2.7.44"></script>
   <script src="./analytics.js?v=2.7.36"></script>
   <script src="./analytics_general.js?v=2.7.36"></script>
   <script src="./analytics_fixed.js?v=2.7.36"></script>
   <script src="./analytics_income.js?v=2.7.36"></script>
   <script src="./ai_report.js?v=2.7.36"></script>
-  <script src="./settings.js?v=2.7.44"></script>
+  <script src="./settings.js?v=2.7.51"></script>
   <!-- 정규식 가이드 접기/펼치기 토글 스크립트 -->
   <script>
     function toggleRegexGuide(header) {

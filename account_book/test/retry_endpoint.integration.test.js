@@ -39,12 +39,14 @@ async function openEndpointDatabase() {
       category TEXT,
       pay_method TEXT,
       datetime TEXT,
+      pay_type TEXT,
       memo TEXT,
       raw_text TEXT,
       used_point INTEGER DEFAULT 0
     );
     CREATE TABLE package_pay_methods (package TEXT, pay_method TEXT);
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+    CREATE TABLE pay_methods (id INTEGER PRIMARY KEY, name TEXT UNIQUE);
   `);
   await db.run("INSERT INTO rules (id, name, pattern, priority) VALUES (3, 'endpoint rule', '^sample$', 10)");
   await db.run(`
@@ -148,7 +150,7 @@ test('retry endpoint reparses and atomically replaces an existing transaction', 
     assert.deepEqual(body.transaction, { merchant: 'After Store', amount: 2500 });
     assert.deepEqual(
       await db.get('SELECT merchant, amount, category, pay_method, used_point FROM transactions WHERE raw_text = ?', ['sample notification']),
-      { merchant: 'After Store', amount: 2500, category: 'Dining', pay_method: 'Test Card', used_point: 300 }
+      { merchant: 'After Store', amount: 2500, category: 'Ignored', pay_method: 'Test Card', used_point: 300 }
     );
     assert.deepEqual(
       await db.get('SELECT parsed_status, matched_rule_id FROM notification_logs WHERE id = 7'),

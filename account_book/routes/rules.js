@@ -16,6 +16,7 @@ const { getActiveRules } = require('../database/rule_metadata');
 const { replaceRetryTransaction } = require('../database/retry_transaction');
 const { removeUnusableAutoRule } = require('../database/auto_rule_cleanup');
 const { enrichParsedTransaction } = require('../services/transaction_enrichment');
+const { normalizeNewWalletPayment, resolveAutomaticAtmCategory, isBankCardSettlement } = require('../parser/payment_resolver');
 
 // SQLite UTC 날짜 문자열(YYYY-MM-DD HH:mm:ss)을 KST 로컬 시각 문자열로 변환하는 헬퍼 함수
 function convertUTCToKSTString(utcStr) {
@@ -216,6 +217,9 @@ router.post('/package_pay_methods', async (req, res) => {
     if (!pkgName || !pay_method) {
       return res.status(400).json({ error: '패키지명과 결제수단명은 필수 값입니다.' });
     }
+    if (/페이|머니/u.test(String(pay_method))) {
+      return res.status(400).json({ error: '페이 결제수단은 패키지 매핑에서 제외합니다.' });
+    }
 
     if (id) {
       await db.run(
@@ -262,7 +266,7 @@ router.get('/notification_logs', async (req, res) => {
 // 의존성: database.js의 findCategoryByMerchant를 활용하여 카테고리 자동 매핑 결과를 가상 도출합니다.
 router.post('/parse-test', async (req, res) => {
   try {
-    const { text, pattern, category, pay_method, pay_type, type, merchant_template } = req.body;
+    const { text, pattern, category, pay_method, pay_type, type, merchant_template, package: packageVal } = req.body;
     if (!text || !pattern) {
       return res.status(400).json({ error: '테스트 문자열과 정규식 패턴은 필수 값입니다.' });
     }
@@ -272,14 +276,33 @@ router.post('/parse-test', async (req, res) => {
 
     if (result) {
       const db = await getDB(req.username);
+      // Preview app provider priority and new-payment policy exactly as ingestion resolves it.
+      // Related: routes/webhook.js, public/rules.js, Android standalone_api.js.
+      let provider = result.pay_method;
+      if (packageVal) {
+        const mapped = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [packageVal]);
+        if (mapped && mapped.pay_method) provider = mapped.pay_method;
+      }
+      const wallet = normalizeNewWalletPayment(result.merchant, provider, result.pay_method);
+      if (wallet.wallet && (!wallet.pay_method || ['카드', '_AUTO_MAPPING_'].includes(wallet.pay_method))) return res.json({ success: false, message: '실제 은행 또는 카드사를 확인해 주세요.' });
+      result.merchant = wallet.merchant;
+      provider = wallet.pay_method === '_AUTO_MAPPING_' ? '카드' : wallet.pay_method;
+      if (result.payment_type === 'CHECK') provider = require('../parser/constants').CARD_TO_BANK_MAP[provider] || (provider.includes('카드') ? '계좌이체' : provider);
+      result.pay_method = provider;
       let finalCategory = result.category;
-      if (!finalCategory || finalCategory === '_AUTO_MAPPING_') {
+      // Match webhook precedence for generic categories and preserve specific rule choices.
+      // Related: routes/webhook.js, database/merchants.js.
+      if (!finalCategory || finalCategory === '_AUTO_MAPPING_' || finalCategory === '기타') {
         const matchedCategory = await findCategoryByMerchant(db, result.merchant);
         finalCategory = matchedCategory;
       }
       if (!finalCategory) {
-        finalCategory = '기타';
+        finalCategory = result.type === 'INCOME' ? '기타수입' : '기타';
       }
+      // Preview the same evidence-based ATM category that ingestion will save.
+      // Related: parser/payment_resolver.js, routes/webhook.js.
+      if (isBankCardSettlement(provider, result.merchant, text, result.type)) finalCategory = '이체/송금';
+      finalCategory = resolveAutomaticAtmCategory(finalCategory, text, result.type, result.merchant, provider);
       res.json({ success: true, result: { ...result, category: finalCategory } });
     } else {
       res.json({ success: false, message: '정규식 패턴이 문자열과 일치하지 않습니다.' });
@@ -421,9 +444,11 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
       parsedStatus = 'SUCCESS';
       matchedRuleId = result.rule_id || matchedRuleId;
 
-      const { finalPayMethod, finalCategory } = await enrichParsedTransaction({
+      const enriched = await enrichParsedTransaction({
         db, result, sender, rawText, mode: 'retry', findCategoryByMerchant
       });
+      if (enriched.error) return res.status(400).json({ error: enriched.error });
+      const { finalPayMethod, finalCategory } = enriched;
       if (finalCategory === '이체/입금' || finalCategory === '이체/송금') {
         console.log(`[로그재시도][${targetUser}] 통장 이동(자산 이동) 감지: 카테고리를 '${finalCategory}'으로 강제 변경하여 등록합니다.`);
       }
@@ -438,6 +463,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
           merchant: result.merchant,
           category: finalCategory,
           payMethod: finalPayMethod,
+          payType: result.payment_type,
           datetime: result.datetime,
           memo: result.memo,
           usedPoint: result.used_point
@@ -451,6 +477,7 @@ router.post('/notification_logs/:id/retry', async (req, res) => {
 
       return res.json({ success: true, message: '알림 재시도 및 가계부 등록 완료', transaction: { merchant: result.merchant, amount: result.amount } });
     } else {
+      await db.run('UPDATE notification_logs SET parsed_status = ?, matched_rule_id = ? WHERE id = ?', ['FAILED', null, logId]);
       return res.status(400).json({ error: '여전히 알림을 분석할 수 있는 매칭 규칙이 없습니다.' });
     }
   } catch (err) {

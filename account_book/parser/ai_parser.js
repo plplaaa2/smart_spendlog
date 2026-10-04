@@ -64,6 +64,7 @@ function normalizeJsonText(responseText) {
   }
   return text || null;
 }
+const { sanitizePattern } = require('./utils');
 
 async function parseNotificationWithAI(text, config, fallbackDatetime = null) {
   if (!text || !config) return null;
@@ -300,6 +301,7 @@ The RegExp pattern MUST extract the transaction components using the following s
 - Used Points (string, optional): Use \`(?<usedPoint>[\\\\d,]+)\` if applicable.
 - Payment Method (string, optional): Use \`(?<payMethod>[^\\\\s/]+)\` if applicable.
 - Payment Type (string, optional): Use \`(?<payType>[^\\\\s/]+)\` if applicable.
+- Transaction status/direction (optional): Capture the complete status with \`(?<status>입금|출금|승인취소)\`; do not infer direction from merchant names.
 
 CRITICAL INSTRUCTIONS FOR GENERALIZATION & ROBUSTNESS:
 1. DO NOT hardcode dynamic transaction values (like amount, merchant, date/time, remaining balance, cumulative spending, card numbers) in the pattern. You MUST replace them with their corresponding Named Capture Groups.
@@ -475,18 +477,12 @@ The JSON object MUST contain the following fields:
       paymentType = 'CREDIT';
     }
 
-    let pattern = result.pattern || null;
-    if (pattern) {
-      // ICU 정규식 에러(U_REGEX_INVALID_CAPTURE_GROUP_NAME) 방지:
-      // 명명된 캡처 그룹(?<group_name>)에서 언더바(_)를 모두 카멜케이스로 치환
-      pattern = pattern.replace(/\(\?<([a-zA-Z0-9_]+)>/g, (match, groupName) => {
-        if (groupName.includes('_')) {
-          const camelGroupName = groupName.replace(/_([a-z0-9])/gi, (m, letter) => letter.toUpperCase()).replace(/_/g, '');
-          return `(?<${camelGroupName}>`;
-        }
-        return match;
-      });
-    }
+    // Use the parser's capture naming contract and verify the generated rule against its source.
+    // Related: utils.js, text_parser.js, pattern_generator.js, transaction_classifier.js.
+    const pattern = sanitizePattern(result.pattern);
+    if (typeof pattern !== 'string' || !pattern) return null;
+    const generatedMatch = new RegExp(pattern, 's').exec(cleanText);
+    if (!generatedMatch || !generatedMatch.groups || !generatedMatch.groups.amount || !/\d/.test(generatedMatch.groups.amount)) return null;
 
     return {
       pattern: pattern,

@@ -687,6 +687,28 @@ async function applyFranchisePresets() {
 // 요약: 앱 패키지명(package)과 결제수단 간의 매핑 리스트를 백엔드로부터 가져와 셀렉트박스와 테이블 뷰에 렌더링합니다.
 // 의존성: public/index.html의 pkm-pay-method 셀렉트박스 및 package-paymethod-table-body 테이블과 연계됩니다.
 async function loadPackagePayMethods() {
+  // Load and save one exclusive preference. Related: routes/settings.js, index.html.
+  const cardChoice = document.getElementById('check-priority-card');
+  const bankChoice = document.getElementById('check-priority-bank');
+  const choiceStatus = document.getElementById('check-priority-status');
+  if (cardChoice && bankChoice) {
+    try {
+      const response = await fetch('api/settings');
+      if (!response.ok) throw new Error('설정을 불러오지 못했습니다.');
+      const saved = await response.json();
+      bankChoice.checked = saved.check_notification_priority === 'bank';
+      cardChoice.checked = !bankChoice.checked;
+      const savePriority = async (value) => {
+        try {
+          const result = await fetch('api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({check_notification_priority:value})});
+          if (!result.ok) throw new Error('설정을 저장하지 못했습니다.');
+          choiceStatus.textContent = '자동 저장되었습니다.';
+        } catch (err) { choiceStatus.textContent = err.message; }
+      };
+      cardChoice.onchange = () => { cardChoice.checked = true; bankChoice.checked = false; savePriority('card'); };
+      bankChoice.onchange = () => { bankChoice.checked = true; cardChoice.checked = false; savePriority('bank'); };
+    } catch (err) { choiceStatus.textContent = err.message; }
+  }
   try {
     // 1. 결제수단 셀렉트 옵션 채우기
     const pkmSel = document.getElementById('pkm-pay-method');
@@ -1096,4 +1118,3 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   }
 });
-

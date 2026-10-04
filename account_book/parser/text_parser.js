@@ -6,15 +6,31 @@ const { determineTransactionType } = require('./transaction_classifier');
 const { generatePatternFromText } = require('./pattern_generator');
 const { validateParsingResult } = require('./result_validator');
 
+// Suppress repeated syntax warnings per rule and pattern, without hiding later corrected versions.
+// Related: database/backup.js, parser/utils.js, routes/rules.js.
+const invalidPatternWarnings = new Set();
 function parseNotification(text, rules, fallbackDatetime = null) {
   if (!text) return null;
 
   const normalizedText = text.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').replace(/\r\n/g, '\n');
 
   for (const rule of rules) {
+    if (rule.enabled === 0 || rule.enabled === false || rule.enabled === '0') continue;
+    let regex;
     try {
+      if (typeof rule.pattern !== 'string' || !rule.pattern.trim()) throw new Error('empty pattern');
       const flags = supportsDFlag ? 'ds' : 's';
-      const regex = new RegExp(sanitizePattern(rule.pattern), flags);
+      regex = new RegExp(sanitizePattern(rule.pattern), flags);
+    } catch (_) {
+      const warningKey = `${rule.id}:${rule.pattern}`;
+      if (!invalidPatternWarnings.has(warningKey)) {
+        if (invalidPatternWarnings.size >= 100) invalidPatternWarnings.clear();
+        invalidPatternWarnings.add(warningKey);
+        console.warn(`[WARN] 정규식 오류로 규칙 ID ${rule.id}를 건너뜁니다.`);
+      }
+      continue;
+    }
+    try {
       const match = regex.exec(normalizedText);
 
       if (match) {
@@ -111,11 +127,10 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         // 결제 방식 결정 (정규식 그룹 매칭이 우선, 다음으로 규칙에 지정된 pay_type, 없거나 UNKNOWN 이면 텍스트로부터 판별)
         let paymentType = groups.payType || groups.pay_type || rule.pay_type;
 
-        // 하위 호환성 보정: 만약 payMethod에 결제방식 관련 단어가 잘못 캡처된 경우 보정
+        // A captured card type is stronger evidence than an installment detail or rule default.
+        // Related: pattern_generator.js, payment_resolver.js, database/check_notification.js.
         if (/^(신용|체크|이체|송금|현금)$/.test(payMethod)) {
-          if (!paymentType || paymentType === 'UNKNOWN') {
-            paymentType = payMethod;
-          }
+          paymentType = payMethod;
           payMethod = rule.pay_method || '카드';
         }
 
@@ -128,12 +143,17 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         }
         if (!paymentType || paymentType === 'UNKNOWN') {
           paymentType = parsePaymentType(normalizedText, payMethod);
+          // Bank deposit/withdrawal signals identify transfers without assuming a card type.
+          // Related: payment_resolver.js, test/payment_required.test.js.
+          if (paymentType === 'UNKNOWN' && !/카드/.test(payMethod) && /은행|뱅크|농협|우체국|새마을|신협|수협/.test(payMethod) && /입금|출금/.test(normalizedText)) paymentType = 'TRANSFER';
           if (paymentType === 'BANK_TRANSFER') {
             paymentType = 'TRANSFER';
           }
         }
-        if (!paymentType || paymentType === 'UNKNOWN') {
-          paymentType = 'CREDIT'; // 기본값
+        // Reject unresolved automatic payment types; webhook/retry retain failed logs.
+        // Related: routes/webhook.js, routes/rules.js, parser/payment_resolver.js.
+        if (!['CREDIT', 'CHECK', 'TRANSFER'].includes(paymentType)) {
+          continue;
         }
 
         let category = rule.category || '기타';

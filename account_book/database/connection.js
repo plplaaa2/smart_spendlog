@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const cryptoHelper = require('../crypto_helper');
+const { reconcilePayMethods } = require('../parser/payment_resolver');
 
 let FRANCHISE_PRESETS = [];
 try {
@@ -359,7 +360,6 @@ async function migrateCategoriesAndData(dbInstance, username) {
     const payMethodsCount = await dbInstance.get('SELECT COUNT(*) as count FROM pay_methods');
     if (payMethodsCount.count === 0) {
       const defaultPackageMappings = [
-        { package: 'viva.republica.toss', pay_method: '토스' },
         { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
         { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
         { package: 'com.hanabank.oqf', pay_method: '하나은행' },
@@ -630,6 +630,9 @@ async function migrateCategoriesAndData(dbInstance, username) {
   }
 
   await seedDefaultData(dbInstance, username);
+  // Restore missing historical providers after seeding; wallets remain deliberately excluded.
+  // Related: parser/payment_resolver.js, database/backup.js, routes/analytics.js.
+  await reconcilePayMethods(dbInstance);
 }
 
 async function seedDefaultData(dbInstance, username = 'admin') {
@@ -781,6 +784,11 @@ async function seedDefaultData(dbInstance, username = 'admin') {
         );
       }
     }
+
+    // Remove wallet/payment-app entries from the managed payment-method registry.
+    // Historical transactions remain unchanged; future automatic mapping falls back to the rule/text source.
+    await dbInstance.run("DELETE FROM package_pay_methods WHERE pay_method LIKE '%페이%' OR pay_method LIKE '%머니%'");
+    await dbInstance.run("DELETE FROM pay_methods WHERE name LIKE '%페이%' OR name LIKE '%머니%'");
 
     if (username === 'admin') {
       const defaultPassRules = defaults.pass_rules || [

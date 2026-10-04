@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { getDB, getActiveUsers } = require('./connection');
 const { createInAppNotification } = require('./notifications');
+const { consumptionCondition } = require('./expense_filter');
 
 const notifiedStates = {}; // (username_YYYY-MM_type -> boolean)
 
@@ -64,7 +65,7 @@ async function updateHASensors(targetUser) {
     const summaryRow = await db.get(
       "SELECT " +
       "SUM(CASE WHEN type = 'INCOME' AND category != '이체/입금' THEN amount ELSE 0 END) as income, " +
-      "SUM(CASE WHEN type = 'EXPENSE' AND category != '이체/송금' THEN amount ELSE 0 END) as expense " +
+      `SUM(CASE WHEN type = 'EXPENSE' AND ${consumptionCondition()} THEN amount ELSE 0 END) as expense ` +
       "FROM transactions WHERE datetime LIKE ?",
       [`${currentMonth}%`]
     );
@@ -197,7 +198,7 @@ async function updateHASensors(targetUser) {
             // 의존성: routes/analytics.js, android_spendlog/.../AnalyticsApiHandler.kt
             const customRow = await db.get(
               "SELECT SUM(amount + COALESCE(used_point, 0)) as expense FROM transactions " +
-              "WHERE pay_method = ? AND type = 'EXPENSE' AND category != '이체/송금' " +
+              `WHERE pay_method = ? AND type = 'EXPENSE' AND ${consumptionCondition()} ` +
               "AND datetime >= ? AND datetime <= ?",
               [cardName, startStr, endStr]
             );
@@ -207,7 +208,7 @@ async function updateHASensors(targetUser) {
             // 의존성: routes/analytics.js, android_spendlog/.../AnalyticsApiHandler.kt
             const calendarRow = await db.get(
               "SELECT SUM(amount + COALESCE(used_point, 0)) as expense FROM transactions " +
-              "WHERE pay_method = ? AND type = 'EXPENSE' AND category != '이체/송금' " +
+              `WHERE pay_method = ? AND type = 'EXPENSE' AND ${consumptionCondition()} ` +
               "AND datetime LIKE ?",
               [cardName, `${currentMonth}%`]
             );

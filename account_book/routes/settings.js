@@ -155,6 +155,14 @@ router.post('/settings', async (req, res) => {
       theme, default_usd_exchange_rate, primary_income_type
     } = req.body;
 
+    // Validate the mutually exclusive preference before any settings writes.
+    // Related: public/settings.js, database/check_notification.js.
+    if (req.body.check_notification_priority !== undefined) {
+      const preference = req.body.check_notification_priority;
+      if (!['card', 'bank'].includes(preference)) return res.status(400).json({error:'카드 앱 또는 은행 앱을 선택해 주세요.'});
+      await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('check_notification_priority', ?)", [preference]);
+    }
+
     if (ws_sensor_entity !== undefined) {
       await db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('ws_sensor_entity', ?)", [ws_sensor_entity]);
     }

@@ -6,6 +6,7 @@ const { enrichParsedTransaction } = require('../services/transaction_enrichment'
 
 function fakeDb({ mappedPayMethod = null, realName = '' } = {}) {
   return {
+    run: async () => ({}),
     get: async (sql) => {
       if (sql.includes('package_pay_methods')) return mappedPayMethod ? { pay_method: mappedPayMethod } : undefined;
       if (sql.includes('user_real_name')) return realName ? { value: realName } : undefined;
@@ -19,10 +20,10 @@ const noCategory = async () => null;
 test('applies package mapping and Webhook check-card conversion', async () => {
   const result = await enrichParsedTransaction({
     db: fakeDb({ mappedPayMethod: '신한카드' }),
-    result: { type: 'EXPENSE', merchant: '상점', category: '식비', pay_method: '기존카드' },
+    result: { type: 'EXPENSE', merchant: '상점', category: '식비', pay_method: '기존카드', payment_type: 'CHECK' },
     sender: 'card.package', rawText: '체크 승인', mode: 'webhook', findCategoryByMerchant: noCategory
   });
-  assert.deepEqual(result, { finalPayMethod: '신한은행', finalCategory: '식비' });
+  assert.deepEqual(result, { finalPayMethod: '신한은행', finalCategory: '식비', sourceProvider: '신한카드' });
 });
 
 test('preserves retry merchant mapping and pay-charge fallback policy', async () => {
@@ -36,7 +37,7 @@ test('preserves retry merchant mapping and pay-charge fallback policy', async ()
     result: { type: 'EXPENSE', merchant: '네이버페이 충전', category: null, pay_method: '카드' },
     sender: '', rawText: '', mode: 'retry', findCategoryByMerchant: noCategory
   });
-  assert.equal(mapped.finalCategory, '학습카테고리');
+  assert.equal(mapped.finalCategory, '규칙카테고리');
   assert.equal(fallback.finalCategory, '페이류');
 });
 

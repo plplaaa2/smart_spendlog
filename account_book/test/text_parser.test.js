@@ -11,7 +11,8 @@ function createRule(pattern) {
     pattern,
     type: 'EXPENSE',
     category: '기타',
-    pay_method: '카드'
+    pay_method: '카드',
+    pay_type: 'CREDIT'
   };
 }
 

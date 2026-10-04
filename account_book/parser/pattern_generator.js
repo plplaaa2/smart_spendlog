@@ -11,11 +11,14 @@ function generatePatternFromText(text) {
     return blocks.some(b => Math.max(start, b.start) < Math.min(end, b.end));
   };
 
-  const cardMatch = cleanText.match(/\[(.*?)\]/) || cleanText.match(/(NH농협|신한카드|삼성카드|현대카드|롯데카드|우리카드|하나카드|국민카드|농협카드|비씨카드|BC카드|카카오뱅크|토스뱅크|케이뱅크|신한은행|국민은행|우리은행|하나은행|농협은행|기업은행|IBK|우체국|새마을금고|새마을|신협|수협은행|수협|씨티은행|씨티|SC제일은행|SC제일|산업은행|저축은행|광주은행|제주은행|전북은행|대구은행|부산은행|경남은행|증권|카카오페이|네이버페이)/);
+  // Payment provider candidates are registered cards/banks only; app-pay labels are not providers.
+  const cardMatch = cleanText.match(/\[(.*?)\]/) || cleanText.match(/(NH농협|신한카드|삼성카드|현대카드|롯데카드|우리카드|하나카드|국민카드|농협카드|비씨카드|BC카드|카카오뱅크|토스뱅크|케이뱅크|신한은행|국민은행|우리은행|하나은행|농협은행|기업은행|IBK|우체국|새마을금고|새마을|신협|수협은행|수협|씨티은행|씨티|SC제일은행|SC제일|산업은행|저축은행|광주은행|제주은행|전북은행|대구은행|부산은행|경남은행|증권)/);
   if (cardMatch) {
     const value = cardMatch[1] || cardMatch[0];
     const isBracket = cardMatch[0].startsWith('[');
-    const isDepositOrWithdraw = isBracket && ((value.length <= 5 && /출금|입금/.test(value)) || /\d/.test(value));
+    // Bracketed status, payment types and merchant labels must not become providers.
+    // Related: text_parser.js, database/check_notification.js.
+    const isDepositOrWithdraw = isBracket && !/카드|은행|뱅크|농협|우체국|새마을|신협|수협|증권/.test(value);
     
     if (!isDepositOrWithdraw) {
       const start = cardMatch.index;
@@ -90,13 +93,19 @@ function generatePatternFromText(text) {
     }
   }
 
+  // Exclude labeled balances and cumulative totals before choosing transaction amounts.
+  // Related: text_parser.js, routes/rules.js, test/capture_direction.test.js.
+  const summaryAmounts = [...cleanText.matchAll(/(?:잔액|잔고|누적(?:\s*(?:이용|사용|결제))?(?:\s*금액)?)\s*[:：]?\s*(?:USD\s*|\$\s*)?[\d,]+(?:\.\d+)?\s*(?:원|USD|\$)?/gi)]
+    .map(match => ({ start: match.index, end: match.index + match[0].length }));
+  const isSummaryAmount = (start, end) => summaryAmounts.some(range => Math.max(start, range.start) < Math.min(end, range.end));
+
   const amountWithUSDRegex = /(?:USD\s*|\$\s*)([\d,]+(?:\.\d+)?)|([\d,]+(?:\.\d+)?)\s*(?:USD|\$)/gi;
   let usdm;
   let amountDetected = false;
   while ((usdm = amountWithUSDRegex.exec(cleanText)) !== null) {
     const idx = usdm.index;
     const len = usdm[0].length;
-    if (!isOverlapping(idx, idx + len)) {
+    if (!isOverlapping(idx, idx + len) && !isSummaryAmount(idx, idx + len)) {
       let regexStr;
       if (usdm[0].toUpperCase().startsWith('USD')) {
         regexStr = 'USD\\s*(?<amount>[\\d,]+(?:\\.\\d+)?)';
@@ -125,8 +134,10 @@ function generatePatternFromText(text) {
     while ((m = amountWithWonRegex.exec(cleanText)) !== null) {
       const idx = m.index;
       const len = m[0].length;
-      if (!isOverlapping(idx, idx + len)) {
-        let regexStr = '(?<amount>[\\d,]+)원';
+      if (!isOverlapping(idx, idx + len) && !isSummaryAmount(idx, idx + len)) {
+        // Match the same optional currency whitespace accepted during amount detection.
+        // Related: text_parser.js, routes/rules.js, test/capture_direction.test.js.
+        let regexStr = '(?<amount>[\\d,]+)\\s*원';
         blocks.push({
           type: '금액',
           start: idx,
@@ -146,19 +157,16 @@ function generatePatternFromText(text) {
     while ((nm = nakedAmountRegex.exec(cleanText)) !== null) {
       const idx = nm.index;
       const len = nm[0].length;
-      if (!isOverlapping(idx, idx + len)) {
-        const prefix = cleanText.substring(Math.max(0, idx - 10), idx);
-        if (!/잔액|잔고/.test(prefix)) {
-          blocks.push({
+      if (!isOverlapping(idx, idx + len) && !isSummaryAmount(idx, idx + len)) {
+        blocks.push({
             type: '금액',
             start: idx,
             end: idx + len,
             regex: '(?<amount>[\\d,]+)',
             value: nm[0]
           });
-          amountDetected = true;
-          break;
-        }
+        amountDetected = true;
+        break;
       }
     }
   }
@@ -169,7 +177,7 @@ function generatePatternFromText(text) {
     const end = balanceMatch.index + balanceMatch[0].length;
     if (!isOverlapping(start, end)) {
       const regex = balanceMatch[0].includes('원') 
-                    ? '(?:잔액|잔고)\\s*:?\\s*(?<balance>[\\d,]+)원' 
+                    ? '(?:잔액|잔고)\\s*:?\\s*(?<balance>[\\d,]+)\\s*원'
                     : '(?:잔액|잔고)\\s*:?\\s*(?<balance>[\\d,]+)';
       blocks.push({
         type: '잔액',
@@ -187,7 +195,7 @@ function generatePatternFromText(text) {
     const end = cumulativeMatch.index + cumulativeMatch[0].length;
     if (!isOverlapping(start, end)) {
       const regex = cumulativeMatch[0].includes('원') 
-                    ? '누적(?:.*?금액)?\\s*:?\\s*(?<cumulative>[\\d,]+)원' 
+                    ? '누적(?:.*?금액)?\\s*:?\\s*(?<cumulative>[\\d,]+)\\s*원'
                     : '누적(?:.*?금액)?\\s*:?\\s*(?<cumulative>[\\d,]+)';
       blocks.push({
         type: '누적금액',
@@ -216,7 +224,9 @@ function generatePatternFromText(text) {
     }
   }
 
-  const statusRegex = /(승인|사용|취소|출금|입금|결제)/g;
+  // Capture actual direction, including cancellation as a single status.
+  // Related: transaction_classifier.js, text_parser.js, ai_parser.js.
+  const statusRegex = /(입금\s*취소|승인\s*취소|결제\s*취소|승인|사용|취소|출금|입금|결제|환불|환급)/g;
   let sm;
   while ((sm = statusRegex.exec(cleanText)) !== null) {
     const idx = sm.index;
@@ -226,13 +236,13 @@ function generatePatternFromText(text) {
         type: '상태',
         start: idx,
         end: idx + len,
-        regex: escapeRegexChars(sm[0]),
+        regex: `(?<status>${escapeRegexChars(sm[0])})`,
         value: sm[0]
       });
     }
   }
 
-  const payMethodMatch = cleanText.match(/(?:신용|체크)(?:\(일시불,[\d*]+\))?/) || cleanText.match(/(?:신용|체크|일시불|\d+개월\s*할부)/);
+  const payMethodMatch = cleanText.match(/(?:신용|체크)(?:\(일시불,[\d*]+\))?/) || cleanText.match(/(?:신용|체크|이체|송금|일시불|\d+개월\s*할부)/);
   if (payMethodMatch) {
     const idx = payMethodMatch.index;
     const len = payMethodMatch[0].length;
@@ -294,7 +304,7 @@ function generatePatternFromText(text) {
 
   const gaps = [];
   if (blocks.length === 0) {
-    return '\\s*(?<merchant>.+?)(?:\\s+[\\d,]+)?\\s*';
+    return null;
   }
 
   gaps.push({ start: 0, end: blocks[0].start, index: 0 });
@@ -466,6 +476,14 @@ function generatePatternFromText(text) {
     finalRegex += formatGapToRegex(suffixGap) + '$';
   }
 
+  // Reject unusable rules before they can be saved or used for automatic parsing.
+  // Related: text_parser.js, routes/rules.js, routes/webhook.js.
+  try {
+    const match = new RegExp(finalRegex, 's').exec(cleanText);
+    if (!match || !match.groups || !match.groups.amount || !/\d/.test(match.groups.amount)) return null;
+  } catch (_) {
+    return null;
+  }
   return finalRegex;
 }
 
