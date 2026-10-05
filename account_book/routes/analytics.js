@@ -10,6 +10,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../database');
 const { consumptionCondition } = require('../database/expense_filter');
+const { balanceAnchor } = require('../public/bank_balance');
 const { generateConsumptionReportWithAI } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
 
@@ -129,7 +130,9 @@ router.get('/stats', async (req, res) => {
 
     // Calculate bank assets from cash movements and count paired card/bank settlement notices once.
     // Related files: public/dashboard.js, public/card_bank_view.js, android_spendlog/app/src/main/assets/standalone_api.js.
-    const assetMethod = row => (row.pay_type === 'CHECK' || row.pay_type === 'TRANSFER') && cardToBankMap[row.pay_method] ? cardToBankMap[row.pay_method] : row.pay_method;
+    // Merge bank aliases for calculations only; related: standalone_api.js, dashboard.js.
+    const canonicalBank = name => ({ 'KB국민은행': '국민은행', 'NH농협은행': '농협은행' }[name] || name);
+    const assetMethod = row => canonicalBank((row.pay_type === 'CHECK' || row.pay_type === 'TRANSFER') && cardToBankMap[row.pay_method] ? cardToBankMap[row.pay_method] : row.pay_method);
     const bankCashRows = (name, rows) => {
       const duplicateIds = new Set();
       const bankDebits = rows.filter(row => row.type === 'EXPENSE' && row.pay_method === name).sort((a, b) => Number(/잔액\s*[:：]/u.test(String(b.memo || ''))) - Number(/잔액\s*[:：]/u.test(String(a.memo || ''))));
@@ -147,20 +150,11 @@ router.get('/stats', async (req, res) => {
       return rows.filter(row => !duplicateIds.has(row.id));
     };
     const bankCashDelta = row => row.type === 'INCOME' ? Number(row.amount || 0) : row.type === 'EXPENSE' ? -Math.max(0, Number(row.amount || 0) - Number(row.used_point || 0)) : 0;
-    const bankBalanceAnchor = (name, rows) => {
-      const anchors = rows.filter(row => row.pay_method === name).map(row => {
-        const memo = String(row.memo || '');
-        const balance = memo.match(/잔액\s*[:：]\s*([\d,]+)/u);
-        const account = memo.match(/계좌\s*[:：]\s*([^\s|]+)/u);
-        return balance ? { row, account: account ? account[1] : '', balance: Number(balance[1].replace(/,/g, '')) } : null;
-      }).filter(Boolean);
-      if (new Set(anchors.map(anchor => anchor.account).filter(Boolean)).size > 1) return null;
-      return anchors.sort((a, b) => String(b.row.datetime || '').localeCompare(String(a.row.datetime || '')) || Number(b.row.id || 0) - Number(a.row.id || 0))[0] || null;
-    };
 
     const allTimeRows = await db.all(
       "SELECT id, datetime, merchant, category, memo, pay_method, pay_type, type, amount, COALESCE(used_point, 0) as used_point FROM transactions"
     );
+    allTimeRows.forEach(row => { row.pay_method = canonicalBank(row.pay_method); });
     const allTimeMap = {};
     allTimeRows.forEach(r => {
       let targetMethod = r.pay_method || '기타';
@@ -244,8 +238,11 @@ router.get('/stats', async (req, res) => {
     }
 
     const assets = [];
+    const seenAssets = new Set();
     for (const m of payMethods) {
-      const name = m.name;
+      const name = canonicalBank(m.name);
+      if (seenAssets.has(name)) continue;
+      seenAssets.add(name);
       
       // 제외할 일반 명칭 및 범주명
       if (name === '계좌이체' || name === '신용카드' || name === '체크카드') {
@@ -261,7 +258,8 @@ router.get('/stats', async (req, res) => {
         continue;
       }
 
-      const initBal = parseInt(initialBalances[name] || 0, 10);
+      const aliasBalance = Object.keys(initialBalances).find(key => canonicalBank(key) === name);
+      const initBal = parseInt(initialBalances[name] ?? initialBalances[aliasBalance] ?? 0, 10);
       const initPt = parseInt(initialPoints[name] || 0, 10);
       const allTime = allTimeMap[name] || { totalIncome: 0, totalExpense: 0, totalUsedPoint: 0 };
       let mTime = monthMap[name] || { monthIncome: 0, monthExpense: 0 };
@@ -274,9 +272,12 @@ router.get('/stats', async (req, res) => {
       // 포인트 차감이 설정된 경우의 지출 보정 및 잔액/포인트 계산 (실제 사용 포인트 totalUsedPt 차감 적용)
       const adjustedExpense = Math.max(0, allTime.totalExpense - totalUsedPt);
       let currentBalance = initBal + allTime.totalIncome - adjustedExpense;
+      let balanceEstimated = false;
       if (!isCard) {
         const cashRows = bankCashRows(name, allTimeRows.filter(row => assetMethod(row) === name));
-        const anchor = bankBalanceAnchor(name, cashRows);
+        const balanceState = balanceAnchor(name, cashRows);
+        const anchor = balanceState.anchor;
+        balanceEstimated = balanceState.estimated;
         const afterAnchor = anchor ? cashRows.filter(row => String(row.datetime || '') > String(anchor.row.datetime || '') || row.datetime === anchor.row.datetime && Number(row.id || 0) > Number(anchor.row.id || 0)) : cashRows;
         currentBalance = (anchor ? anchor.balance : initBal) + afterAnchor.reduce((sum, row) => sum + bankCashDelta(row), 0);
         const cashMonthRows = cashRows.filter(row => String(row.datetime || '').startsWith(month));
@@ -292,6 +293,7 @@ router.get('/stats', async (req, res) => {
         isCard,
         initialBalance: initBal,
         currentBalance,
+        balanceEstimated,
         monthIncome: mTime.monthIncome,
         monthExpense: mTime.monthExpense,
         initialPoint: effectivePoint, // UI에는 실질 한도(effectivePoint)를 노출

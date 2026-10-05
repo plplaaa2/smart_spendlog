@@ -224,7 +224,7 @@ async function loadBankTransactions() {
       ) {
         return false;
       }
-      return true;
+      return /은행|뱅크|농협|우체국|새마을금고|신협|수협/.test(name);
     });
 
     const bankSelect = document.getElementById('bank-select-filter');
@@ -302,7 +302,7 @@ async function loadBankTransactions() {
           </div>
           <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
             <div>
-              <span style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">현재 잔액</span>
+              <span style="font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">현재 잔액${selectedBank.balanceEstimated ? ' (추정)' : ''}</span>
               <span style="font-size: 1.25rem; font-weight: 800; color: ${balanceColor};">${formatCurrency(selectedBank.currentBalance)}</span>
             </div>
             <div style="display: flex; gap: 1.5rem; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 1.5rem;">
@@ -326,7 +326,16 @@ async function loadBankTransactions() {
     if (typeFilter) {
       url += `&type=${typeFilter}`;
     }
+    // Include historical bank aliases in the unified detail view; related: analytics.js.
+    const aliases = { '국민은행': 'KB국민은행', '농협은행': 'NH농협은행' };
     const data = await fetch(url).then(r => r.json());
+    if (aliases[selectedBankName]) {
+      const aliasUrl = url.replace(`pay_method=${encodeURIComponent(selectedBankName)}`, `pay_method=${encodeURIComponent(aliases[selectedBankName])}`);
+      const aliasRows = await fetch(aliasUrl).then(r => r.json());
+      const ids = new Set(data.map(row => row.id));
+      data.push(...aliasRows.filter(row => !ids.has(row.id)));
+      data.sort((a, b) => String(b.datetime || '').localeCompare(String(a.datetime || '')) || Number(b.id) - Number(a.id));
+    }
 
     const tbody = document.getElementById('bank-transaction-table-body');
     const footer = document.getElementById('bank-transaction-table-footer');

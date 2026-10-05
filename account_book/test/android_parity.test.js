@@ -14,9 +14,21 @@ function app(seed = {}) {
   const storage = new Map(Object.entries(seed).map(([key, value]) => ['standalone_' + key, JSON.stringify(value)]));
   const context = { window: { fetch: async () => { throw Error('unexpected network'); } }, localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) }, Response, URL, console, location: { href: 'https://local.test/' } };
   vm.createContext(context);
-  for (const file of ['parser_policy.js', 'auto_rule_policy.js', 'standalone_api.js']) vm.runInContext(fs.readFileSync(path.join(assets, file), 'utf8'), context);
+  for (const file of ['parser_policy.js', 'auto_rule_policy.js', 'bank_balance.js', 'standalone_api.js']) vm.runInContext(fs.readFileSync(path.join(assets, file), 'utf8'), context);
   return { request: async (url, payload) => { const response = await context.window.fetch('api/' + url, payload ? { method: 'POST', body: JSON.stringify(payload) } : {}); return { status: response.status, data: await response.json() }; }, storage, parser: context.window.SpendLogParser, context };
 }
+androidTest('Android bank aliases share the latest account balance without rewriting storage', async () => {
+  const transactions = [
+    { id: 1, datetime: '2026-05-24 11:05:00', pay_method: 'KB국민은행', type: 'EXPENSE', amount: 100, memo: '계좌: TEST 잔액: 1000' },
+    { id: 2, datetime: '2026-10-05 21:19:00', pay_method: '국민은행', type: 'INCOME', amount: 500, memo: '계좌: TEST 잔액: 1500' }
+  ];
+  const local = app({ transactions, pay_methods: [{ name: 'KB국민은행' }, { name: '국민은행' }], settings: { initial_balances: { 국민은행: 900 } } });
+  const stats = (await local.request('stats?month=2026-10')).data;
+  assert.equal(stats.assets.length, 1);
+  assert.equal(stats.assets[0].currentBalance, 1500);
+  assert.equal(stats.assets[0].monthIncome, 500);
+  assert.deepEqual(JSON.parse(local.storage.get('standalone_transactions')), transactions);
+});
 androidTest('Android preview uses captures, app provider, direction and points', async () => {
   const local = app({ package_pay_methods: [{ package: 'bank.app', pay_method: '하나은행' }] });
   const result = await local.request('parse-test', { text: '입금 108원 하나체크환급 50점', pattern: '(?<type_text>입금) (?<amount>\\d+)원 (?<merchant>\\S+) (?<used_point>\\d+)점', pay_method: '_AUTO_MAPPING_', pay_type: 'TRANSFER', package: 'bank.app' });
