@@ -15,10 +15,9 @@
   "panel_icon": "mdi:book-open-variant",
   "panel_title": "Smart Spendlog",
   "map": [
-    "data:rw",
-    "share:rw",
-    "backup:rw",
-    "media:rw"
+    { "type": "share", "read_only": false },
+    { "type": "backup", "read_only": false },
+    { "type": "media", "read_only": false }
   ],
   "ports": {
     "8124/tcp": 8124
@@ -26,8 +25,6 @@
   "ports_description": {
     "8124/tcp": "Web dashboard and webhook API (not required for Ingress)"
   },
-  "startup": "application",
-  "boot": "auto",
   "options": {
     "token": "accountbook_secret_token",
     "webhook_token": "",
