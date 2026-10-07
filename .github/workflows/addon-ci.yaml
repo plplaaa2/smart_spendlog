@@ -1,0 +1,80 @@
+# Validate repository metadata, runtime tests and images; related: account_book/, repository.yaml.
+name: Add-on CI
+on:
+  push:
+    branches: [dev, main, web]
+    paths: ['account_book/**', 'repository.yaml', '.github/workflows/addon-ci.yaml']
+  pull_request:
+    paths: ['account_book/**', 'repository.yaml', '.github/workflows/addon-ci.yaml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: addon-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: account_book/package-lock.json
+      - name: Validate Home Assistant configuration
+        uses: frenck/action-addon-linter@v2.21
+        with:
+          path: ./account_book
+      - name: Install locked dependencies
+        run: npm ci
+        working-directory: account_book
+      - name: Check JavaScript and shell syntax
+        run: |
+          find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
+          sh -n run.sh
+        working-directory: account_book
+      - name: Run regression tests
+        run: npm test
+        working-directory: account_book
+      - name: Check whitespace
+        run: git diff --check
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+          - arch: aarch64
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read app version
+        id: metadata
+        run: echo "version=$(jq -r .version account_book/config.json)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image without publishing
+        uses: docker/build-push-action@v6
+        with:
+          context: ./account_book
+          platforms: ${{ matrix.platform }}
+          push: false
+          load: true
+          tags: smart-spendlog:ci
+          build-args: |
+            BUILD_ARCH=${{ matrix.arch }}
+            BUILD_VERSION=${{ steps.metadata.outputs.version }}
+      - name: Verify native SQLite module and startup script
+        run: |
+          docker run --rm --platform '${{ matrix.platform }}' --entrypoint node smart-spendlog:ci -e "const sqlite3 = require('sqlite3'); const db = new sqlite3.Database(':memory:'); db.get('SELECT 1 AS ok', (error, row) => { if (error || row.ok !== 1) process.exitCode = 1; db.close(); });"
+          docker run --rm --platform '${{ matrix.platform }}' --entrypoint sh smart-spendlog:ci -n /app/run.sh

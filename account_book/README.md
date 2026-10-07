@@ -1,5 +1,10 @@
 # Smart Spendlog (HA Add-on)
 
+지원 아키텍처: `amd64`, `aarch64`. 자세한 구성·데이터 보관 안내는 [DOCS.md](DOCS.md)를 참고하세요.
+
+GitHub Actions의 **Add-on CI**는 `dev`, `main`, `web` push와 PR에서 설정 검사, 회귀 테스트,
+두 아키텍처의 이미지 빌드 및 SQLite 모듈 로딩을 검증합니다. 이미지 레지스트리에 배포하지 않습니다.
+
 [![Home Assistant Add-on](https://img.shields.io/badge/Home%20Assistant-Add--on-blue?style=flat-square&logo=home-assistant)](https://github.com/plplaaa2/smart_spendlog)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/plplaaa2)

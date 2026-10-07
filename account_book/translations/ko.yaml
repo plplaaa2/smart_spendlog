@@ -1,0 +1,18 @@
+# Explain Supervisor options; related: ../config.json, ../DOCS.md.
+configuration:
+  token:
+    name: 서비스 인증값
+    description: 서비스 인증과 암호화에 사용합니다. 기존 데이터 사용 중에는 임의로 변경하지 마세요.
+  webhook_token:
+    name: 웹훅 인증값
+    description: 웹훅 요청 인증에 사용하는 값입니다.
+  users:
+    name: 로그인 사용자
+    description: 웹 대시보드에 로그인할 사용자 계정 목록입니다.
+    fields:
+      username:
+        name: 사용자 이름
+      password:
+        name: 비밀번호
+network:
+  8124/tcp: 웹 대시보드 및 웹훅 API (Ingress 접속에는 불필요)
