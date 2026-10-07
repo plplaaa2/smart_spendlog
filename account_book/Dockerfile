@@ -1,7 +1,7 @@
 # Build the HA app with reproducible dependencies; related: config.json, package-lock.json, run.sh.
 FROM node:24.21.0-alpine3.23
 
-ARG BUILD_VERSION=2.5.2
+ARG BUILD_VERSION=2.5.1
 ARG BUILD_ARCH
 LABEL io.hass.name="Smart Spendlog" \
       io.hass.description="Home Assistant notification-based account book" \
