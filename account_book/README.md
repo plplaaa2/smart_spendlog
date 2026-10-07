@@ -1,5 +1,10 @@
 # Smart Spendlog (HA Add-on)
 
+지원 아키텍처: `amd64`, `aarch64`. 자세한 구성·데이터 보관 안내는 [DOCS.md](DOCS.md)를 참고하세요.
+
+GitHub Actions의 **Add-on CI**는 `dev`, `main`, `web` push와 PR에서 설정 검사, 회귀 테스트,
+두 아키텍처의 이미지 빌드 및 SQLite 모듈 로딩을 검증합니다. 이미지 레지스트리에 배포하지 않습니다.
+
 [![Home Assistant Add-on](https://img.shields.io/badge/Home%20Assistant-Add--on-blue?style=flat-square&logo=home-assistant)](https://github.com/plplaaa2/smart_spendlog)
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC_BY--NC--SA_4.0-lightgrey?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/plplaaa2)
@@ -65,6 +70,9 @@ action:
   - service: http.post
     data:
       url: http://account_book:8124/api/webhook
+      headers:
+        Authorization: "구성에서 설정한 webhook_token"
+        X-Webhook-Event-Id: "{{ trigger.to_state.context.id }}"
       json:
         title: "{{ trigger.to_state.attributes.android.title }}"
         text: "{{ trigger.to_state.attributes.android.text }}"
@@ -157,4 +165,3 @@ SQLite 데이터베이스 파일에 생성되는 핵심 테이블 명세입니�
   <br/>
   <sub>여러분의 소중한 후원이 안정적인 메인터넌스와 신기능 업데이트의 든든한 원동력이 됩니다. 🙏</sub>
 </p>
-

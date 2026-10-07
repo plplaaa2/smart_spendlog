@@ -532,6 +532,45 @@ function openAssetModal(mode, data = {}) {
 // 사용처별 카테고리 매핑 목록 로드 및 렌더링
 // 요약: merchant_categories 테이블의 전체 목록을 불러와 테이블과 프리셋 뱃지를 업데이트합니다.
 // 의존성: index.js의 /api/merchant_categories, /api/merchant_categories/seed-presets API와 연결됩니다.
+// Filter rendered mappings and preserve the query across edit/delete reloads.
+// Related: index.html merchant-category-search, Android assets/settings.js.
+function filterMerchantCategoryRows() {
+  const tbody = document.getElementById('merchant-category-table-body');
+  if (!tbody) return;
+  const query = (document.getElementById('merchant-category-search')?.value || '').trim().toLocaleLowerCase();
+  const rows = Array.from(tbody.querySelectorAll('tr[data-merchant-search]'));
+  let visible = 0;
+  rows.forEach(row => {
+    const matches = row.dataset.merchantSearch.includes(query);
+    row.hidden = !matches;
+    row.style.display = matches ? '' : 'none';
+    if (matches) visible++;
+  });
+  let empty = document.getElementById('merchant-category-search-empty');
+  if (!empty) {
+    empty = document.createElement('tr');
+    empty.id = 'merchant-category-search-empty';
+    const cell = document.createElement('td');
+    cell.colSpan = 3;
+    cell.className = 'text-secondary';
+    cell.style.cssText = 'text-align: center; padding: 1.5rem;';
+    cell.textContent = '검색 결과가 없습니다.';
+    empty.appendChild(cell);
+    tbody.appendChild(empty);
+  }
+  empty.hidden = !query || visible > 0 || rows.length === 0;
+  empty.style.display = empty.hidden ? 'none' : '';
+  const count = document.getElementById('merchant-category-search-count');
+  if (count) count.textContent = `${visible} / ${rows.length}개`;
+}
+
+// Reset only the query and retain any active edit. Related: index.html.
+function clearMerchantCategorySearch() {
+  const input = document.getElementById('merchant-category-search');
+  if (input) { input.value = ''; input.focus(); }
+  filterMerchantCategoryRows();
+}
+
 async function loadMerchantCategories() {
   try {
     // 1. 카테고리 셀렉트 옵션 채우기 (지출용만)
@@ -564,6 +603,7 @@ async function loadMerchantCategories() {
       } else {
         list.forEach(item => {
           const tr = document.createElement('tr');
+          tr.dataset.merchantSearch = `${item.merchant || ''} ${item.category || ''}`.toLocaleLowerCase();
           tr.style.borderBottom = '1px solid var(--inner-border-light)';
           
           // 카테고리 배지 렌더링을 위해 색상 맵 활용
@@ -629,6 +669,7 @@ async function loadMerchantCategories() {
     }
 
     // 프리셋 현황 뱃지 업데이트
+    filterMerchantCategoryRows();
     updatePresetBadge(list);
 
     // 추가: 패키지별 결제수단 목록 로딩
@@ -687,6 +728,28 @@ async function applyFranchisePresets() {
 // 요약: 앱 패키지명(package)과 결제수단 간의 매핑 리스트를 백엔드로부터 가져와 셀렉트박스와 테이블 뷰에 렌더링합니다.
 // 의존성: public/index.html의 pkm-pay-method 셀렉트박스 및 package-paymethod-table-body 테이블과 연계됩니다.
 async function loadPackagePayMethods() {
+  // Load and save one exclusive preference. Related: routes/settings.js, index.html.
+  const cardChoice = document.getElementById('check-priority-card');
+  const bankChoice = document.getElementById('check-priority-bank');
+  const choiceStatus = document.getElementById('check-priority-status');
+  if (cardChoice && bankChoice) {
+    try {
+      const response = await fetch('api/settings');
+      if (!response.ok) throw new Error('설정을 불러오지 못했습니다.');
+      const saved = await response.json();
+      bankChoice.checked = saved.check_notification_priority === 'bank';
+      cardChoice.checked = !bankChoice.checked;
+      const savePriority = async (value) => {
+        try {
+          const result = await fetch('api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({check_notification_priority:value})});
+          if (!result.ok) throw new Error('설정을 저장하지 못했습니다.');
+          choiceStatus.textContent = '자동 저장되었습니다.';
+        } catch (err) { choiceStatus.textContent = err.message; }
+      };
+      cardChoice.onchange = () => { cardChoice.checked = true; bankChoice.checked = false; savePriority('card'); };
+      bankChoice.onchange = () => { bankChoice.checked = true; cardChoice.checked = false; savePriority('bank'); };
+    } catch (err) { choiceStatus.textContent = err.message; }
+  }
   try {
     // 1. 결제수단 셀렉트 옵션 채우기
     const pkmSel = document.getElementById('pkm-pay-method');
@@ -1096,4 +1159,3 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   }
 });
-

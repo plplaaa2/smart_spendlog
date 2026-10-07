@@ -4,6 +4,10 @@ const cryptoHelper = require('../crypto_helper');
 const { getDB, getUserDbSlug, getUserDbPath, getActiveUsers, migrateCategoriesAndData } = require('./connection');
 const { updateHASensors } = require('./ha_sync');
 const { createInAppNotification } = require('./notifications');
+const { validateBackupRulePatterns } = require('../parser/utils');
+// Product version is independent from the additive, backward-compatible JSON backup schema.
+// Related: package.json, Android assets/standalone_api.js; legacy importers continue reading data.
+const backupMetadata = { version: require('../package.json').version, backup_schema_version: 1, platform: 'addon' };
 
 const schedulerHistory = {}; // username -> executionKey
 
@@ -300,7 +304,7 @@ async function testNetworkBackup(username) {
   const adminDb = await getDB('admin');
   const tables = ['categories', 'pay_methods', 'rules', 'transactions', 'notification_logs', 'package_pay_methods', 'settings', 'merchant_categories'];
   const backupData = {
-    version: '1.9.84',
+    ...backupMetadata,
     username: username,
     backup_date: new Date().toISOString(),
     data: {}
@@ -413,6 +417,9 @@ async function executeRestore(username, backupObj) {
     }
   }
 
+  // Reject invalid restored patterns before deleting existing data or activating imported rules.
+  // Related: parser/utils.js, parser/text_parser.js, routes/rules.js.
+  validateBackupRulePatterns(dataObj.data);
   await db.run('BEGIN TRANSACTION');
   const runAdminTx = (username !== 'admin');
   if (runAdminTx) {
@@ -449,9 +456,9 @@ async function executeRestore(username, backupObj) {
     }
 
     if (dataObj.data.rules.length > 0) {
-      const stmt = await adminDb.prepare('INSERT INTO rules (id, name, pattern, category, pay_method, pay_type, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+      const stmt = await adminDb.prepare('INSERT INTO rules (id, name, pattern, category, pay_method, pay_type, merchant_template, type, priority, enabled, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
       for (const row of dataObj.data.rules) {
-        await stmt.run(row.id, row.name, row.pattern, row.category, row.pay_method, row.pay_type || 'CREDIT', row.merchant_template, row.type || 'EXPENSE');
+        await stmt.run(row.id, row.name, row.pattern, row.category, row.pay_method, row.pay_type || 'CREDIT', row.merchant_template, row.type || 'EXPENSE', row.priority ?? 100, row.enabled ?? 1, row.source || 'USER');
       }
       await stmt.finalize();
     }
@@ -550,7 +557,7 @@ async function backupUserDB(username) {
     const adminDb = await getDB('admin');
     const tables = ['categories', 'pay_methods', 'rules', 'transactions', 'notification_logs', 'package_pay_methods', 'settings', 'merchant_categories'];
     const backupData = {
-      version: '1.9.85',
+      ...backupMetadata,
       username: username,
       backup_date: new Date().toISOString(),
       data: {}

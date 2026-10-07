@@ -1,4 +1,70 @@
 const { parsePaymentType } = require('./payment_resolver');
+const { validateParsingResult } = require('./result_validator');
+
+// Bound AI parsing requests so one provider cannot block the notification queue indefinitely.
+// Related flow: routes/webhook.js -> parseNotificationWithAI() -> parser result validation.
+const DEFAULT_AI_PARSE_TIMEOUT_MS = 30000;
+const MAX_AI_PARSE_RESPONSE_BYTES = 64 * 1024;
+const MAX_AI_ERROR_BYTES = 1024;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_AI_PARSE_TIMEOUT_MS) {
+  const safeTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_AI_PARSE_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), safeTimeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error(`AI 파싱 요청 시간이 ${safeTimeoutMs}ms를 초과했습니다.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function readLimitedText(response, maxBytes) {
+  const contentLength = Number(response.headers?.get?.('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new Error(`AI 응답 크기가 ${maxBytes}바이트 제한을 초과했습니다.`);
+  }
+  const text = await response.text();
+  if (Buffer.byteLength(text, 'utf8') > maxBytes) {
+    throw new Error(`AI 응답 크기가 ${maxBytes}바이트 제한을 초과했습니다.`);
+  }
+  return text;
+}
+
+async function readJsonResponse(response) {
+  const text = await readLimitedText(response, MAX_AI_PARSE_RESPONSE_BYTES);
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    throw new Error('AI 제공자가 올바른 JSON 응답을 반환하지 않았습니다.');
+  }
+}
+
+async function buildHttpError(response) {
+  let detail = '';
+  try {
+    detail = await readLimitedText(response, MAX_AI_ERROR_BYTES);
+  } catch (_) {
+    detail = '응답 본문 생략';
+  }
+  return new Error(`HTTP ${response.status}: ${detail}`);
+}
+
+function normalizeJsonText(responseText) {
+  if (!responseText) return null;
+  const text = responseText.trim();
+  const startIndex = text.indexOf('{');
+  const endIndex = text.lastIndexOf('}');
+  if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
+    return text.substring(startIndex, endIndex + 1);
+  }
+  return text || null;
+}
+const { sanitizePattern } = require('./utils');
 
 async function parseNotificationWithAI(text, config, fallbackDatetime = null) {
   if (!text || !config) return null;
@@ -41,6 +107,7 @@ Example Output:
   try {
     let responseText = '';
     const provider = config.provider || 'gemini';
+    const timeoutMs = Number(config.timeoutMs) || DEFAULT_AI_PARSE_TIMEOUT_MS;
 
     if (provider === 'gemini') {
       const apiKey = config.apiKey;
@@ -53,7 +120,7 @@ Example Output:
       for (const model of models) {
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-          const res = await fetch(url, {
+          const res = await fetchWithTimeout(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -62,14 +129,13 @@ Example Output:
                 responseMimeType: 'application/json'
               }
             })
-          });
+          }, timeoutMs);
 
           if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`HTTP ${res.status}: ${errText}`);
+            throw await buildHttpError(res);
           }
 
-          const data = await res.json();
+          const data = await readJsonResponse(res);
           if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
             responseText = data.candidates[0].content.parts[0].text;
             success = true;
@@ -97,7 +163,7 @@ Example Output:
       for (const model of models) {
         try {
           const url = 'https://api.openai.com/v1/chat/completions';
-          const res = await fetch(url, {
+          const res = await fetchWithTimeout(url, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -108,14 +174,13 @@ Example Output:
               messages: [{ role: 'user', content: prompt }],
               response_format: { type: 'json_object' }
             })
-          });
+          }, timeoutMs);
 
           if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`HTTP ${res.status}: ${errText}`);
+            throw await buildHttpError(res);
           }
 
-          const data = await res.json();
+          const data = await readJsonResponse(res);
           if (data.choices && data.choices[0] && data.choices[0].message) {
             responseText = data.choices[0].message.content;
             success = true;
@@ -138,37 +203,36 @@ Example Output:
       if (!localIp) throw new Error('로컬 OpenAI 호환 IP가 누락되었습니다.');
 
       const url = `${localIp}/chat/completions`;
-      const res = await fetch(url, {
+      const res = await fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: localModel,
           messages: [{ role: 'user', content: prompt }]
         })
-      });
+      }, timeoutMs);
 
       if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`HTTP ${res.status}: ${errText}`);
+        throw await buildHttpError(res);
       }
 
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (data.choices && data.choices[0] && data.choices[0].message) {
         responseText = data.choices[0].message.content;
         console.log(`[AI 파서] 로컬 OpenAI 호환 모델 ${localModel} 파싱 성공`);
       } else {
         throw new Error('올바르지 않은 로컬 API 응답 형식입니다.');
       }
+    } else {
+      throw new Error(`지원하지 않는 AI 제공자입니다: ${provider}`);
     }
 
     if (!responseText) {
       return null;
     }
 
-    let jsonText = responseText.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-    }
+    const jsonText = normalizeJsonText(responseText);
+    if (!jsonText) return null;
 
     const result = JSON.parse(jsonText);
 
@@ -196,8 +260,9 @@ Example Output:
       paymentType = 'CREDIT';
     }
 
-    return {
-      amount: parseInt(result.amount, 10),
+    const amountVal = parseInt(String(result.amount).replace(/[^0-9]/g, ''), 10);
+    const parsedResult = {
+      amount: isNaN(amountVal) ? 0 : amountVal,
       merchant: (result.merchant || '알수없음').trim(),
       datetime: result.datetime || resolvedFallback,
       pay_method: (result.pay_method || '카드').trim(),
@@ -206,6 +271,12 @@ Example Output:
       original_amount: result.original_amount ? parseFloat(result.original_amount) : null,
       currency: result.currency ? String(result.currency).toUpperCase() : null
     };
+    const validation = validateParsingResult(parsedResult);
+    if (!validation.valid) {
+      console.warn(`[AI 파서] 결과 검증 실패: ${validation.errors.join(', ')}`);
+      return null;
+    }
+    return validation.value;
 
   } catch (err) {
     console.error('[AI 파서 오류]:', err.message);
@@ -218,30 +289,33 @@ async function generatePatternWithAI(text, config) {
 
   const cleanText = text.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').replace(/\r\n/g, '\n');
 
-  const prompt = `You are a regex pattern builder.
+  const prompt = `You are a professional RegExp pattern builder.
 Build a JavaScript Regular Expression (RegExp) pattern that parses the following financial SMS/push notification text.
-The regex pattern MUST extract the following values using NAMED CAPTURE GROUPS:
-- "amount" (e.g. (?<amount>[\\d,]+) or similar): Extracts the transaction amount (REQUIRED).
-- "merchant" (e.g. (?<merchant>.+?)): Extracts the merchant or sender.
-- "time" (e.g. (?<time>\\d{2}/\\d{2}\\s+\\d{2}:\\d{2}) or similar): Extracts the date/time (optional but recommended if present).
-- "account" (e.g. (?<account>[\\d*-]+)): Extracts the account number (optional).
-- "balance" (e.g. (?<balance>[\\d,]+)): Extracts the remaining balance (optional).
-- "cumulative" (e.g. (?<cumulative>[\\d,]+)): Extracts the cumulative monthly spending (optional).
-- "usedPoint" (e.g. (?<usedPoint>[\\d,]+)): Extracts points/credits used (optional).
-- "payMethod" (e.g. (?<payMethod>[^\\s/]+)): Extracts payment method/source such as bank or card brand name (optional).
-- "payType" (e.g. (?<payType>[^\\s/]+)): Extracts payment type such as credit, checking, transfer, or cash (optional).
+The RegExp pattern MUST extract the transaction components using the following standard Named Capture Groups templates:
+- Transaction Amount (integer, REQUIRED): Use exactly \`(?<amount>[\\\\d,]+)\` or similar to extract digits representing the amount.
+- Merchant Name (string, REQUIRED): Use exactly \`(?<merchant>.+?)\` to extract the merchant/sender name.
+- Date/Time (string, optional but recommended): Use \`(?<time>...)\` (e.g., \`(?<time>\\\\d{2}/\\\\d{2}\\\\s+\\\\d{2}:\\\\d{2})\` or \`(?<time>\\\\d{2}\\\\.\\\\d{2}\\\\s+\\\\d{2}:\\\\d{2})\`) adapting to the actual datetime format in the text.
+- Account Number (string, optional): Use \`(?<account>[\\\\d*-]+)\` or similar if applicable.
+- Remaining Balance (string, optional): Use \`(?<balance>[\\\\d,]+)\` if applicable.
+- Cumulative Spending (string, optional): Use \`(?<cumulative>[\\\\d,]+)\` if applicable.
+- Used Points (string, optional): Use \`(?<usedPoint>[\\\\d,]+)\` if applicable.
+- Payment Method (string, optional): Use \`(?<payMethod>[^\\\\s/]+)\` if applicable.
+- Payment Type (string, optional): Use \`(?<payType>[^\\\\s/]+)\` if applicable.
+- Transaction status/direction (optional): Capture the complete status with \`(?<status>입금|출금|승인취소)\`; do not infer direction from merchant names.
 
-CRITICAL RULE FOR NAMED CAPTURE GROUPS:
-Named capture group names MUST NOT contain underscores ('_'). They must use strictly camelCase or simple letters (e.g. use 'merchantName' instead of 'merchant_name', 'payMethod' instead of 'pay_method'). Underscores in group names cause regex syntax errors in Android mobile environment.
-
-CRITICAL RULE FOR NEWLINES/SPACES:
-DO NOT use raw newlines (\\n or \\r\\n) in the pattern. Instead, use \\\\s+ or \\\\s* to match line breaks and whitespaces to make the pattern platform-independent.
-
-CRITICAL RULE FOR CURRENCY SYMBOLS:
-If currency symbols like ₩, $, or \\ are present in the amount, ensure the pattern matches them outside or inside the group appropriately (e.g. \\\\(?<amount>[\\\\d,]+) or ₩(?<amount>[\\\\d,]+)).
-
-The pattern MUST match the entire text or its major part. Escape bracket characters properly (e.g. \\[KB국민\\]).
+CRITICAL INSTRUCTIONS FOR GENERALIZATION & ROBUSTNESS:
+1. DO NOT hardcode dynamic transaction values (like amount, merchant, date/time, remaining balance, cumulative spending, card numbers) in the pattern. You MUST replace them with their corresponding Named Capture Groups.
+2. 카드 번호나 계좌 번호 등 마스킹 처리된 고유 정보(예: \`8*9*\`, \`123-****-456\`)는 고정된 문자열이 아니라, \`[\\\\d*-]+\` 또는 \`[\\\\d*]+\` 패턴으로 변환하여 유사한 다른 알림에서도 매칭되게 하십시오.
+3. 띄어쓰기(공백), 줄바꿈, 탭 문자 등은 모두 \`\\\\s*\` 또는 \`\\\\s+\`로 대체하여 사소한 공백 변화로 인해 매칭이 깨지지 않게 하십시오.
+4. 가로 슬래시(\`/\`), 괄호(\`(\`, \`)\`), 대괄호(\`[\`, \`]\`) 등 정규식 예약어나 특수기호는 반드시 백슬래시로 이스케이프(예: \`\\\\(\`, \`\\\\)\`, \`\\\\[\`, \`\\\\]\`, \`\\\\/\`)하여 정규식 문법 오류를 방지하십시오.
+5. 완성된 패턴은 문자열의 처음부터 끝까지 전체를 매칭할 수 있도록 시작(\`^\`)과 끝(\`$\`) 앵커를 붙여야 합니다 (예: \`^(?:\\\\[Web발신\\\\])?\\\\s*...$\`).
+6. Named capture group 이름에 언더바(_)를 포함하지 마십시오 (오직 camelCase 사용: \`usedPoint\`, \`payMethod\`, \`payType\` 등).
 Notice that double backslashes should be used since it will be parsed as JSON.
+
+[매칭 조립 예시]
+원문: "(결제) 7,300원 버거킹박석고개SK점(주)비케이 / 신용(일시불,8*9*) / 06.29 18:49 / 누적이용금액 599,048원"
+기대되는 정규식 결과 패턴:
+"^(?:\\\\[Web발신\\\\])?\\\\s*\\\\(결제\\\\)\\\\s*(?<amount>[\\\\d,]+)원\\\\s*(?<merchant>.+?)\\\\s*\\\\/\\\\s*(?<payType>[^\\\\s\\\\/]+)\\\\(일시불,[\\\\d*]+\\\\)\\\\s*\\\\/\\\\s*(?<time>\\\\d{2}\\\\.\\\\d{2}\\\\s+\\\\d{2}:\\\\d{2})\\\\s*\\\\/\\\\s*누적이용금액\\\\s*(?<cumulative>[\\\\d,]+)원$"
 
 Notification Text: "${cleanText}"
 
@@ -250,15 +324,7 @@ The JSON object MUST contain the following fields:
 - "pattern" (string): The constructed RegExp pattern.
 - "pay_method" (string): The extracted payment method name (e.g. "신한카드", "국민은행"). Use "카드" as default.
 - "pay_type" (string): The payment type. Must be one of "CREDIT", "CHECK", "TRANSFER", "CASH". Use "CREDIT" as default.
-- "type" (string): "EXPENSE" or "INCOME".
-
-Example Output:
-{
-  "pattern": "^(?:\\\\[Web발신\\\\])?\\\\s*결제\\\\s+(?<amount>[\\\\d,]+)원\\\\s+(?<merchant>.+?)$",
-  "pay_method": "카드",
-  "pay_type": "CREDIT",
-  "type": "EXPENSE"
-}`;
+- "type" (string): "EXPENSE" or "INCOME".`;
 
   try {
     let responseText = '';
@@ -387,10 +453,8 @@ Example Output:
       return null;
     }
 
-    let jsonText = responseText.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-    }
+    const jsonText = normalizeJsonText(responseText);
+    if (!jsonText) return null;
 
     const result = JSON.parse(jsonText);
     
@@ -413,18 +477,12 @@ Example Output:
       paymentType = 'CREDIT';
     }
 
-    let pattern = result.pattern || null;
-    if (pattern) {
-      // ICU 정규식 에러(U_REGEX_INVALID_CAPTURE_GROUP_NAME) 방지:
-      // 명명된 캡처 그룹(?<group_name>)에서 언더바(_)를 모두 카멜케이스로 치환
-      pattern = pattern.replace(/\(\?<([a-zA-Z0-9_]+)>/g, (match, groupName) => {
-        if (groupName.includes('_')) {
-          const camelGroupName = groupName.replace(/_([a-z0-9])/gi, (m, letter) => letter.toUpperCase()).replace(/_/g, '');
-          return `(?<${camelGroupName}>`;
-        }
-        return match;
-      });
-    }
+    // Use the parser's capture naming contract and verify the generated rule against its source.
+    // Related: utils.js, text_parser.js, pattern_generator.js, transaction_classifier.js.
+    const pattern = sanitizePattern(result.pattern);
+    if (typeof pattern !== 'string' || !pattern) return null;
+    const generatedMatch = new RegExp(pattern, 's').exec(cleanText);
+    if (!generatedMatch || !generatedMatch.groups || !generatedMatch.groups.amount || !/\d/.test(generatedMatch.groups.amount)) return null;
 
     return {
       pattern: pattern,
@@ -627,10 +685,8 @@ ${dataText}
       return null;
     }
 
-    let jsonText = responseText.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-    }
+    const jsonText = normalizeJsonText(responseText);
+    if (!jsonText) return null;
 
     const result = JSON.parse(jsonText);
     return {
@@ -651,6 +707,8 @@ ${dataText}
 }
 
 module.exports = {
+  fetchWithTimeout,
+  readJsonResponse,
   parseNotificationWithAI,
   generatePatternWithAI,
   generateConsumptionReportWithAI

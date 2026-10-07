@@ -13,6 +13,7 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const crypto = require('crypto');
 const { initDB, getDB, getActiveUsers, updateHASensors, cleanupOrphanedHASensors, createInAppNotification, startBackupScheduler } = require('./database');
+const { createRequestBodyParser } = require('./request_body_parser');
 
 const app = express();
 app.set('trust proxy', true);
@@ -86,7 +87,7 @@ const createRateLimiter = (limit, message) => {
 const generalLimiter = createRateLimiter(GENERAL_LIMIT, '요청 속도가 너무 빠릅니다. 잠시 후 다시 시도해 주세요.');
 const sensitiveLimiter = createRateLimiter(SENSITIVE_LIMIT, '인증 및 웹훅 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.');
 
-app.use(express.json());
+app.use(createRequestBodyParser());
 
 // 민감 API 및 일반 API 개별 제한 순차 적용
 app.use('/api/login', sensitiveLimiter);

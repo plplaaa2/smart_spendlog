@@ -352,11 +352,12 @@ function renderAssetGrid(assets) {
   }
 
   // 유의미한 내역(초기 자산이 있거나, 이번 달 수입/지출 내역이 존재하는 결제수단만 필터링)
-  const activeAssets = assets.filter(a => a.initialBalance !== 0 || a.monthIncome !== 0 || a.monthExpense !== 0);
+  const activeAssets = assets.filter(a => a.initialBalance !== 0 || a.currentBalance !== 0 || a.monthIncome !== 0 || a.monthExpense !== 0);
 
   // 요약: 모든 은행/자산 계좌의 잔액을 합산하여 '모든 은행 합계 (총 잔액)' 카드를 생성
   // 의존성: routes/analytics.js의 /api/stats 응답 구조에서 제공하는 assets 배열과 연동됩니다.
-  const bankAssets = assets.filter(a => !a.isCard);
+  // Include bank providers only; related: routes/analytics.js and Android dashboard.js.
+  const bankAssets = assets.filter(a => !a.isCard && /은행|뱅크|농협|우체국|새마을금고|신협|수협/.test(a.name));
   if (bankAssets.length > 0) {
     const totalBankBalance = bankAssets.reduce((sum, a) => sum + (a.currentBalance || 0), 0);
     const totalBankIncome = bankAssets.reduce((sum, a) => sum + (a.monthIncome || 0), 0);
@@ -367,6 +368,7 @@ function renderAssetGrid(assets) {
       isCard: false,
       isTotal: true,
       currentBalance: totalBankBalance,
+      balanceEstimated: bankAssets.some(asset => asset.balanceEstimated),
       monthIncome: totalBankIncome,
       monthExpense: totalBankExpense
     };
@@ -571,7 +573,7 @@ function renderAssetGrid(assets) {
         </div>
         <div class="asset-card-item-body">
           <div class="asset-card-value-row" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
-            <span class="asset-card-label" style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">현재 총 잔액</span>
+            <span class="asset-card-label" style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">현재 총 잔액${asset.balanceEstimated ? ' (추정 포함)' : ''}</span>
             <span class="asset-card-value" style="font-weight: 800; font-size: 1.25rem; color: ${balanceColor};">${formatCurrency(asset.currentBalance)}</span>
           </div>
           <div class="asset-card-detail-rows" style="border-top: 1px solid var(--glass-border); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">
@@ -605,7 +607,7 @@ function renderAssetGrid(assets) {
         </div>
         <div class="asset-card-item-body">
           <div class="asset-card-value-row" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;">
-            <span class="asset-card-label" style="font-size: 0.8rem; color: var(--text-secondary);">현재 잔액</span>
+            <span class="asset-card-label" style="font-size: 0.8rem; color: var(--text-secondary);">현재 잔액${asset.balanceEstimated ? ' (추정)' : ''}</span>
             <span class="asset-card-value" style="font-weight: 700; font-size: 1.1rem; color: ${balanceColor};">${formatCurrency(asset.currentBalance)}</span>
           </div>
           <div class="asset-card-detail-rows" style="border-top: 1px solid var(--glass-border); padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem;">

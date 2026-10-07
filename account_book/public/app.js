@@ -178,7 +178,7 @@ function populateSelects() {
       el.appendChild(opt);
     }
 
-    state.payMethods.forEach(p => {
+    state.payMethods.filter(p => !/페이|머니/u.test(p.name)).forEach(p => {
       const opt = document.createElement('option');
       opt.value = p.name;
       opt.textContent = p.name;
@@ -354,10 +354,11 @@ function switchTab(tabId) {
   // 타이틀 변경
   updateHeaderTitle(tabId, getSubTabIdForTab(tabId));
 
-  // 대시보드 탭일 때만 년월 선택기(month-picker) 표시
+  // Dashboard and transaction tabs share the same year/month filter.
+  // Related: public/index.html month-picker, public/transactions.js loadTransactions.
   const monthPicker = document.querySelector('.month-picker');
   if (monthPicker) {
-    if (tabId === 'dashboard') {
+    if (tabId === 'dashboard' || tabId === 'transactions') {
       monthPicker.style.display = 'flex';
     } else {
       monthPicker.style.display = 'none';
@@ -898,14 +899,23 @@ function initEventListeners() {
     const category = document.getElementById('rule-category').value;
     const pay_method = document.getElementById('rule-pay-method').value;
     const pay_type = document.getElementById('rule-pay-type').value;
+    const priority = Number.parseInt(document.getElementById('rule-priority').value, 10) || 0;
+    const enabled = document.getElementById('rule-enabled').checked;
     const action = document.getElementById('rule-action') ? document.getElementById('rule-action').value : 'REGISTER';
+
+    // Require an explicit supported payment choice when generation cannot resolve it.
+    // Related: rules.js autoGeneratePattern, index.html rule-pay-type.
+    if (action !== 'PASS' && !['CREDIT', 'CHECK', 'TRANSFER', 'CASH'].includes(pay_type)) {
+      alert('결제 방법을 선택한 뒤 저장해 주세요.');
+      return;
+    }
 
     try {
       const isPass = (action === 'PASS');
       const url = isPass ? 'api/pass_rules' : 'api/rules';
       const bodyData = isPass 
         ? { id, name, pattern }
-        : { id, name, pattern, category, pay_method, pay_type, merchant_template: '${merchant}', type };
+        : { id, name, pattern, category, pay_method, pay_type, merchant_template: '${merchant}', type, priority, enabled };
 
       const res = await fetch(url, {
         method: 'POST',

@@ -1,0 +1,18 @@
+# Explain Supervisor options; related: ../config.json, ../DOCS.md.
+configuration:
+  token:
+    name: Service credential
+    description: Used for authentication and encryption. Do not change arbitrarily when existing data is in use.
+  webhook_token:
+    name: Webhook credential
+    description: Used to authenticate webhook requests.
+  users:
+    name: Login users
+    description: Accounts allowed to log in to the web dashboard.
+    fields:
+      username:
+        name: Username
+      password:
+        name: Password
+network:
+  8124/tcp: Web dashboard and webhook API (not required for Ingress)

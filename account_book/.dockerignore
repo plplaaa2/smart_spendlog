@@ -1,0 +1,15 @@
+# Keep runtime data and development files out of images; related: Dockerfile.
+node_modules
+data
+backups
+test
+.git
+*.db
+*.db-*
+*.sqlite*
+*backup*.json
+options.json
+.env
+.env.*
+*.log
+*.apk

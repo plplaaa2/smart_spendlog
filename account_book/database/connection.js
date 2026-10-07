@@ -1,9 +1,11 @@
 const sqlite3 = require('sqlite3');
+const { migrateRuleMetadata } = require('./rule_metadata');
 const { open } = require('sqlite');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const cryptoHelper = require('../crypto_helper');
+const { reconcilePayMethods } = require('../parser/payment_resolver');
 
 let FRANCHISE_PRESETS = [];
 try {
@@ -94,7 +96,10 @@ async function initUserDB(username) {
       pay_method TEXT,
       pay_type TEXT DEFAULT 'CREDIT',
       merchant_template TEXT,
-      type TEXT DEFAULT 'EXPENSE'
+      type TEXT DEFAULT 'EXPENSE',
+      priority INTEGER DEFAULT 100,
+      enabled INTEGER DEFAULT 1,
+      source TEXT DEFAULT 'USER'
     );
 
     CREATE TABLE IF NOT EXISTS transactions (
@@ -256,6 +261,14 @@ async function migrateCategoriesAndData(dbInstance, username) {
     console.error(`[DB 마이그레이션][${username}] rules 테이블 pay_type 마이그레이션 실패:`, e.message);
   }
 
+  // Add deterministic rule scheduling metadata without changing existing behavior.
+  // Related files: routes/rules.js, routes/webhook.js, public/rules.js.
+  try {
+    await migrateRuleMetadata(dbInstance, username);
+  } catch (e) {
+    console.error(`[DB 마이그레이션][${username}] rules 메타데이터 마이그레이션 실패:`, e.message);
+  }
+
   // transactions 테이블 pay_type 컬럼 추가 및 백필 마이그레이션
   // 의존성: 지출/수입 자산 연계 차감
   try {
@@ -347,7 +360,6 @@ async function migrateCategoriesAndData(dbInstance, username) {
     const payMethodsCount = await dbInstance.get('SELECT COUNT(*) as count FROM pay_methods');
     if (payMethodsCount.count === 0) {
       const defaultPackageMappings = [
-        { package: 'viva.republica.toss', pay_method: '토스' },
         { package: 'com.hanaskcard.paycla', pay_method: '하나카드' },
         { package: 'com.kbstar.kbbank', pay_method: '국민은행' },
         { package: 'com.hanabank.oqf', pay_method: '하나은행' },
@@ -618,6 +630,9 @@ async function migrateCategoriesAndData(dbInstance, username) {
   }
 
   await seedDefaultData(dbInstance, username);
+  // Restore missing historical providers after seeding; wallets remain deliberately excluded.
+  // Related: parser/payment_resolver.js, database/backup.js, routes/analytics.js.
+  await reconcilePayMethods(dbInstance);
 }
 
 async function seedDefaultData(dbInstance, username = 'admin') {
@@ -648,14 +663,15 @@ async function seedDefaultData(dbInstance, username = 'admin') {
     if (defaults.rules && username === 'admin') {
       for (const rule of defaults.rules) {
         await dbInstance.run(
-          `INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) 
-           VALUES (?, ?, ?, ?, ?, ?) 
+          `INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type, priority, enabled, source)
+           VALUES (?, ?, ?, ?, ?, ?, 100, 1, 'DEFAULT')
            ON CONFLICT(name) DO UPDATE SET 
              pattern = excluded.pattern,
              category = excluded.category,
              pay_method = excluded.pay_method,
              merchant_template = excluded.merchant_template,
-             type = excluded.type`,
+             type = excluded.type,
+             source = 'DEFAULT'`,
           [rule.name, rule.pattern, rule.category, rule.pay_method, rule.merchant_template, rule.type]
         );
       }
@@ -768,6 +784,11 @@ async function seedDefaultData(dbInstance, username = 'admin') {
         );
       }
     }
+
+    // Remove wallet/payment-app entries from the managed payment-method registry.
+    // Historical transactions remain unchanged; future automatic mapping falls back to the rule/text source.
+    await dbInstance.run("DELETE FROM package_pay_methods WHERE pay_method LIKE '%페이%' OR pay_method LIKE '%머니%'");
+    await dbInstance.run("DELETE FROM pay_methods WHERE name LIKE '%페이%' OR name LIKE '%머니%'");
 
     if (username === 'admin') {
       const defaultPassRules = defaults.pass_rules || [

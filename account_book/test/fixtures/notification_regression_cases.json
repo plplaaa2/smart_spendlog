@@ -1,0 +1,32 @@
+[
+  {
+    "name": "card approval",
+    "text": "[신한카드] 08/09 12:34 12,300원 테스트카페 승인",
+    "expected": { "rule_name": "카드 승인 예제 규칙", "amount": 12300, "merchant": "테스트카페", "pay_method": "신한카드", "payment_type": "CREDIT", "type": "EXPENSE", "datetime": "2026-08-09 12:34:00" }
+  },
+  {
+    "name": "fintech payment",
+    "text": "[₩12,300 결제 완료] 테스트카페",
+    "expected": { "rule_name": "핀테크 간편결제", "amount": 12300, "merchant": "테스트카페", "pay_method": "토스", "payment_type": "CREDIT", "type": "EXPENSE" }
+  },
+  {
+    "name": "multiline bank withdrawal",
+    "text": "[하나은행] [Web발신] 하나,08/09,12:34\n1234****\n출금 45,600원\n테스트마트\n잔액 1,000,000원",
+    "expected": { "rule_name": "하나은행 다중행 거래", "amount": 45600, "merchant": "테스트마트", "pay_method": "하나은행", "payment_type": "TRANSFER", "type": "EXPENSE" }
+  },
+  {
+    "name": "generic account withdrawal",
+    "text": "[출금 7,800원] 안내 08/09 09:10 123-*** 테스트상점 계좌이체 100 잔액900000",
+    "expected": { "rule_name": "계좌 입출금 알림", "amount": 7800, "merchant": "테스트상점", "pay_method": "계좌이체", "payment_type": "TRANSFER", "type": "EXPENSE", "datetime": "2026-08-09 09:10:00" }
+  },
+  {
+    "name": "parenthesized card payment",
+    "text": "(결제) 15,000원 테스트식당 / 테스트카드(신용) / 08.09 18:30",
+    "expected": { "rule_name": "괄호결제 승인 알림", "amount": 15000, "merchant": "테스트식당", "pay_method": "테스트카드", "payment_type": "CREDIT", "type": "EXPENSE", "datetime": "2026-08-09 18:30:00" }
+  },
+  {
+    "name": "card bill withdrawal",
+    "text": "[결제일 출금내역 안내] 홍*동님 08월 09일 결제대금 120,000원이 출금되었습니다",
+    "expected": { "rule_name": "결제대금 출금 알림", "amount": 120000, "merchant": "홍*동", "pay_method": "계좌이체", "payment_type": "TRANSFER", "type": "EXPENSE" }
+  }
+]

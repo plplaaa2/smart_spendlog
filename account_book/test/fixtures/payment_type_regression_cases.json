@@ -1,0 +1,118 @@
+{
+  "description": "Privacy-safe payment-type cases derived from the 2026-08-09 backup. All names, institutions, accounts, merchants, amounts, and timestamps are synthetic.",
+  "scope": ["CREDIT", "CHECK", "TRANSFER", "UNKNOWN"],
+  "excluded": ["CASH", "currency_conversion"],
+  "source_summary": {
+    "transactions": 220,
+    "stored_payment_types": {
+      "CREDIT": 169,
+      "CHECK": 43,
+      "TRANSFER": 8
+    },
+    "successful_or_duplicate_notifications": 216,
+    "ambiguous_account_movement_examples": {
+      "CHECK": 17,
+      "CREDIT": 17
+    }
+  },
+  "cases": [
+    {
+      "name": "explicit credit installment",
+      "text": "테스트카드 12,300원 신용 일시불 승인 테스트상점",
+      "pay_method": "테스트카드",
+      "rule_pay_type": null,
+      "expected": "CREDIT",
+      "reason": "explicit_text"
+    },
+    {
+      "name": "explicit check card",
+      "text": "테스트 체크카드 12,300원 승인 테스트상점",
+      "pay_method": "테스트카드",
+      "rule_pay_type": "CREDIT",
+      "expected": "CHECK",
+      "reason": "explicit_text_overrides_generic_rule"
+    },
+    {
+      "name": "explicit account transfer",
+      "text": "테스트은행 계좌이체 12,300원 테스트상점",
+      "pay_method": "테스트은행",
+      "rule_pay_type": null,
+      "expected": "TRANSFER",
+      "reason": "explicit_text"
+    },
+    {
+      "name": "explicit remittance",
+      "text": "테스트은행 12,300원 송금 완료",
+      "pay_method": "테스트은행",
+      "rule_pay_type": "CREDIT",
+      "expected": "TRANSFER",
+      "reason": "explicit_text_overrides_generic_rule"
+    },
+    {
+      "name": "ambiguous withdrawal classified by check rule",
+      "text": "출금 12,300원 잔액 900,000원 테스트상점",
+      "pay_method": "테스트은행",
+      "rule_pay_type": "CHECK",
+      "expected": "CHECK",
+      "reason": "backup_ambiguous_structure_requires_rule_context",
+      "evidence_count": 17
+    },
+    {
+      "name": "ambiguous withdrawal classified by credit rule",
+      "text": "출금 12,300원 잔액 900,000원 테스트상점",
+      "pay_method": "테스트은행",
+      "rule_pay_type": "CREDIT",
+      "expected": "CREDIT",
+      "reason": "backup_ambiguous_structure_requires_rule_context",
+      "evidence_count": 17
+    },
+    {
+      "name": "ambiguous deposit classified by check rule",
+      "text": "입금 12,300원 잔액 900,000원 테스트상점",
+      "pay_method": "테스트은행",
+      "rule_pay_type": "CHECK",
+      "expected": "CHECK",
+      "reason": "rule_context"
+    },
+    {
+      "name": "withdrawal is not automatically transfer",
+      "text": "테스트은행 출금 12,300원 잔액 900,000원",
+      "pay_method": "테스트은행",
+      "rule_pay_type": null,
+      "expected": "UNKNOWN",
+      "reason": "account_movement_is_not_transfer_by_itself"
+    },
+    {
+      "name": "deposit is not automatically transfer",
+      "text": "테스트은행 입금 12,300원 잔액 900,000원",
+      "pay_method": "테스트은행",
+      "rule_pay_type": null,
+      "expected": "UNKNOWN",
+      "reason": "account_movement_is_not_transfer_by_itself"
+    },
+    {
+      "name": "transfer rule supplies missing text signal",
+      "text": "테스트은행 12,300원 처리 완료 테스트상점",
+      "pay_method": "테스트은행",
+      "rule_pay_type": "TRANSFER",
+      "expected": "TRANSFER",
+      "reason": "rule_context"
+    },
+    {
+      "name": "credit rule supplies missing text signal",
+      "text": "테스트카드 12,300원 승인 테스트상점",
+      "pay_method": "테스트카드",
+      "rule_pay_type": "CREDIT",
+      "expected": "CREDIT",
+      "reason": "rule_context"
+    },
+    {
+      "name": "no payment signal remains unknown",
+      "text": "테스트상점 12,300원 처리 완료",
+      "pay_method": "테스트수단",
+      "rule_pay_type": null,
+      "expected": "UNKNOWN",
+      "reason": "insufficient_evidence"
+    }
+  ]
+}

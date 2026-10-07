@@ -11,8 +11,16 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const { getDB, findCategoryByMerchant, updateHASensors, sendHANotification, createInAppNotification } = require('../database');
-const { parseNotification, generatePatternFromText, parseNotificationWithAI, generatePatternWithAI, sanitizePattern } = require('../parser');
+const { parseNotification, parseNotificationWithAI, generatePatternWithAI, sanitizePattern, validateGeneratedPattern, buildValidatedAutoRule } = require('../parser');
 const cryptoHelper = require('../crypto_helper');
+const { getActiveRules } = require('../database/rule_metadata');
+const { removeUnusableAutoRule } = require('../database/auto_rule_cleanup');
+const { storeWebhookTransaction } = require('../database/webhook_transaction');
+const { enrichParsedTransaction } = require('../services/transaction_enrichment');
+const { createWebhookReplayGuard } = require('../services/webhook_replay_guard');
+
+const webhookReplayGuard = createWebhookReplayGuard();
+const { describeNotification, findPair, remember } = require('../database/check_notification');
 
 // 타이밍 공격(Timing Attack) 방지를 위한 안전한 문자열 비교 함수
 function safeCompare(a, b) {
@@ -111,7 +119,9 @@ async function processNotificationCore({ title, text, packageVal, username }) {
   const adminDb = await getDB('admin');
 
   // 0. 자동 패스 규칙 검사 우선 수행
-  const passRules = await adminDb.all('SELECT * FROM pass_rules');
+  // Keep matching deterministic: the earliest created pass rule wins.
+  // Related flow: routes/rules.js rule creation -> pass rule matching below.
+  const passRules = await adminDb.all('SELECT * FROM pass_rules ORDER BY id ASC');
   let isPassed = false;
   let matchedPassRuleId = null;
   for (const pRule of passRules) {
@@ -136,7 +146,9 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     return { success: true, message: '자동 패스 규칙에 의해 처리가 제외되었습니다. 알림 로그에 저장됩니다.', isPassed: true };
   }
 
-  const rules = await adminDb.all('SELECT * FROM rules');
+  // Keep matching deterministic: the earliest created parsing rule wins.
+  // Related flow: parser/text_parser.js returns the first valid match.
+  const rules = await getActiveRules(adminDb);
   const fallbackKST = getKSTDateString();
   let result = parseNotification(rawText, rules, fallbackKST);
 
@@ -189,17 +201,28 @@ async function processNotificationCore({ title, text, packageVal, username }) {
           const generatedPattern = aiPatternResult ? aiPatternResult.pattern : null;
           
           if (generatedPattern) {
-            let isPatternValid = false;
-            try {
-              const sanitized = sanitizePattern(generatedPattern);
-              new RegExp(sanitized, 'ds');
-              if (sanitized.includes('(?<amount>') && (sanitized.includes('(?<merchant>') || sanitized.includes('(?<usage>'))) {
-                isPatternValid = true;
-              } else {
-                console.warn(`[웹훅][${targetUser}] AI 생성 정규식에 필수 그룹(?<amount> 또는 (?<merchant>)이 누락되어 캐싱을 제외합니다: "${sanitized}"`);
+            // Validate pattern safety, then prove it can parse the source notification.
+            // Related files: parser/pattern_validator.js and parser/text_parser.js.
+            const patternValidation = validateGeneratedPattern(generatedPattern);
+            let cachedPattern = patternValidation.pattern;
+            let isPatternValid = patternValidation.valid;
+            if (!isPatternValid) {
+              console.warn(`[웹훅][${targetUser}] AI 생성 정규식 안전성 검증 실패: ${patternValidation.errors.join(', ')}`);
+            } else {
+              const candidateRule = {
+                id: -1,
+                name: 'AI 캐시 검증 규칙',
+                pattern: cachedPattern,
+                category: result.category || '_AUTO_MAPPING_',
+                pay_method: result.pay_method || '_AUTO_MAPPING_',
+                pay_type: result.payment_type || 'CREDIT',
+                type: result.type || 'EXPENSE'
+              };
+              const reparsed = parseNotification(rawText, [candidateRule], fallbackKST);
+              if (!reparsed) {
+                isPatternValid = false;
+                console.warn(`[웹훅][${targetUser}] AI 생성 정규식이 원문 재파싱에 실패하여 캐싱을 제외합니다.`);
               }
-            } catch (regErr) {
-              console.warn(`[웹훅][${targetUser}] AI 생성 정규식이 올바르지 않은 문법입니다:`, regErr.message);
             }
 
             if (isPatternValid) {
@@ -216,11 +239,11 @@ async function processNotificationCore({ title, text, packageVal, username }) {
               const baseRuleName = `${result.merchant} ${suffix} (AI)`;
               const ruleName = await getUniqueRuleName(adminDb, baseRuleName);
               const insertRes = await adminDb.run(
-                "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
-                [ruleName, generatedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
+                "INSERT OR IGNORE INTO rules (name, pattern, category, pay_method, merchant_template, type, priority, enabled, source) VALUES (?, ?, ?, ?, ?, ?, 300, 1, 'AI')",
+                [ruleName, cachedPattern, result.category || '_AUTO_MAPPING_', result.pay_method || '_AUTO_MAPPING_', '${merchant}', result.type || 'EXPENSE']
               );
               if (insertRes.changes > 0) {
-                console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}" (패턴: ${generatedPattern})`);
+                console.log(`[웹훅][${targetUser}] AI 생성 정규식 등록 완료: "${ruleName}"`);
                 matchedRuleId = insertRes.lastID;
                 result.rule_id = insertRes.lastID;
                 result.rule_name = ruleName;
@@ -239,20 +262,12 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     const isAutoRuleEnabled = autoRuleRow && autoRuleRow.value === 'true';
 
     if (isAutoRuleEnabled) {
-      const generatedPattern = generatePatternFromText(rawText);
-      if (generatedPattern) {
-        const isIncome = /입금|환불|입금완료|수입|저축/.test(rawText) && !/출금|송금|지출|결제|승인|사용|신용|체크/.test(rawText);
-        const resultType = isIncome ? 'INCOME' : 'EXPENSE';
-        
-        const dummyRule = { 
-          pattern: generatedPattern, 
-          pay_method: '_AUTO_MAPPING_', 
-          category: '_AUTO_MAPPING_', 
-          type: resultType, 
-          id: 9999, 
-          name: '임시' 
-        };
-        const tempParsed = parseNotification(rawText, [dummyRule]);
+      const isIncome = /입금|환불|입금완료|수입|저축/.test(rawText) && !/출금|송금|지출|결제|승인|사용|신용|체크/.test(rawText);
+      const resultType = isIncome ? 'INCOME' : 'EXPENSE';
+      const autoRule = buildValidatedAutoRule(rawText, resultType, fallbackKST);
+      if (autoRule.valid) {
+        const generatedPattern = autoRule.pattern;
+        const tempParsed = autoRule.parsedResult;
         const parsedMerchant = (tempParsed && tempParsed.merchant) ? tempParsed.merchant : '자동 생성 규칙';
         let suffix = '지출';
         if (resultType === 'INCOME') {
@@ -268,15 +283,21 @@ async function processNotificationCore({ title, text, packageVal, username }) {
         const ruleName = await getUniqueRuleName(adminDb, baseRuleName);
         
         const insertRes = await adminDb.run(
-          "INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO rules (name, pattern, category, pay_method, merchant_template, type, priority, enabled, source) VALUES (?, ?, ?, ?, ?, ?, 200, 1, 'AUTO')",
           [ruleName, generatedPattern, '_AUTO_MAPPING_', '_AUTO_MAPPING_', '${merchant}', resultType]
         );
         matchedRuleId = insertRes.lastID;
         
         console.log(`[파서][자동규칙생성][${targetUser}] 알림 파싱 실패로 인해 새 규칙을 자동 생성했습니다: "${ruleName}" (ID: ${matchedRuleId})`);
         
-        const updatedRules = await adminDb.all('SELECT * FROM rules');
+        const updatedRules = await getActiveRules(adminDb);
         result = parseNotification(rawText, updatedRules, fallbackKST);
+        if (await removeUnusableAutoRule(adminDb, matchedRuleId, result)) {
+          console.warn(`[웹훅][자동규칙정리][${targetUser}] 재파싱에 실패한 자동 규칙을 삭제했습니다. (ID: ${matchedRuleId})`);
+          matchedRuleId = null;
+        }
+      } else {
+        console.warn(`[파서][자동규칙생성][${targetUser}] 안전성 또는 원문 재파싱 검증 실패: ${autoRule.errors.join(', ')}`);
       }
     }
   }
@@ -285,71 +306,16 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     parsedStatus = 'SUCCESS';
     matchedRuleId = result.rule_id || matchedRuleId;
 
-    // 패키지별 결제수단 자동 매핑
-    let finalPayMethod = result.pay_method;
-    if (packageVal) {
-      const mappedPayMethodRow = await db.get('SELECT pay_method FROM package_pay_methods WHERE package = ?', [packageVal]);
-      if (mappedPayMethodRow && mappedPayMethodRow.pay_method) {
-        finalPayMethod = mappedPayMethodRow.pay_method;
-      }
+    const enriched = await enrichParsedTransaction({
+      db, result, sender: packageVal, rawText, mode: 'webhook', findCategoryByMerchant
+    });
+    if (enriched.error) {
+      await db.run('INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)', [sender, rawText, title, text, 'FAILED', matchedRuleId]);
+      return { success: false, message: enriched.error };
     }
-
-    if (finalPayMethod === '_AUTO_MAPPING_') {
-      finalPayMethod = '카드';
-    }
-
-    // 체크카드 -> 은행 변환
-    if (rawText.includes('체크') || finalPayMethod.includes('체크')) {
-      const cardToBankMap = {
-        'KB국민카드': '국민은행',
-        '신한카드': '신한은행',
-        '하나카드': '하나은행',
-        '우리카드': '우리은행',
-        'NH농협카드': '농협은행',
-        'BC카드': '계좌이체',
-        '삼성카드': '계좌이체',
-        '현대카드': '계좌이체',
-        '롯데카드': '계좌이체'
-      };
-      if (cardToBankMap[finalPayMethod]) {
-        finalPayMethod = cardToBankMap[finalPayMethod];
-      } else if (finalPayMethod.includes('카드') && !finalPayMethod.includes('체크')) {
-        finalPayMethod = '계좌이체';
-      }
-    }
-
-    // 카테고리 매핑
-    let finalCategory = result.category;
-    if (!finalCategory || finalCategory === '_AUTO_MAPPING_') {
-      const matchedCategory = await findCategoryByMerchant(db, result.merchant);
-      finalCategory = matchedCategory;
-    }
-    if (!finalCategory) {
-      if (result.type === 'INCOME') {
-        finalCategory = '기타수입';
-      } else {
-        finalCategory = '기타';
-      }
-    }
-
-    // 통장이동 자산 이동 감지
-    const realNameRow = await db.get("SELECT value FROM settings WHERE key = 'user_real_name'");
-    const realName = realNameRow ? realNameRow.value.trim() : '';
-    const isBank = finalPayMethod.includes('은행') || finalPayMethod.includes('뱅크') || finalPayMethod.includes('농협') || ['우체국', '새마을금고', '신협', '수협', '계좌이체'].includes(finalPayMethod);
-    
-    const isCardCompany = result.merchant.endsWith('카드') || 
-                          /카드대금|카드결제|카드출금/.test(result.merchant);
-
-    const isTransferMerchant = (realName && result.merchant === realName) || 
-                               ['입금', '이체', '송금', '출금', '대체'].includes(result.merchant) ||
-                               isCardCompany;
-
-    if (isTransferMerchant && isBank) {
-      if (result.type === 'INCOME') {
-        finalCategory = '이체/입금';
-      } else {
-        finalCategory = '이체/송금';
-      }
+    const { finalPayMethod, finalCategory, sourceProvider } = enriched;
+    const notificationSource = describeNotification(sourceProvider, result.payment_type, rawText, result.type);
+    if (finalCategory === '이체/입금' || finalCategory === '이체/송금') {
       console.log(`[파서][${targetUser}] 통장 이동(자산 이동) 감지: 카테고리를 '${finalCategory}'으로 강제 변경하여 등록합니다.`);
 
       // ==========================================
@@ -456,15 +422,51 @@ async function processNotificationCore({ title, text, packageVal, username }) {
       }
     }
 
+    // Resolve the payment type before duplicate detection.
+    // Related flow: parser/text_parser.js -> duplicate detection -> transactions.pay_type.
+    const finalPayType = result.payment_type || 'CREDIT';
     // 이중 등록 방지
     // 이중 등록 방지 (체크카드 승인 후 은행 연쇄 출금 중복 감지 포함)
-    const duplicateCheck = await db.get(
+    const receivedAt = Date.now();
+    const pairSource = result.currency || ['이체/송금', 'ATM/출금', '카드상환'].includes(finalCategory) ? null
+      : notificationSource;
+    // Pass parsed time and source text so delayed delivery cannot pair by amount alone.
+    // Related: database/check_notification.js, test/check_notification.test.js.
+    const pair = await findPair(db, pairSource, result.amount, receivedAt, result.datetime, rawText);
+    if (pair) {
+      const preference = await db.get("SELECT value FROM settings WHERE key = 'check_notification_priority'");
+      const preferred = preference && preference.value === 'bank' ? 'bank' : 'card';
+      const replace = pairSource.source === preferred;
+      await db.run('BEGIN TRANSACTION');
+      try {
+        if (replace) {
+          await db.run('UPDATE transactions SET merchant = ?, category = ?, pay_method = ?, pay_type = ?, datetime = ?, memo = ?, raw_text = ?, used_point = ? WHERE id = ?',
+            [result.merchant,finalCategory,pairSource.bank,'CHECK',result.datetime,result.memo || '',rawText,result.used_point || 0,pair.transaction_id]);
+          await db.run("UPDATE notification_logs SET parsed_status = 'IGNORED_DUPLICATE' WHERE id = (SELECT MAX(id) FROM notification_logs WHERE sender = ? AND raw_text = ? AND parsed_status = 'SUCCESS')", [pair.sender,pair.raw_text]);
+        } else {
+          await db.run("UPDATE transactions SET pay_method = ?, pay_type = 'CHECK' WHERE id = ?", [pairSource.bank,pair.transaction_id]);
+        }
+        await db.run('UPDATE check_notification_pairs SET paired = 1, source = ?, sender = ?, raw_text = ? WHERE transaction_id = ?',
+          [replace ? pairSource.source : pair.source,replace ? sender : pair.sender,replace ? rawText : pair.raw_text,pair.transaction_id]);
+        await db.run('INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [sender,rawText,title,text,replace ? 'SUCCESS' : 'IGNORED_DUPLICATE',matchedRuleId]);
+        await db.run('COMMIT');
+      } catch (err) { await db.run('ROLLBACK'); throw err; }
+      updateHASensors(targetUser);
+      return {success:true, isDuplicate:!replace, transaction:replace ? {...result,pay_method:pairSource.bank,payment_type:'CHECK',category:finalCategory} : undefined};
+    }
+    let duplicateCheck = await db.get(
       "SELECT id, merchant, pay_method, pay_type, raw_text FROM transactions " +
       "WHERE type = ? AND amount = ? " +
       "AND abs(strftime('%s', datetime) - strftime('%s', ?)) <= 60 " +
       "ORDER BY id DESC LIMIT 1",
       [result.type || 'EXPENSE', result.amount, result.datetime]
     );
+    if (duplicateCheck) {
+      const previousSource = await db.get('SELECT * FROM check_notification_pairs WHERE transaction_id = ?', [duplicateCheck.id]);
+      // Cross-app pairs must pass the account and reception-time checks above.
+      if ((pairSource || previousSource) && (!pairSource || !previousSource || pairSource.source !== previousSource.source || pairSource.bank !== previousSource.bank)) duplicateCheck = null;
+    }
 
     if (duplicateCheck) {
       const existingMerchant = duplicateCheck.merchant;
@@ -510,7 +512,6 @@ async function processNotificationCore({ title, text, packageVal, username }) {
     }
 
     // 가계부 내역 저장
-    const finalPayType = result.payment_type || 'CREDIT';
     let originalAmount = result.original_amount || null;
     let currency = result.currency || null;
     let exchangeRate = null;
@@ -520,10 +521,16 @@ async function processNotificationCore({ title, text, packageVal, username }) {
       result.amount = Math.round(originalAmount * exchangeRate);
     }
 
-    await db.run(
-      'INSERT INTO transactions (type, amount, merchant, category, pay_method, pay_type, datetime, memo, raw_text, used_point, original_amount, currency, exchange_rate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [result.type || 'EXPENSE', result.amount, result.merchant, finalCategory, finalPayMethod, finalPayType, result.datetime, result.memo || '', rawText, result.used_point || 0, originalAmount, currency, exchangeRate]
-    );
+    const savedTransaction = await storeWebhookTransaction(db, {
+      transaction: {
+        type: result.type, amount: result.amount, merchant: result.merchant,
+        category: finalCategory, payMethod: finalPayMethod, payType: finalPayType,
+        datetime: result.datetime, memo: result.memo, rawText,
+        usedPoint: result.used_point, originalAmount, currency, exchangeRate
+      },
+      notification: { sender, title, text, parsedStatus, matchedRuleId }
+    });
+    await remember(db, savedTransaction.lastID, pairSource, result.amount, receivedAt, sender, rawText);
     console.log(`[파서][${targetUser}] 자동 등록 성공: ${result.merchant} - ${result.amount}원 (${finalCategory}) [결제수단: ${finalPayMethod}, 결제방법: ${finalPayType}, 사용 포인트: ${result.used_point || 0}]${currency === 'USD' ? ` (외화: ${originalAmount} USD, 환율: ${exchangeRate}원)` : ''}`);
 
     if (finalCategory === '기타') {
@@ -546,13 +553,7 @@ async function processNotificationCore({ title, text, packageVal, username }) {
 
     updateHASensors(targetUser);
 
-    const hasAmount = /(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)\s*\d+[,.\d]*|\d+[,.\d]*\s*(?:원|USD|EUR|JPY|CNY|\$|₩|¥|€)|\b\d{1,3}(,\d{3})+\b/i.test(rawText);
-    if (hasAmount || parsedStatus === 'SUCCESS') {
-      await db.run(
-        'INSERT INTO notification_logs (sender, raw_text, title, text, parsed_status, matched_rule_id) VALUES (?, ?, ?, ?, ?, ?)',
-        [sender, rawText, title, text, parsedStatus, matchedRuleId]
-      );
-    }
+    // The SUCCESS log was committed atomically with the transaction above.
 
     return { 
       success: true, 
@@ -612,7 +613,7 @@ async function processIncomingNotification(newState, username) {
   const attrs = newState.attributes || {};
   const title = attrs['android.title'] || (attrs.android && attrs.android.title) || attrs.title || '';
   const text = attrs['android.text'] || (attrs.android && attrs.android.text) || attrs.text || newState.state || '';
-  const packageVal = attrs.package || (attrs.android && attrs.android.package) || '';
+  const packageVal = attrs.package || attrs['android.package'] || (attrs.android && attrs.android.package) || '';
 
   try {
     await enqueueNotification(() => processNotificationCore({
@@ -647,6 +648,16 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
     return res.status(400).json({ error: '알림의 Title 또는 Text가 제공되지 않았습니다.' });
   }
 
+  const eventId = req.headers['x-webhook-event-id'];
+  const replayClaim = webhookReplayGuard.claim(eventId);
+  if (!replayClaim.accepted) {
+    const status = replayClaim.reason === 'replay' ? 409 : 400;
+    const error = replayClaim.reason === 'replay'
+      ? 'Duplicate webhook event'
+      : 'Invalid X-Webhook-Event-Id header';
+    return res.status(status).json({ error });
+  }
+
   try {
     const resObj = await enqueueNotification(() => processNotificationCore({
       title,
@@ -667,6 +678,7 @@ router.post('/webhook', express.json({ limit: '10kb' }), async (req, res) => {
       return res.json({ success: false, message: resObj.message });
     }
   } catch (err) {
+    if (replayClaim.tracked) webhookReplayGuard.release(eventId);
     res.status(500).json({ error: err.message });
   }
 });
