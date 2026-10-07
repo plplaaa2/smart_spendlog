@@ -17,6 +17,51 @@ function app(seed = {}) {
   for (const file of ['parser_policy.js', 'auto_rule_policy.js', 'bank_balance.js', 'standalone_api.js']) vm.runInContext(fs.readFileSync(path.join(assets, file), 'utf8'), context);
   return { request: async (url, payload) => { const response = await context.window.fetch('api/' + url, payload ? { method: 'POST', body: JSON.stringify(payload) } : {}); return { status: response.status, data: await response.json() }; }, storage, parser: context.window.SpendLogParser, context };
 }
+// Exercise generated forms and automatic rule registration through their actual bundled scripts.
+// Related: rules.js, auto_rule_policy.js, NotificationPolicy.java.
+androidTest('Android generated rules and UI resolve ATM cash and clear unresolved credit defaults', async () => {
+  const local = app();
+  const generated = local.context.window.SpendLogAutoRules.create('하나은행 출금 40,000원 알수없음 10/07 15:03', [], '', [], '2026-10-07 15:03:00');
+  assert.ok(generated); assert.equal(generated.pay_type, 'CASH');
+  const elements = {};
+  for (const id of ['test-text', 'test-pattern', 'rule-pattern', 'rule-name', 'rule-pay-type', 'rule-pay-method', 'rule-type', 'rule-form-card']) elements[id] = { value: '', style: { display: 'block' }, options: [{ value: '하나은행' }, { value: '하나카드' }, { value: '_AUTO_MAPPING_' }] };
+  local.context.document = { getElementById: id => elements[id] || null };
+  local.context.alert = () => {};
+  local.context.updateCategorySelect = () => {};
+  vm.runInContext(fs.readFileSync(path.join(assets, 'rules.js'), 'utf8'), local.context);
+  for (const [raw, expected] of [['하나은행 출금 40,000원 알수없음 10/07 15:03', 'CASH'], ['하나은행 출금 1,000원 테스트점 10/07 15:03', 'TRANSFER'], ['하나카드 신용 승인 1,000원 테스트점 10/07 15:03', 'CREDIT'], ['1,000원 테스트점', '']]) {
+    elements['test-text'].value = raw;
+    elements['rule-pay-method'].value = '_AUTO_MAPPING_'; elements['rule-pay-type'].value = 'CREDIT';
+    await vm.runInContext('autoGeneratePattern(true)', local.context);
+    assert.equal(elements['rule-pay-type'].value, expected);
+  }
+  const preview = await local.request('parse-test', { text: '출금 40,000원 알수없음', pattern: '출금 (?<amount>[\\d,]+)원 (?<merchant>.+)', pay_method: '하나은행', pay_type: 'CREDIT', type: 'EXPENSE' });
+  assert.equal(preview.data.result.payment_type, 'CASH');
+});
+// Exercise user settings through the offline preview API and its resulting aggregation.
+// Related: standalone_api.js, services/transaction_enrichment.js.
+androidTest('Android own-transfer preview matches add-on exact-name policy', async () => {
+  const local = app({ settings: { user_real_name: ' 테스트본명 ' } });
+  const preview = async (merchant, provider, status = '출금') => (await local.request('parse-test', {
+    text: `${status} 1000원 ${merchant}`, pattern: '(?<status>입금|출금) (?<amount>[\\d,]+)원 (?<merchant>.+)',
+    pay_method: provider, pay_type: 'TRANSFER', type: status === '입금' ? 'INCOME' : 'EXPENSE', category: '기타'
+  })).data;
+  const ownExpense = await preview('테스트본명', '하나은행');
+  const ownIncome = await preview('테스트본명', '하나은행', '입금');
+  assert.equal(ownExpense.result.category, '이체/송금');
+  assert.equal(ownIncome.result.category, '이체/입금');
+  const otherExpense = (await preview('다른사람', '하나은행')).result;
+  const otherIncome = (await preview('다른사람', '하나은행', '입금')).result;
+  const statsApp = app({ transactions: [ownExpense.result, ownIncome.result, otherExpense, otherIncome].map((row, index) => ({ ...row, id: index + 1, datetime: '2026-10-07 12:00:00' })) });
+  const stats = (await statsApp.request('stats?month=2026-10')).data;
+  assert.equal(stats.totalIncome, 1000);
+  assert.equal(stats.totalExpense, 1000);
+  assert.notEqual((await preview('다른사람', '하나은행')).result.category, '이체/송금');
+  assert.notEqual((await preview('테스트본명님', '하나은행')).result.category, '이체/송금');
+  assert.notEqual((await preview('테스트본명', '하나카드')).result.category, '이체/송금');
+  local.storage.set('standalone_settings', JSON.stringify({ user_real_name: '' }));
+  assert.notEqual((await preview('테스트본명', '하나은행')).result.category, '이체/송금');
+});
 androidTest('Android bank aliases share the latest account balance without rewriting storage', async () => {
   const transactions = [
     { id: 1, datetime: '2026-05-24 11:05:00', pay_method: 'KB국민은행', type: 'EXPENSE', amount: 100, memo: '계좌: TEST 잔액: 1000' },

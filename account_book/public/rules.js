@@ -461,7 +461,7 @@ function createRuleFromLog(log) {
  */
 // Share the validated add-on generator; do not maintain a separate UI regex algorithm.
 // Related: parser_policy.js, parser/pattern_generator.js, android_spendlog/tools/sync_parser.cjs.
-function autoGeneratePattern(silent = false) {
+async function autoGeneratePattern(silent = false) {
   const text = document.getElementById('test-text').value.trim();
   const pattern = window.SpendLogParser.generatePatternFromText(text);
   if (!pattern) { if (!silent) alert('유효한 거래금액을 포함한 패턴을 생성하지 못했습니다.'); return; }
@@ -470,7 +470,28 @@ function autoGeneratePattern(silent = false) {
   const blocks = [];
   if (groups.payMethod) blocks.push({ type: '카드명/은행명', value: groups.payMethod });
   if (groups.payType) blocks.push({ type: '결제방식', value: groups.payType });
+  let selectedProvider = document.getElementById('rule-pay-method').value;
+  const packageInput = document.getElementById('test-package');
+  if (packageInput && packageInput.value.trim()) {
+    try {
+      const mappings = await fetch('api/package_pay_methods').then(response => response.json());
+      const mapped = mappings.find(row => row.package === packageInput.value.trim());
+      if (mapped && mapped.pay_method) selectedProvider = mapped.pay_method;
+    } catch (_) { /* Keep explicit provider evidence when package lookup is unavailable. */ }
+  }
   applySuggestedPattern(pattern, text, blocks, silent);
+  // Reparse generated captures without carrying an old credit default into a new rule.
+  // Related: parser/payment_resolver.js, parser_policy.js, app.js rule form.
+  const provider = selectedProvider && selectedProvider !== '_AUTO_MAPPING_' ? selectedProvider : groups.payMethod || '_AUTO_MAPPING_';
+  const result = window.SpendLogParser.parseNotification(text, [{ pattern, pay_method: provider, type: document.getElementById('rule-type').value }]);
+  document.getElementById('rule-pay-type').value = result ? result.payment_type : '';
+  if (result) {
+    document.getElementById('rule-type').value = result.type;
+    const methodSelect = document.getElementById('rule-pay-method');
+    if (Array.from(methodSelect.options).some(option => option.value === result.pay_method)) methodSelect.value = result.pay_method;
+    const category = window.SpendLogParser.resolveAutomaticAtmCategory('', text, result.type, result.merchant, result.pay_method);
+    if (typeof updateCategorySelect === 'function') updateCategorySelect('#rule-category', result.type, category);
+  } else if (!silent) alert('결제방식을 확인할 수 없습니다. 결제 방법을 선택한 뒤 테스트해 주세요.');
 }
 
 function applySuggestedPattern(suggested, text, blocks, silent) {

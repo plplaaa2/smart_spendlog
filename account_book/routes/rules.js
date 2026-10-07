@@ -287,6 +287,9 @@ router.post('/parse-test', async (req, res) => {
       if (wallet.wallet && (!wallet.pay_method || ['카드', '_AUTO_MAPPING_'].includes(wallet.pay_method))) return res.json({ success: false, message: '실제 은행 또는 카드사를 확인해 주세요.' });
       result.merchant = wallet.merchant;
       provider = wallet.pay_method === '_AUTO_MAPPING_' ? '카드' : wallet.pay_method;
+      // Match mapped-provider payment classification with ingestion and Android preview.
+      // Related: parser/payment_resolver.js, services/transaction_enrichment.js.
+      result.payment_type = require('../parser/payment_resolver').resolvePaymentType(text, provider, result.merchant, result.type, result.payment_type);
       if (result.payment_type === 'CHECK') provider = require('../parser/constants').CARD_TO_BANK_MAP[provider] || (provider.includes('카드') ? '계좌이체' : provider);
       result.pay_method = provider;
       let finalCategory = result.category;

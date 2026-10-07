@@ -4,7 +4,7 @@ const BANK_METHODS = ['우체국', '새마을금고', '신협', '수협', '계�
 const TRANSFER_MERCHANTS = ['입금', '이체', '송금', '출금', '대체'];
 // Apply the same new-payment and category policy to webhook ingestion and retry.
 // Related: parser/payment_resolver.js, routes/webhook.js, routes/rules.js.
-const { normalizeNewWalletPayment, resolveAutomaticAtmCategory, isBankCardSettlement, ensureRegisteredPayMethod } = require('../parser/payment_resolver');
+const { normalizeNewWalletPayment, resolveAutomaticAtmCategory, isBankCardSettlement, ensureRegisteredPayMethod, resolvePaymentType } = require('../parser/payment_resolver');
 const CARD_TO_BANK = {
   'KB국민카드': '국민은행', '신한카드': '신한은행', '하나카드': '하나은행',
   '우리카드': '우리은행', 'NH농협카드': '농협은행', 'BC카드': '계좌이체',
@@ -38,6 +38,9 @@ async function enrichParsedTransaction({ db, result, sender, rawText, mode, find
   }
   if (finalPayMethod === '_AUTO_MAPPING_') finalPayMethod = '카드';
   const sourceProvider = finalPayMethod;
+  // Re-evaluate mapped bank providers before check-card bank conversion.
+  // Related: parser/payment_resolver.js, routes/webhook.js, routes/rules.js.
+  result.payment_type = resolvePaymentType(rawText, finalPayMethod, result.merchant, result.type, result.payment_type);
 
   if (result.payment_type === 'CHECK') {
     if (CARD_TO_BANK[finalPayMethod]) finalPayMethod = CARD_TO_BANK[finalPayMethod];

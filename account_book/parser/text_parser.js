@@ -1,7 +1,7 @@
 const { supportsDFlag, escapeRegexChars, cleanMerchantName, sanitizePattern } = require('./utils');
 const { parseFlexibleDatetime } = require('./datetime_parser');
 const { addKoreanBrandName } = require('./brand_mapper');
-const { parsePaymentType, resolveCheckCardToBank } = require('./payment_resolver');
+const { parsePaymentType, resolveCheckCardToBank, resolvePaymentType } = require('./payment_resolver');
 const { determineTransactionType } = require('./transaction_classifier');
 const { generatePatternFromText } = require('./pattern_generator');
 const { validateParsingResult } = require('./result_validator');
@@ -152,9 +152,6 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         }
         // Reject unresolved automatic payment types; webhook/retry retain failed logs.
         // Related: routes/webhook.js, routes/rules.js, parser/payment_resolver.js.
-        if (!['CREDIT', 'CHECK', 'TRANSFER'].includes(paymentType)) {
-          continue;
-        }
 
         let category = rule.category || '기타';
 
@@ -179,6 +176,10 @@ function parseNotification(text, rules, fallbackDatetime = null) {
         if (groups.cumulative) memoParts.push(`누적: ${groups.cumulative.trim()}`);
 
         const { transactionType, customMemo } = determineTransactionType(normalizedText, groups, rule.type);
+        // Validate after direction and merchant extraction so ATM evidence can resolve cash.
+        // Related: payment_resolver.resolvePaymentType, Android NotificationPolicy.java.
+        paymentType = resolvePaymentType(normalizedText, payMethod, merchant, transactionType, paymentType);
+        if (!['CREDIT', 'CHECK', 'TRANSFER', 'CASH'].includes(paymentType)) continue;
 
         const memo = customMemo + memoParts.join(' | ');
 

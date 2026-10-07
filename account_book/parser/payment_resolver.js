@@ -23,6 +23,7 @@ function isTransferPayment(text, payMethod) {
 }
 
 function parsePaymentType(text, payMethod) {
+  if (/현금/.test(text || '') || payMethod === '현금') return 'CASH';
   if (isCheckPayment(text, payMethod)) {
     return 'CHECK';
   }
@@ -33,6 +34,19 @@ function parsePaymentType(text, payMethod) {
     return 'CREDIT';
   }
   return 'UNKNOWN';
+}
+
+// Resolve ATM cash and bank cash flow consistently after the concrete provider is known.
+// Related: text_parser.js, transaction_enrichment.js, Android rules.js and standalone_api.js.
+function resolvePaymentType(text, payMethod, merchant, transactionType, configured = '') {
+  const bank = !/카드/.test(payMethod || '') && /은행|뱅크|농협|우체국|새마을금고|신협|수협/.test(payMethod || '');
+  if (bank && resolveAutomaticAtmCategory('', text, transactionType, merchant, payMethod) === 'ATM/출금') return 'CASH';
+  if (bank && /입금|출금|인출|이체|송금/.test(text || '') && !isCheckPayment(text, '') && !isCreditPayment(text, '')
+      && !['CHECK', 'CASH'].includes(configured)) return 'TRANSFER';
+  if (['CREDIT', 'CHECK', 'TRANSFER', 'CASH'].includes(configured)) return configured;
+  if (configured && configured !== 'UNKNOWN') return 'UNKNOWN';
+  const inferred = parsePaymentType(text, payMethod);
+  return inferred === 'BANK_TRANSFER' ? 'TRANSFER' : inferred;
 }
 
 function resolveCheckCardToBank(text, payMethod) {
@@ -100,6 +114,7 @@ function resolveAutomaticAtmCategory(category, rawText, transactionType, merchan
 }
 
 module.exports = {
+  resolvePaymentType,
   normalizeNewWalletPayment,
   resolveAutomaticAtmCategory,
   ensureRegisteredPayMethod,

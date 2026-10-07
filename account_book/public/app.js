@@ -903,6 +903,13 @@ function initEventListeners() {
     const enabled = document.getElementById('rule-enabled').checked;
     const action = document.getElementById('rule-action') ? document.getElementById('rule-action').value : 'REGISTER';
 
+    // Require an explicit supported payment choice when generation cannot resolve it.
+    // Related: rules.js autoGeneratePattern, index.html rule-pay-type.
+    if (action !== 'PASS' && !['CREDIT', 'CHECK', 'TRANSFER', 'CASH'].includes(pay_type)) {
+      alert('결제 방법을 선택한 뒤 저장해 주세요.');
+      return;
+    }
+
     try {
       const isPass = (action === 'PASS');
       const url = isPass ? 'api/pass_rules' : 'api/rules';
